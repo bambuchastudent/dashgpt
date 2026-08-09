@@ -14,9 +14,10 @@
 - [x] Verify the feature branch Cloudflare preview deploys successfully and the production-shaped `/mcp` behavior passes automated smoke checks.
 - [x] Merge Feature 4 implementation into `develop` after checks pass.
 - [x] Manual: confirm the publishing OpenAI Platform submitter has plugin submission write access. The submitting account is an Organization Owner, which includes Apps Management write access.
+- [x] Produce an interim `DashGPT v2` handoff for the next chat/agent while Feature 4 is blocked on publisher identity review. This is a continuity artifact, not MVP completion.
 - [ ] Manual: complete/confirm verified developer or business identity for the publisher. Current status: Individual identity in review. Observed Platform behavior on 2026-08-09: `Create plugin → With MCP` redirects back to Organization verification and does not create a draft while identity remains in review.
 - [ ] Manual: after identity becomes verified, open the OpenAI Platform plugin submission portal, create **DashGPT**, scan the production MCP server, complete domain verification, and submit for review.
 - [ ] After approval, publish DashGPT to the universal Plugins Directory.
 - [ ] Test installation from a second ChatGPT account against a separate DashGPT instance.
 - [ ] Prove list/read + Context Pack + explicit import/save on that second person's data.
-- [ ] Only then mark MVP complete and produce the `DashGPT v2` handoff.
+- [ ] Only then mark MVP complete and produce the final completion handoff/release summary.
