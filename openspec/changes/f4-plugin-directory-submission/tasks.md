@@ -16,8 +16,8 @@
 - [x] Manual: confirm the publishing OpenAI Platform submitter has plugin submission write access. The submitting account is an Organization Owner, which includes Apps Management write access.
 - [x] Produce an interim `DashGPT v2` handoff for the next chat/agent while Feature 4 is blocked on publisher identity review. This is a continuity artifact, not MVP completion.
 - [x] Capture the source ChatGPT conversation URL in the handoff: `https://chatgpt.com/share/6a78a99f-bff4-83eb-80ce-e51389a70861`.
-- [ ] Manual: complete/confirm verified developer or business identity for the publisher. Current status: Individual identity in review. Observed Platform behavior on 2026-08-09: `Create plugin → With MCP` redirects back to Organization verification and does not create a draft while identity remains in review.
-- [ ] Manual: after identity becomes verified, open the OpenAI Platform plugin submission portal, create **DashGPT**, scan the production MCP server, complete domain verification, and submit for review.
+- [x] Manual: complete/confirm verified developer or business identity for the publisher. User confirmed Individual publisher identity is verified on 2026-08-09.
+- [ ] Manual: open the OpenAI Platform plugin submission portal, create **DashGPT**, scan the production MCP server, complete domain verification, and submit for review.
 - [ ] After approval, publish DashGPT to the universal Plugins Directory.
 - [ ] Test installation from a second ChatGPT account against a separate DashGPT instance.
 - [ ] Prove list/read + Context Pack + explicit import/save on that second person's data.
