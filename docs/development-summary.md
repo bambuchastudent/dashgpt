@@ -81,6 +81,8 @@ For a meaningful change:
 7. Test and verify against the spec.
 8. Update/archive the change and leave a useful handoff/current state.
 
+Feature 4 follows this explicitly under `openspec/changes/f4-plugin-directory-submission/` with separate proposal, spec and task state.
+
 ## Documentation separation rule
 
 Keep these concerns separate:
@@ -90,6 +92,7 @@ Keep these concerns separate:
 - `docs/roadmap.md` = milestone ordering and current delivery intent.
 - OpenSpec changes/specs = detailed scoped work.
 - ADRs = durable architectural decisions and their rationale.
+- `DASH.md` = short operational NOW / DONE / NEXT / BLOCKERS state, mirrored to the phone UI.
 
 ## Published page implementation
 
@@ -106,11 +109,11 @@ Standalone Result pages use one shared client-side renderer rather than copied p
 
 The durable architecture rationale is recorded in `docs/adr/0001-shared-renderer-immutable-results.md`.
 
-## ChatGPT plugin implementation
+## ChatGPT / Codex plugin implementation
 
-The plugin package lives under `plugins/dashgpt/` and uses the stable manifest identifier `dashgpt`. The repository also exposes it through `.agents/plugins/marketplace.json` for repo-scoped testing.
+The plugin package lives under `plugins/dashgpt/` and uses the stable manifest identifier `dashgpt`. The repository also exposes it through `.agents/plugins/marketplace.json` for repo-scoped/local testing.
 
-Each DashGPT deployment exposes an MCP endpoint at `/mcp`. The Worker uses Cloudflare Agents' stateless `createMcpHandler` with the official Model Context Protocol server SDK rather than a handwritten protocol implementation.
+The public-plugin implementation uses one **Universal MCP gateway** rather than assuming one MCP URL per user. The stable production endpoint is the deployment's `/mcp`; read/context tools accept an optional `siteUrl` to target another compatible DashGPT deployment.
 
 Current MCP tools:
 
@@ -119,60 +122,78 @@ Current MCP tools:
 - `get_context_pack`
 - `prepare_result_import`
 
-The first three read an instance's published Results. `prepare_result_import` distills a supplied Result payload into schema v1, computes the immutable content hash, and returns an explicit `/demo/#import=...` URL. Opening that URL verifies the hash in the browser and stores the Result locally. This is a tactical MVP write path: it avoids a database/auth write API while still making user intent explicit.
+`list_results`, `get_result` and `get_context_pack` are read-only but open-world because they may fetch a user-selected public DashGPT site. `prepare_result_import` remains non-mutating at tool-call time: it builds schema-v1 immutable Result data, computes the content hash and returns an explicit `/demo/#import=...` URL for the chosen site.
 
-The same plugin package can therefore be tested against another DashGPT deployment by registering that deployment's `/mcp` endpoint in ChatGPT developer mode. A public production plugin will need a durable production connection/auth architecture rather than hard-coding developer data.
+A remote `siteUrl` is accepted only as HTTPS and is treated as DashGPT data only after compatible instance discovery. DashGPT instance protocol v1 exposes:
 
-ChatGPT MCP connection wiring (`.app.json`) is added only after a deployed endpoint has been registered in ChatGPT developer mode and a real `plugin_asdk_app...` connection id exists; do not invent that id in source control.
+- `GET /.well-known/dashgpt.json`
+- `GET /api/dashgpt/results`
+- `GET /api/dashgpt/results/<id>`
+- `GET /api/dashgpt/context/<id>`
 
-For future public submission, the Worker already has `/.well-known/openai-apps-challenge`; it returns the exact `OPENAI_APPS_CHALLENGE` environment value when configured.
+This is intentionally a public/read-only MVP protocol. Private catalogs and automatic server-side writes will need a future authenticated protocol rather than weakening the current explicit-import boundary.
+
+The durable rationale is recorded in `docs/adr/0002-universal-mcp-instance-protocol.md`.
+
+## Public plugin submission implementation
+
+Public submission material lives with the plugin package in `plugins/dashgpt/SUBMISSION.md`. It keeps the portal-facing listing copy, production MCP configuration, domain-verification runbook, starter prompts, reviewer tests, availability decision slot and release notes reviewable in Git.
+
+The Worker exposes `/.well-known/openai-apps-challenge`; it returns exactly the configured `OPENAI_APPS_CHALLENGE` environment value when the submission portal provides a verification token.
+
+The repository does not invent or require a `plugin_asdk_app...` id for the public submission path. Local/private connection mappings may still use `.app.json` when a real registered connection exists, but the public submission is based on the production MCP URL scanned by the platform.
+
+## Project status surface
+
+`DASH.md` is the short operational status source. `scripts/sync-dash.mjs` deterministically generates `demo/data/dash.json`, and CI rejects drift. The shared frontend renders that state at `/demo/dash/` so project progress is readable from a phone without opening GitHub.
 
 ## Verification
 
-`.github/workflows/quality.yml` runs the project checks on the active feature branch and PRs.
+`.github/workflows/quality.yml` runs the project checks on active feature branches and PRs.
 
 `npm run check` currently covers:
 
 - JavaScript syntax
+- `DASH.md` ↔ mobile DASH synchronization
 - immutable Result catalog hashes
 - plugin manifest + repo marketplace identity
 - MCP initialization and tool discovery
-- Result/context retrieval
-- explicit plugin import-link generation
+- tool annotations
+- local Result/context retrieval
+- public DashGPT instance discovery/read endpoints
+- deterministic remote-instance routing
+- explicit import-link generation for a selected DashGPT site
+- public support/privacy/terms assets
 - Result deep-link routing
 - OpenAI domain-verification challenge behavior
 
-Cloudflare branch previews remain deployment verification; production is `develop` and the stable demo entry point is `/demo/`.
+Cloudflare branch previews are deployment verification. Production tracks `develop`; the stable UI entry point is `/demo/`, the operational status page is `/demo/dash/`, and the plugin endpoint is `/mcp`.
 
 ## Current development state
 
-Status: **Feature 2 merged; Feature 3 immutable pages + DashGPT ChatGPT plugin MVP in progress**.
+Status: **Feature 4 implementation in PR #9; automated checks and Cloudflare branch deployment are passing before merge.**
 
-Completed before this change:
+Completed in the Feature 4 implementation branch:
 
-- repository bootstrap and durable product/development summaries
-- M1 local-first Result → dashboard → Context Pack vertical slice
-- Feature 2 shared-chat → published Result ingestion
-- mobile-responsive Cloudflare Workers demo under `/demo/`
-- Git-backed published Result catalog with source provenance
+- current public-plugin requirements audited against official OpenAI plugin documentation
+- full OpenSpec proposal/spec/tasks
+- Universal MCP gateway architecture
+- DashGPT instance protocol v1
+- instance-neutral read/context tools with `siteUrl`
+- explicit import-link write boundary retained
+- plugin package version 0.3.0 and MVP brand asset
+- public support page and updated privacy disclosure
+- Git-tracked submission packet with starter prompts, five positive reviewer tests and three negative reviewer tests
+- deterministic second-instance smoke fixture
+- green project CI and successful Cloudflare feature preview deployment
 
-Active change:
+External/manual release gates after merge:
 
-- PR #6 / branch `feature/m3-immutable-pages-chatgpt-plugin`
-- shared `/demo/result/<id>/` renderer
-- immutable Result digests with repository + browser verification
-- sanitized Result from the second shared conversation
-- official stateless `/mcp` implementation
-- explicit ChatGPT → DashGPT import-link MVP
-- stable `dashgpt` plugin package, skill and repo marketplace
-- MVP privacy/terms pages and future domain-verification endpoint
-
-Next verification:
-
-- make the repository quality workflow green
-- make the Cloudflare feature deployment green
-- verify a standalone Result page and `/mcp`
-- connect the deployed MCP endpoint in ChatGPT developer mode as **DashGPT**
-- record the real registered connection id in `.app.json`
-- test the same plugin flow against a second/separate DashGPT deployment
-- only then treat the friend/demo-user MVP gate as satisfied
+- OpenAI Platform submitter must have Apps Management write access
+- publisher developer/business identity must be verified
+- create the DashGPT public plugin draft in the platform submission portal
+- scan production `/mcp` and complete domain verification
+- fill listing, prompts, tests, availability and release notes; submit for review
+- after approval, publish the reviewed version
+- validate from a second ChatGPT account against a separate DashGPT deployment
+- only after that second-user proof mark the MVP complete and prepare the DashGPT v2 handoff
