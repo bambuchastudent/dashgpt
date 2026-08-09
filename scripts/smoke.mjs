@@ -28,9 +28,15 @@ const ctx = {
   passThroughOnException() {}
 };
 
+function request(url, init = {}) {
+  const headers = new Headers(init.headers || {});
+  headers.set("host", new URL(url).host);
+  return new Request(url, { ...init, headers });
+}
+
 async function rpc(id, method, params = {}) {
   const response = await worker.fetch(
-    new Request("https://dashgpt.example/mcp", {
+    request("https://dashgpt.example/mcp", {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -114,7 +120,7 @@ assert.match(imported.contentHash, /^sha256:[0-9a-f]{64}$/);
 assert.equal(imported.title, "Smoke Result");
 
 const resultPage = await worker.fetch(
-  new Request("https://dashgpt.example/demo/result/camping-fishing-el-regajo-fuente-munoz/"),
+  request("https://dashgpt.example/demo/result/camping-fishing-el-regajo-fuente-munoz/"),
   env,
   ctx
 );
@@ -122,21 +128,21 @@ assert.equal(resultPage.status, 200);
 assert.match(await resultPage.text(), /DashGPT Demo/);
 
 const challengeMissing = await worker.fetch(
-  new Request("https://dashgpt.example/.well-known/openai-apps-challenge"),
+  request("https://dashgpt.example/.well-known/openai-apps-challenge"),
   env,
   ctx
 );
 assert.equal(challengeMissing.status, 404);
 
 const challenge = await worker.fetch(
-  new Request("https://dashgpt.example/.well-known/openai-apps-challenge"),
+  request("https://dashgpt.example/.well-known/openai-apps-challenge"),
   { ...env, OPENAI_APPS_CHALLENGE: "verify-dashgpt" },
   ctx
 );
 assert.equal(challenge.status, 200);
 assert.equal(await challenge.text(), "verify-dashgpt");
 
-const mcpGet = await worker.fetch(new Request("https://dashgpt.example/mcp"), env, ctx);
+const mcpGet = await worker.fetch(request("https://dashgpt.example/mcp"), env, ctx);
 assert.equal(mcpGet.status, 405);
 
 console.log("DashGPT smoke checks passed.");
