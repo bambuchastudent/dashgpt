@@ -12,7 +12,7 @@
 - [x] Bring `plugins/dashgpt/.codex-plugin/plugin.json` to submission-ready metadata/version and add an MVP brand asset.
 - [x] Prepare `plugins/dashgpt/SUBMISSION.md` with listing copy, starter prompts, 5 positive tests, 3 negative tests, availability, release notes and portal checklist.
 - [x] Verify the feature branch Cloudflare preview deploys successfully and the production-shaped `/mcp` behavior passes automated smoke checks.
-- [ ] Merge Feature 4 implementation into `develop` after checks pass.
+- [x] Merge Feature 4 implementation into `develop` after checks pass.
 - [ ] Manual: ensure the publishing OpenAI Platform organization grants Apps Management Write to the submitter.
 - [ ] Manual: complete/confirm verified developer or business identity for the publisher.
 - [ ] Manual: open the OpenAI Platform plugin submission portal, create **DashGPT**, scan the production MCP server, complete domain verification, and submit for review.
