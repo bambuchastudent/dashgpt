@@ -60,12 +60,31 @@ async function handleSharedChat(request) {
   }
 }
 
+function demoAssetRequest(request) {
+  const url = new URL(request.url);
+  const stripped = url.pathname === "/demo" || url.pathname === "/demo/"
+    ? "/"
+    : url.pathname.replace(/^\/demo/, "");
+  url.pathname = stripped || "/";
+  return new Request(url, request);
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    if (url.pathname === "/") {
+      return Response.redirect(new URL("/demo/", url), 302);
+    }
+
     if (url.pathname === "/api/shared-chat") {
       return handleSharedChat(request);
     }
-    return env.ASSETS.fetch(request);
+
+    if (url.pathname === "/demo" || url.pathname.startsWith("/demo/")) {
+      return env.ASSETS.fetch(demoAssetRequest(request));
+    }
+
+    return new Response("Not found", { status: 404 });
   }
 };
