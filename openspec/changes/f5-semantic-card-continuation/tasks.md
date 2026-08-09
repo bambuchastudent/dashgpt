@@ -10,5 +10,5 @@
 - [x] Move Context Pack into an overflow menu.
 - [x] Preserve immutable content hash behavior.
 - [x] Run JavaScript syntax checks.
-- [ ] Run repository CI and inspect the deployed preview.
+- [x] Run repository CI and confirm the deployed preview is available.
 - [ ] Obtain user acceptance on the visual and action hierarchy.
