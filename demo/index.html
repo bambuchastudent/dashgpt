@@ -5,25 +5,68 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#111827" />
   <title>DashGPT Demo</title>
-  <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="/demo/styles.css" />
 </head>
 <body>
   <main class="shell">
     <header class="topbar">
-      <div><p class="eyebrow">PRIVATE • LOCAL-FIRST</p><h1>DashGPT</h1><p class="subtitle">Useful AI outcomes, not chat history.</p></div>
+      <div>
+        <p class="eyebrow">PRIVATE • LOCAL-FIRST</p>
+        <a class="brand-link" href="/demo/"><h1>DashGPT</h1></a>
+        <p class="subtitle">Useful AI outcomes, not chat history.</p>
+      </div>
       <button id="addResultButton" class="button primary">+ Add Result</button>
     </header>
-    <section class="summary-card" aria-labelledby="summary-title">
-      <div><p class="eyebrow">CURRENT STATE</p><h2 id="summary-title">Your working memory is ready to continue.</h2><p id="summaryText">3 results, 2 favorites. Search, open a result, or generate a portable Context Pack.</p></div>
-      <div class="summary-actions"><button id="showFavoritesButton" class="button">Favorites</button><button id="showAllButton" class="button ghost">All</button></div>
-    </section>
-    <section class="controls" aria-label="Result controls"><label class="search"><span>Search</span><input id="searchInput" type="search" placeholder="Search results, tags, decisions…" autocomplete="off" /></label><div id="categoryFilters" class="chips" aria-label="Category filters"></div></section>
-    <section><div class="section-heading"><div><p class="eyebrow">RESULTS</p><h2 id="resultsTitle">Everything worth keeping</h2></div><span id="resultCount" class="count"></span></div><div id="resultsGrid" class="results-grid"></div><div id="emptyState" class="empty-state" hidden><h3>No matching results</h3><p>Try another query or reset the filters.</p></div></section>
+
+    <div id="dashboardView">
+      <section class="summary-card" aria-labelledby="summary-title">
+        <div>
+          <p class="eyebrow">CURRENT STATE</p>
+          <h2 id="summary-title">Your working memory is ready to continue.</h2>
+          <p id="summaryText">Loading Results…</p>
+        </div>
+        <div class="summary-actions">
+          <button id="showFavoritesButton" class="button">Favorites</button>
+          <button id="showAllButton" class="button ghost">All</button>
+        </div>
+      </section>
+
+      <section class="controls" aria-label="Result controls">
+        <label class="search"><span>Search</span><input id="searchInput" type="search" placeholder="Search results, tags, decisions…" autocomplete="off" /></label>
+        <div id="categoryFilters" class="chips" aria-label="Category filters"></div>
+      </section>
+
+      <section>
+        <div class="section-heading">
+          <div><p class="eyebrow">RESULTS</p><h2 id="resultsTitle">Everything worth keeping</h2></div>
+          <span id="resultCount" class="count"></span>
+        </div>
+        <div id="resultsGrid" class="results-grid"></div>
+        <div id="emptyState" class="empty-state" hidden><h3>No matching results</h3><p>Try another query or reset the filters.</p></div>
+      </section>
+    </div>
+
+    <section id="resultPage" class="result-page" hidden aria-live="polite"></section>
   </main>
+
   <dialog id="resultDialog" class="dialog"><article id="resultDialogContent"></article><form method="dialog" class="dialog-footer"><button class="button">Close</button></form></dialog>
   <dialog id="contextDialog" class="dialog context-dialog"><article><p class="eyebrow">PORTABLE CONTEXT</p><h2>Context Pack</h2><p class="muted">Copy this into a new chat or another agent.</p><textarea id="contextOutput" rows="18" readonly></textarea><div class="dialog-actions"><button id="copyContextButton" type="button" class="button primary">Copy Context</button></div></article><form method="dialog" class="dialog-footer"><button class="button">Close</button></form></dialog>
   <dialog id="addDialog" class="dialog"><form id="addResultForm"><p class="eyebrow">NEW RESULT</p><h2>Save a useful outcome</h2><label>Title<input name="title" required maxlength="100" /></label><label>Summary<textarea name="summary" required rows="4"></textarea></label><label>Category<input name="category" required value="Ideas" /></label><label>Tags<input name="tags" placeholder="dashgpt, context, ai" /></label><label>Next step<input name="next" placeholder="What should happen next?" /></label><div class="dialog-actions"><button type="button" id="cancelAddButton" class="button ghost">Cancel</button><button type="submit" class="button primary">Save Result</button></div></form></dialog>
-  <template id="resultCardTemplate"><article class="result-card"><div class="card-topline"><span class="category"></span><button class="favorite-button" type="button" aria-label="Toggle favorite"></button></div><h3 class="title"></h3><p class="summary"></p><div class="tags"></div><div class="card-actions"><button class="button small open-button" type="button">Open</button><button class="button small ghost context-button" type="button">Context</button></div></article></template>
-  <script src="./app.js" defer></script>
+
+  <template id="resultCardTemplate">
+    <article class="result-card">
+      <div class="card-topline"><span class="category"></span><button class="favorite-button" type="button" aria-label="Toggle favorite"></button></div>
+      <h3 class="title"></h3>
+      <p class="summary"></p>
+      <div class="tags"></div>
+      <div class="card-actions">
+        <a class="button small page-link">Page</a>
+        <button class="button small open-button" type="button">Open</button>
+        <button class="button small ghost context-button" type="button">Context</button>
+      </div>
+    </article>
+  </template>
+
+  <script src="/demo/app.js" defer></script>
 </body>
 </html>

@@ -35,14 +35,28 @@ Target flow:
 
 public ChatGPT shared link → assistant/agent summary → published DashGPT Result → searchable card with source provenance.
 
-MVP constraints:
+Status: **merged into `develop` and proven with a real shared chat**.
 
-- agent-mediated summarization is acceptable
-- no mandatory model API inside DashGPT
-- Git-backed published Result catalog is acceptable as temporary storage
-- browser-local Results must not be lost
+## Tactical Feature 3 — Immutable Result pages + DashGPT ChatGPT plugin MVP
 
-This is a tactical slice between M1 and the later integration milestones; it does not replace roadmap M2.
+Goal: turn the useful internal demo into something that can be shown and connected as a real product surface.
+
+Scope:
+
+- stable `/demo/result/<id>/` pages
+- one shared renderer so presentation updates apply to old Result pages
+- immutable-content flag plus content digest and CI/browser verification
+- another real shared-chat Result published as a standalone page
+- per-instance MCP endpoint
+- ChatGPT reads Results and Context Packs from the connected instance
+- ChatGPT can distill the current conversation and prepare an explicit immutable Result import for the connected instance
+- plugin package with stable identity `dashgpt`
+- ChatGPT developer-mode connection
+- second-person / second-instance demo proving the integration is not hard-coded to the developer site
+
+MVP completion gate:
+
+**DashGPT is not considered MVP-complete until another person can connect ChatGPT to their own DashGPT site and demonstrate both reading their Results and saving a useful current conversation outcome into their own site.**
 
 ## M2 — Project state and human summaries
 
@@ -68,17 +82,21 @@ Scope candidates:
 - related/context retrieval
 - local authentication/authorization boundary as required
 
+Tactical Feature 3 implements the first MCP subset early so the ChatGPT MVP can be tested before the full MCP milestone.
+
 ## M4 — ChatGPT and external-agent integration
 
 Goal: use the same DashGPT core from ChatGPT and other MCP-capable clients.
 
 Scope candidates:
 
-- ChatGPT app/plugin integration
+- production ChatGPT plugin integration
 - save Result from conversation
 - retrieve DashGPT context from conversation
 - continue/new-chat/export UX
 - validate Claude/Codex/OpenCode interoperability
+
+Tactical Feature 3 proves the first bidirectional ChatGPT flow early; later M4 work replaces tactical MVP transport/storage with the full integration architecture.
 
 ## M5 — Private quick deploy
 
@@ -110,6 +128,6 @@ Potential scope after the core loop is proven:
 
 ## Current delivery intent
 
-**Active: Tactical Feature 2 — Shared chat → published Result.**
+**Active: Tactical Feature 3 — Immutable Result pages + DashGPT ChatGPT plugin MVP.**
 
-After its end-to-end proof, continue with roadmap **M2 — Project state and human summaries**, unless real usage shows a more important blocker in the Result ingestion/storage model.
+Do not move on to polish or broader project-state work until the standalone page and real bidirectional ChatGPT connection are demonstrated against a second DashGPT instance.

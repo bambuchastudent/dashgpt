@@ -1,43 +1,8 @@
 const STORAGE_KEY = "dashgpt.demo.results.v2";
 const LEGACY_STORAGE_KEY = "dashgpt.demo.results.v1";
 const LEGACY_SEED_IDS = new Set(["dashgpt-product", "development-workflow", "deployment"]);
-
-const fallbackResults = [
-  {
-    id: "dashgpt-first-live-demo",
-    title: "DashGPT — от идеи до первой живой демки",
-    summary:
-      "DashGPT задуман как приватный result-first дашборд: сохранять не сырые чаты, а полезные результаты, решения и переносимый контекст, чтобы продолжать работу в любом AI-агенте. Мы зафиксировали продукт и процесс разработки в GitHub, выбрали OpenSpec для spec-driven workflow, сделали M1 vertical slice и выкатили первую демку через Cloudflare Workers.",
-    category: "DashGPT",
-    tags: ["product", "m1", "cloudflare", "context", "openspec"],
-    favorite: true,
-    decisions: [
-      "Result-first, not chat-first: сырой чат — источник, а не главная сущность.",
-      "Контекст принадлежит пользователю и должен переноситься между ChatGPT, Claude, Codex, OpenCode и другими агентами.",
-      "Core остаётся local-first и cloud-optional; Cloudflare и GitHub — удобные адаптеры, а не обязательная зависимость.",
-      "Разработка spec-driven; durable project state хранится в репозитории, агенты взаимозаменяемы.",
-      "Первый M1 доказывает цикл Result → поиск/избранное → детали → Context Pack."
-    ],
-    next:
-      "Проверить демку как реальный пользователь, закрыть доступ через Cloudflare Access, затем перейти от browser-only localStorage к общей persistence и импорту настоящих Results из AI-чатов."
-  },
-  {
-    id: "cold-soups-chogyetang",
-    title: "Холодные супы на бульоне: чогетхан и другие варианты",
-    summary:
-      "Искали холодные супы на курином бульоне по разным кухням: французские, европейские, азиатские и кавказские. Отдельно разобрали корейские нэнмён и чогетхан. Для домашнего варианта особенно подходит чогетхан — холодный куриный суп с лапшой; имеющуюся рисовую лапшу можно использовать как практичную замену традиционной.",
-    category: "Еда",
-    tags: ["cold-soup", "korean", "chogyetang", "naengmyeon", "rice-noodles"],
-    favorite: false,
-    decisions: [
-      "Чогетхан — основной кандидат, когда нужен именно холодный суп на курином бульоне.",
-      "Рисовая лапша подходит для домашней версии, даже если это не самый традиционный вариант.",
-      "Нэнмён оставить альтернативой, если хочется более яркого корейского холодного супа."
-    ],
-    next:
-      "Собрать короткий финальный рецепт чогетхана под конкретный объём бульона и продукты, которые есть дома."
-  }
-];
+const DURABLE_FIELDS = ["id", "title", "summary", "category", "tags", "decisions", "next", "source"];
+const HASH_PATTERN = /^sha256:[0-9a-f]{64}$/;
 
 let results = [];
 let activeCategory = "All";
@@ -55,7 +20,10 @@ const resultsGrid = document.querySelector("#resultsGrid"),
   contextDialog = document.querySelector("#contextDialog"),
   contextOutput = document.querySelector("#contextOutput"),
   addDialog = document.querySelector("#addDialog"),
-  addResultForm = document.querySelector("#addResultForm");
+  addResultForm = document.querySelector("#addResultForm"),
+  dashboardView = document.querySelector("#dashboardView"),
+  resultPage = document.querySelector("#resultPage"),
+  addResultButton = document.querySelector("#addResultButton");
 
 function validResult(result) {
   return Boolean(
@@ -66,14 +34,58 @@ function validResult(result) {
   );
 }
 
+function durablePayload(result) {
+  const payload = {};
+  for (const field of DURABLE_FIELDS) {
+    if (result[field] !== undefined) payload[field] = result[field];
+  }
+  return payload;
+}
+
+function canonicalize(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalize).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalize(value[key])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+async function hashResult(result) {
+  const bytes = new TextEncoder().encode(canonicalize(durablePayload(result)));
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  const hex = [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+  return `sha256:${hex}`;
+}
+
+async function integrityStatus(result) {
+  if (!result.immutable) return "local";
+  if (!HASH_PATTERN.test(result.contentHash || "")) return "unverified";
+  try {
+    return (await hashResult(result)) === result.contentHash ? "verified" : "mismatch";
+  } catch {
+    return "unverified";
+  }
+}
+
+async function attachIntegrity(items) {
+  return Promise.all(
+    items.map(async (result) => ({ ...result, _integrity: await integrityStatus(result) }))
+  );
+}
+
 async function loadPublishedResults() {
   try {
-    const response = await fetch("./data/results.json", { cache: "no-store" });
+    const response = await fetch("/demo/data/results.json", { cache: "no-store" });
     if (!response.ok) throw new Error(`Published Result catalog returned ${response.status}`);
     const parsed = await response.json();
     return Array.isArray(parsed) ? parsed.filter(validResult) : [];
   } catch (error) {
-    console.warn("DashGPT: published Result catalog unavailable, using fallback data.", error);
+    console.warn("DashGPT: published Result catalog unavailable; using browser-local cache.", error);
     return [];
   }
 }
@@ -118,15 +130,22 @@ function mergePublishedAndLocal(published, local) {
   return [...merged.values()];
 }
 
+function serializableResults() {
+  return results.map(({ _integrity, ...result }) => result);
+}
+
 function saveResults() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(results));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(serializableResults()));
   updateSummary();
 }
 
 function updateSummary() {
   const favorites = results.filter((r) => r.favorite).length;
-  document.querySelector("#summaryText").textContent =
-    `${results.length} results, ${favorites} favorites. Search, open a result, or generate a portable Context Pack.`;
+  const verified = results.filter((r) => r._integrity === "verified").length;
+  const summary = document.querySelector("#summaryText");
+  if (summary) {
+    summary.textContent = `${results.length} results, ${favorites} favorites, ${verified} immutable verified. Search, open a result, or generate a portable Context Pack.`;
+  }
 }
 
 function categories() {
@@ -142,7 +161,7 @@ function renderCategoryFilters() {
     button.textContent = category;
     button.addEventListener("click", () => {
       activeCategory = category;
-      render();
+      renderDashboard();
     });
     categoryFilters.appendChild(button);
   });
@@ -169,7 +188,11 @@ function filteredResults() {
   });
 }
 
-function render() {
+function resultPagePath(result) {
+  return `/demo/result/${encodeURIComponent(result.id)}/`;
+}
+
+function renderDashboard() {
   renderCategoryFilters();
   const visible = filteredResults();
   resultsGrid.replaceChildren();
@@ -192,16 +215,22 @@ function createCard(result) {
   favoriteButton.addEventListener("click", () => toggleFavorite(result.id));
 
   const tags = node.querySelector(".tags");
-  (result.tags || []).forEach((tag) => {
-    const item = document.createElement("span");
-    item.className = "tag";
-    item.textContent = `#${tag}`;
-    tags.appendChild(item);
-  });
+  (result.tags || []).forEach((tag) => tags.appendChild(tagNode(tag)));
+
+  const pageLink = node.querySelector(".page-link");
+  pageLink.href = resultPagePath(result);
+  pageLink.setAttribute("aria-label", `Open permanent page for ${result.title}`);
 
   node.querySelector(".open-button").addEventListener("click", () => openResult(result.id));
   node.querySelector(".context-button").addEventListener("click", () => openContext(result.id));
   return node;
+}
+
+function tagNode(tag) {
+  const item = document.createElement("span");
+  item.className = "tag";
+  item.textContent = `#${tag}`;
+  return item;
 }
 
 function toggleFavorite(id) {
@@ -209,7 +238,33 @@ function toggleFavorite(id) {
     result.id === id ? { ...result, favorite: !result.favorite } : result
   );
   saveResults();
-  render();
+  if (!resultPage.hidden) {
+    renderStandaloneResult(results.find((item) => item.id === id));
+  } else {
+    renderDashboard();
+  }
+}
+
+function immutableBadge(result) {
+  const badge = document.createElement("span");
+  badge.className = "immutability-badge";
+
+  if (!result.immutable) {
+    badge.textContent = "LOCAL DRAFT";
+    return badge;
+  }
+
+  if (result._integrity === "verified") {
+    badge.classList.add("locked", "verified");
+    badge.textContent = `🔒 IMMUTABLE · VERIFIED · v${result.contentVersion || 1}`;
+  } else if (result._integrity === "mismatch") {
+    badge.classList.add("mismatch");
+    badge.textContent = "⚠ INTEGRITY MISMATCH";
+  } else {
+    badge.classList.add("locked");
+    badge.textContent = `🔒 IMMUTABLE · UNVERIFIED · v${result.contentVersion || 1}`;
+  }
+  return badge;
 }
 
 function sourceBlock(source) {
@@ -229,42 +284,6 @@ function sourceBlock(source) {
   return block;
 }
 
-function openResult(id) {
-  const result = results.find((item) => item.id === id);
-  if (!result) return;
-
-  resultDialogContent.innerHTML = "";
-  const category = document.createElement("p");
-  category.className = "eyebrow";
-  category.textContent = result.category;
-
-  const title = document.createElement("h2");
-  title.textContent = result.title;
-
-  const summary = document.createElement("p");
-  summary.className = "muted";
-  summary.textContent = result.summary;
-
-  const details = document.createElement("div");
-  details.className = "detail-grid";
-  details.appendChild(
-    detailBlock("Decisions", (result.decisions || []).join(" • ") || "No decisions captured yet.")
-  );
-  details.appendChild(detailBlock("Next", result.next || "No next step captured yet."));
-  if (result.source?.url) details.appendChild(sourceBlock(result.source));
-
-  const contextButton = document.createElement("button");
-  contextButton.className = "button primary";
-  contextButton.textContent = "Generate Context Pack";
-  contextButton.addEventListener("click", () => {
-    resultDialog.close();
-    openContext(id);
-  });
-
-  resultDialogContent.append(category, title, summary, details, contextButton);
-  resultDialog.showModal();
-}
-
 function detailBlock(label, value) {
   const block = document.createElement("div");
   block.className = "detail-block";
@@ -276,12 +295,61 @@ function detailBlock(label, value) {
   return block;
 }
 
+function openResult(id) {
+  const result = results.find((item) => item.id === id);
+  if (!result) return;
+
+  resultDialogContent.replaceChildren();
+  const category = document.createElement("p");
+  category.className = "eyebrow";
+  category.textContent = result.category;
+  const title = document.createElement("h2");
+  title.textContent = result.title;
+  const summary = document.createElement("p");
+  summary.className = "muted";
+  summary.textContent = result.summary;
+  const badge = immutableBadge(result);
+
+  const details = document.createElement("div");
+  details.className = "detail-grid";
+  details.appendChild(
+    detailBlock("Decisions", (result.decisions || []).join(" • ") || "No decisions captured yet.")
+  );
+  details.appendChild(detailBlock("Next", result.next || "No next step captured yet."));
+  if (result.contentHash) details.appendChild(detailBlock("Content hash", result.contentHash));
+  if (result.source?.url) details.appendChild(sourceBlock(result.source));
+
+  const actions = document.createElement("div");
+  actions.className = "dialog-actions";
+  const pageLink = document.createElement("a");
+  pageLink.className = "button";
+  pageLink.href = resultPagePath(result);
+  pageLink.textContent = "Open Page";
+  const contextButton = document.createElement("button");
+  contextButton.type = "button";
+  contextButton.className = "button primary";
+  contextButton.textContent = "Generate Context Pack";
+  contextButton.addEventListener("click", () => {
+    resultDialog.close();
+    openContext(id);
+  });
+  actions.append(pageLink, contextButton);
+
+  resultDialogContent.append(category, title, badge, summary, details, actions);
+  resultDialog.showModal();
+}
+
 function makeContextPack(result) {
   return [
-    "# DashGPT Context Pack v0.2",
+    "# DashGPT Context Pack v0.4",
     "",
     `TITLE: ${result.title}`,
     `CATEGORY: ${result.category}`,
+    `CONTENT IMMUTABLE: ${Boolean(result.immutable)}`,
+    `CONTENT VERSION: ${result.contentVersion || 1}`,
+    `CONTENT HASH: ${result.contentHash || "Not captured."}`,
+    `CONTENT INTEGRITY: ${(result._integrity || "unverified").toUpperCase()}`,
+    `RESULT PAGE: ${new URL(resultPagePath(result), window.location.origin)}`,
     "",
     "SUMMARY:",
     result.summary,
@@ -299,7 +367,7 @@ function makeContextPack(result) {
     result.next || "Not captured.",
     "",
     "CONTINUATION INSTRUCTION:",
-    "Continue from this state. Preserve the decisions above unless new evidence requires revisiting them."
+    "Continue from this state. Preserve the immutable content above; create a new revision instead of silently rewriting it."
   ].join("\n");
 }
 
@@ -334,42 +402,224 @@ function addResult(formData) {
 
   results.unshift({
     id: `${Date.now()}-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "result"}`,
+    schemaVersion: 1,
     title,
     summary,
     category,
     tags,
     favorite: false,
     decisions: [],
-    next
+    next,
+    immutable: false,
+    contentVersion: 1,
+    _integrity: "local"
   });
 
   saveResults();
   activeCategory = "All";
   favoritesOnly = false;
   searchInput.value = "";
-  render();
+  renderDashboard();
+}
+
+function routeResultId() {
+  const match = window.location.pathname.match(/^\/demo\/result\/([^/]+)\/?$/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function paragraph(text, className = "") {
+  const p = document.createElement("p");
+  p.className = className;
+  p.textContent = text;
+  return p;
+}
+
+function renderStandaloneResult(result) {
+  dashboardView.hidden = true;
+  resultPage.hidden = false;
+  addResultButton.hidden = true;
+  resultPage.replaceChildren();
+
+  if (!result) {
+    const back = document.createElement("a");
+    back.href = "/demo/";
+    back.className = "button";
+    back.textContent = "← Dashboard";
+    const title = document.createElement("h2");
+    title.textContent = "Result not found";
+    resultPage.append(back, title, paragraph("This Result is not available in the published catalog or this browser."));
+    document.title = "Result not found — DashGPT";
+    return;
+  }
+
+  document.title = `${result.title} — DashGPT`;
+
+  const nav = document.createElement("div");
+  nav.className = "page-nav";
+  const back = document.createElement("a");
+  back.href = "/demo/";
+  back.className = "button ghost";
+  back.textContent = "← Dashboard";
+  nav.append(back, immutableBadge(result));
+
+  const article = document.createElement("article");
+  article.className = "published-result";
+  article.append(paragraph(result.category || "Result", "eyebrow"));
+
+  const title = document.createElement("h2");
+  title.className = "result-page-title";
+  title.textContent = result.title;
+  article.append(title, paragraph(result.summary, "result-lead"));
+
+  const tags = document.createElement("div");
+  tags.className = "tags page-tags";
+  (result.tags || []).forEach((tag) => tags.appendChild(tagNode(tag)));
+  article.append(tags);
+
+  const details = document.createElement("div");
+  details.className = "detail-grid page-details";
+
+  const decisions = document.createElement("div");
+  decisions.className = "detail-block";
+  const decisionsTitle = document.createElement("strong");
+  decisionsTitle.textContent = "Decisions";
+  const list = document.createElement("ul");
+  (result.decisions || []).forEach((decision) => {
+    const li = document.createElement("li");
+    li.textContent = decision;
+    list.appendChild(li);
+  });
+  if (!list.children.length) {
+    list.appendChild(Object.assign(document.createElement("li"), { textContent: "No decisions captured yet." }));
+  }
+  decisions.append(decisionsTitle, list);
+  details.append(decisions, detailBlock("Next", result.next || "No next step captured yet."));
+  if (result.contentHash) details.append(detailBlock("Content hash", result.contentHash));
+  if (result.source?.url) details.append(sourceBlock(result.source));
+  article.append(details);
+
+  const actions = document.createElement("div");
+  actions.className = "page-actions";
+  const contextButton = document.createElement("button");
+  contextButton.className = "button primary";
+  contextButton.type = "button";
+  contextButton.textContent = "Generate Context Pack";
+  contextButton.addEventListener("click", () => openContext(result.id));
+  const favoriteButton = document.createElement("button");
+  favoriteButton.className = "button";
+  favoriteButton.type = "button";
+  favoriteButton.textContent = result.favorite ? "★ Favorite" : "☆ Favorite";
+  favoriteButton.addEventListener("click", () => toggleFavorite(result.id));
+  actions.append(contextButton, favoriteButton);
+
+  const immutabilityNote = paragraph(
+    result._integrity === "verified"
+      ? "Verified immutable content. DashGPT may update this page’s shared renderer and visual design, but these knowledge fields are protected by the content hash. A knowledge change requires an explicit new revision."
+      : result._integrity === "mismatch"
+        ? "Integrity check failed. This page is refusing to describe the content as verified; compare it with its published source before relying on it."
+        : result.immutable
+          ? "This Result is marked immutable, but its content hash could not be verified in this browser."
+          : "This is a browser-local draft and is not an immutable published Result.",
+    `immutability-note${result._integrity === "mismatch" ? " danger" : ""}`
+  );
+
+  resultPage.append(nav, article, actions, immutabilityNote);
+}
+
+function decodeBase64Url(value) {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+  const binary = atob(padded);
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+function importPayloadFromHash() {
+  if (!window.location.hash.startsWith("#import=")) return null;
+  const encoded = window.location.hash.slice("#import=".length);
+  if (!encoded || encoded.length > 20000) throw new Error("Import payload is missing or too large.");
+  const parsed = JSON.parse(decodeBase64Url(encoded));
+  if (!validResult(parsed)) throw new Error("Import payload is not a valid DashGPT Result.");
+  return parsed;
+}
+
+async function importResultFromHash() {
+  const imported = importPayloadFromHash();
+  if (!imported) return null;
+  if (imported.schemaVersion !== 1) throw new Error("Unsupported Result schema version.");
+  if (imported.immutable !== true) throw new Error("Plugin imports must be immutable Results.");
+  if (!HASH_PATTERN.test(imported.contentHash || "")) throw new Error("Imported Result has no valid content hash.");
+
+  const status = await integrityStatus(imported);
+  if (status !== "verified") throw new Error("Imported Result failed its integrity check.");
+
+  const existing = results.find((item) => item.id === imported.id);
+  const stored = {
+    ...imported,
+    favorite: existing && typeof existing.favorite === "boolean" ? existing.favorite : Boolean(imported.favorite),
+    _integrity: "verified"
+  };
+  results = [stored, ...results.filter((item) => item.id !== imported.id)];
+  saveResults();
+  history.replaceState({}, "", resultPagePath(stored));
+  return stored;
+}
+
+function renderImportError(error) {
+  dashboardView.hidden = true;
+  resultPage.hidden = false;
+  addResultButton.hidden = true;
+  resultPage.replaceChildren();
+  const back = document.createElement("a");
+  back.href = "/demo/";
+  back.className = "button";
+  back.textContent = "← Dashboard";
+  const title = document.createElement("h2");
+  title.textContent = "DashGPT import rejected";
+  const detail = paragraph(error instanceof Error ? error.message : "Invalid Result import.", "immutability-note danger");
+  resultPage.append(back, title, detail);
+  document.title = "Import rejected — DashGPT";
 }
 
 async function bootstrap() {
   const local = loadLocalResults();
   const published = await loadPublishedResults();
-  const canonical = published.length ? published : fallbackResults;
-  results = mergePublishedAndLocal(canonical, local);
+  results = await attachIntegrity(mergePublishedAndLocal(published, local));
   saveResults();
-  render();
+
+  try {
+    const imported = await importResultFromHash();
+    if (imported) {
+      renderStandaloneResult(imported);
+      return;
+    }
+  } catch (error) {
+    renderImportError(error);
+    return;
+  }
+
+  const resultId = routeResultId();
+  if (resultId) {
+    renderStandaloneResult(results.find((item) => item.id === resultId));
+  } else {
+    dashboardView.hidden = false;
+    resultPage.hidden = true;
+    addResultButton.hidden = false;
+    renderDashboard();
+  }
 }
 
-searchInput.addEventListener("input", render);
+searchInput.addEventListener("input", renderDashboard);
 document.querySelector("#showFavoritesButton").addEventListener("click", () => {
   favoritesOnly = true;
-  render();
+  renderDashboard();
 });
 document.querySelector("#showAllButton").addEventListener("click", () => {
   favoritesOnly = false;
-  render();
+  renderDashboard();
 });
 document.querySelector("#copyContextButton").addEventListener("click", copyContext);
-document.querySelector("#addResultButton").addEventListener("click", () => addDialog.showModal());
+addResultButton.addEventListener("click", () => addDialog.showModal());
 document.querySelector("#cancelAddButton").addEventListener("click", () => addDialog.close());
 addResultForm.addEventListener("submit", (event) => {
   event.preventDefault();
