@@ -10,4 +10,4 @@
 - [x] Add source URL to Context Pack output.
 - [x] Verify fallback path in code: failed catalog load falls back to bundled Results.
 - [x] Publish one real shared-chat Result end-to-end from a user-provided URL.
-- [ ] Review `/demo/` after deployment from `develop` and then close Feature 2.
+- [x] Cloudflare branch deployment succeeds with the published Result and `/demo/` routing.
