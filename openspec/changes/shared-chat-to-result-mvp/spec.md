@@ -13,6 +13,11 @@
 9. Result details SHALL expose a source link when provenance is available.
 10. Generated Context Packs SHALL include the source URL when provenance is available.
 11. Failure to refresh the published JSON SHALL not destroy locally cached Results.
+12. The MVP SHALL publish the curated Result rather than copying the raw shared conversation into DashGPT by default.
+
+## Privacy boundary
+
+A normal ChatGPT shared link is accessible to anyone who has that URL. DashGPT therefore treats the shared URL as source provenance, not as private storage. The hosted DashGPT instance should retain only the curated Result unless raw-source retention is deliberately added later.
 
 ## MVP publication mechanism
 
@@ -22,6 +27,7 @@ For this change, an agent may perform the summarization and Git publication step
 
 - scraping private/non-shared ChatGPT conversations
 - automatic in-browser ChatGPT authentication
+- storing a raw transcript by default
 - final database/storage architecture
 - background ingestion queue
 - automatic category taxonomy
