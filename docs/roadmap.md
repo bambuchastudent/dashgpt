@@ -42,7 +42,25 @@ MVP constraints:
 - Git-backed published Result catalog is acceptable as temporary storage
 - browser-local Results must not be lost
 
-This is a tactical slice between M1 and the later integration milestones; it does not replace roadmap M2.
+Status: **merged into `develop` and proven with a real shared chat**.
+
+## Tactical Feature 3 — Immutable Result pages + current topic map
+
+Goal: make Results durable as linkable pages while allowing the DashGPT presentation to evolve globally.
+
+Scope:
+
+- one shared Result page renderer
+- stable `/demo/result/<id>` routes
+- common published Result schema
+- explicit immutable flag and content integrity digest
+- current/latest Results at the top of the dashboard
+- indexed category mindmap for topic navigation
+- publish and review a second real shared-chat Result
+
+Constraint: updating the renderer must not silently modify already-published durable Result content.
+
+Status: **in progress on `feature/f3-immutable-results-mindmap`**.
 
 ## M2 — Project state and human summaries
 
@@ -110,6 +128,6 @@ Potential scope after the core loop is proven:
 
 ## Current delivery intent
 
-**Active: Tactical Feature 2 — Shared chat → published Result.**
+**Active: Tactical Feature 3 — Immutable Result pages + current topic map.**
 
-After its end-to-end proof, continue with roadmap **M2 — Project state and human summaries**, unless real usage shows a more important blocker in the Result ingestion/storage model.
+After this slice is reviewed, continue with roadmap **M2 — Project state and human summaries**, unless real usage exposes a more important ingestion/storage blocker.
