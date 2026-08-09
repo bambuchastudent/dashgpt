@@ -1,0 +1,4 @@
+.result-card{background:radial-gradient(circle at 90% 0,hsla(var(--semantic-hue),82%,56%,.42),transparent 46%),linear-gradient(145deg,hsla(var(--semantic-hue-2),56%,20%,.34),rgba(17,24,39,.94) 62%)}
+.result-card::before{content:"";position:absolute;inset:0 0 auto 0;height:6px;background:linear-gradient(90deg,hsl(var(--semantic-hue),88%,62%),hsl(var(--semantic-hue-2),86%,64%));box-shadow:0 0 18px hsla(var(--semantic-hue),90%,60%,.45)}
+.result-card .category{display:inline-flex;width:max-content;max-width:calc(100% - 48px);padding:5px 9px;border-radius:999px;background:hsla(var(--semantic-hue),72%,48%,.28);border:1px solid hsla(var(--semantic-hue),82%,68%,.42);color:hsl(var(--semantic-hue),88%,78%)}
+.published-result{background:radial-gradient(circle at 92% 0,hsla(var(--semantic-hue),80%,54%,.32),transparent 46%),rgba(17,24,39,.92)}
