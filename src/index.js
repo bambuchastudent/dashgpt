@@ -28,10 +28,7 @@ function canonicalSharedChatUrl(input) {
       ? segments[1]
       : null;
 
-  if (!shareId) {
-    throw new Error("Expected a public https://chatgpt.com/share/... URL.");
-  }
-
+  if (!shareId) throw new Error("Expected a public https://chatgpt.com/share/... URL.");
   return new URL(`/share/${shareId}`, "https://chatgpt.com");
 }
 
@@ -42,18 +39,12 @@ async function handleSharedChat(request) {
 
   const requestUrl = new URL(request.url);
   const input = requestUrl.searchParams.get("url");
-  if (!input) {
-    return json({ error: "Missing ?url= public ChatGPT shared link." }, { status: 400 });
-  }
+  if (!input) return json({ error: "Missing ?url= public ChatGPT shared link." }, { status: 400 });
 
   try {
     const sourceUrl = canonicalSharedChatUrl(input);
     const chat = await fetchChatGptShare(sourceUrl);
-    return json({
-      sourceUrl: sourceUrl.toString(),
-      fetchedAt: new Date().toISOString(),
-      ...chat
-    });
+    return json({ sourceUrl: sourceUrl.toString(), fetchedAt: new Date().toISOString(), ...chat });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to read shared chat.";
     return json({ error: message }, { status: 502 });
@@ -62,10 +53,14 @@ async function handleSharedChat(request) {
 
 function demoAssetRequest(request) {
   const url = new URL(request.url);
-  const stripped = url.pathname === "/demo" || url.pathname === "/demo/"
-    ? "/"
-    : url.pathname.replace(/^\/demo/, "");
-  url.pathname = stripped || "/";
+  if (/^\/demo\/result\/[^/]+\/?$/.test(url.pathname)) {
+    url.pathname = "/index.html";
+  } else {
+    const stripped = url.pathname === "/demo" || url.pathname === "/demo/"
+      ? "/"
+      : url.pathname.replace(/^\/demo/, "");
+    url.pathname = stripped || "/";
+  }
   return new Request(url, request);
 }
 
@@ -73,13 +68,8 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    if (url.pathname === "/") {
-      return Response.redirect(new URL("/demo/", url), 302);
-    }
-
-    if (url.pathname === "/api/shared-chat") {
-      return handleSharedChat(request);
-    }
+    if (url.pathname === "/") return Response.redirect(new URL("/demo/", url), 302);
+    if (url.pathname === "/api/shared-chat") return handleSharedChat(request);
 
     if (url.pathname === "/demo" || url.pathname.startsWith("/demo/")) {
       return env.ASSETS.fetch(demoAssetRequest(request));
