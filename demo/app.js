@@ -1,6 +1,8 @@
 const STORAGE_KEY = "dashgpt.demo.results.v2";
 const LEGACY_STORAGE_KEY = "dashgpt.demo.results.v1";
 const LEGACY_SEED_IDS = new Set(["dashgpt-product", "development-workflow", "deployment"]);
+const DURABLE_FIELDS = ["id", "title", "summary", "category", "tags", "decisions", "next", "source"];
+const HASH_PATTERN = /^sha256:[0-9a-f]{64}$/;
 
 let results = [];
 let activeCategory = "All";
@@ -29,6 +31,50 @@ function validResult(result) {
       typeof result.id === "string" &&
       typeof result.title === "string" &&
       typeof result.summary === "string"
+  );
+}
+
+function durablePayload(result) {
+  const payload = {};
+  for (const field of DURABLE_FIELDS) {
+    if (result[field] !== undefined) payload[field] = result[field];
+  }
+  return payload;
+}
+
+function canonicalize(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalize).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalize(value[key])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+async function hashResult(result) {
+  const bytes = new TextEncoder().encode(canonicalize(durablePayload(result)));
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  const hex = [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+  return `sha256:${hex}`;
+}
+
+async function integrityStatus(result) {
+  if (!result.immutable) return "local";
+  if (!HASH_PATTERN.test(result.contentHash || "")) return "unverified";
+  try {
+    return (await hashResult(result)) === result.contentHash ? "verified" : "mismatch";
+  } catch {
+    return "unverified";
+  }
+}
+
+async function attachIntegrity(items) {
+  return Promise.all(
+    items.map(async (result) => ({ ...result, _integrity: await integrityStatus(result) }))
   );
 }
 
@@ -84,16 +130,21 @@ function mergePublishedAndLocal(published, local) {
   return [...merged.values()];
 }
 
+function serializableResults() {
+  return results.map(({ _integrity, ...result }) => result);
+}
+
 function saveResults() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(results));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(serializableResults()));
   updateSummary();
 }
 
 function updateSummary() {
   const favorites = results.filter((r) => r.favorite).length;
+  const verified = results.filter((r) => r._integrity === "verified").length;
   const summary = document.querySelector("#summaryText");
   if (summary) {
-    summary.textContent = `${results.length} results, ${favorites} favorites. Search, open a result, or generate a portable Context Pack.`;
+    summary.textContent = `${results.length} results, ${favorites} favorites, ${verified} immutable verified. Search, open a result, or generate a portable Context Pack.`;
   }
 }
 
@@ -196,10 +247,23 @@ function toggleFavorite(id) {
 
 function immutableBadge(result) {
   const badge = document.createElement("span");
-  badge.className = result.immutable ? "immutability-badge locked" : "immutability-badge";
-  badge.textContent = result.immutable
-    ? `IMMUTABLE CONTENT · v${result.contentVersion || 1}`
-    : "LOCAL DRAFT";
+  badge.className = "immutability-badge";
+
+  if (!result.immutable) {
+    badge.textContent = "LOCAL DRAFT";
+    return badge;
+  }
+
+  if (result._integrity === "verified") {
+    badge.classList.add("locked", "verified");
+    badge.textContent = `🔒 IMMUTABLE · VERIFIED · v${result.contentVersion || 1}`;
+  } else if (result._integrity === "mismatch") {
+    badge.classList.add("mismatch");
+    badge.textContent = "⚠ INTEGRITY MISMATCH";
+  } else {
+    badge.classList.add("locked");
+    badge.textContent = `🔒 IMMUTABLE · UNVERIFIED · v${result.contentVersion || 1}`;
+  }
   return badge;
 }
 
@@ -252,6 +316,7 @@ function openResult(id) {
     detailBlock("Decisions", (result.decisions || []).join(" • ") || "No decisions captured yet.")
   );
   details.appendChild(detailBlock("Next", result.next || "No next step captured yet."));
+  if (result.contentHash) details.appendChild(detailBlock("Content hash", result.contentHash));
   if (result.source?.url) details.appendChild(sourceBlock(result.source));
 
   const actions = document.createElement("div");
@@ -276,12 +341,14 @@ function openResult(id) {
 
 function makeContextPack(result) {
   return [
-    "# DashGPT Context Pack v0.3",
+    "# DashGPT Context Pack v0.4",
     "",
     `TITLE: ${result.title}`,
     `CATEGORY: ${result.category}`,
     `CONTENT IMMUTABLE: ${Boolean(result.immutable)}`,
     `CONTENT VERSION: ${result.contentVersion || 1}`,
+    `CONTENT HASH: ${result.contentHash || "Not captured."}`,
+    `CONTENT INTEGRITY: ${(result._integrity || "unverified").toUpperCase()}`,
     `RESULT PAGE: ${new URL(resultPagePath(result), window.location.origin)}`,
     "",
     "SUMMARY:",
@@ -335,6 +402,7 @@ function addResult(formData) {
 
   results.unshift({
     id: `${Date.now()}-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "result"}`,
+    schemaVersion: 1,
     title,
     summary,
     category,
@@ -343,7 +411,8 @@ function addResult(formData) {
     decisions: [],
     next,
     immutable: false,
-    contentVersion: 1
+    contentVersion: 1,
+    _integrity: "local"
   });
 
   saveResults();
@@ -420,9 +489,12 @@ function renderStandaloneResult(result) {
     li.textContent = decision;
     list.appendChild(li);
   });
-  if (!list.children.length) list.appendChild(Object.assign(document.createElement("li"), { textContent: "No decisions captured yet." }));
+  if (!list.children.length) {
+    list.appendChild(Object.assign(document.createElement("li"), { textContent: "No decisions captured yet." }));
+  }
   decisions.append(decisionsTitle, list);
   details.append(decisions, detailBlock("Next", result.next || "No next step captured yet."));
+  if (result.contentHash) details.append(detailBlock("Content hash", result.contentHash));
   if (result.source?.url) details.append(sourceBlock(result.source));
   article.append(details);
 
@@ -441,20 +513,90 @@ function renderStandaloneResult(result) {
   actions.append(contextButton, favoriteButton);
 
   const immutabilityNote = paragraph(
-    result.immutable
-      ? "The content of this published Result is locked. DashGPT may update this page’s layout and renderer, but changing the knowledge requires a new content revision."
-      : "This is a browser-local draft and is not an immutable published Result.",
-    "immutability-note"
+    result._integrity === "verified"
+      ? "Verified immutable content. DashGPT may update this page’s shared renderer and visual design, but these knowledge fields are protected by the content hash. A knowledge change requires an explicit new revision."
+      : result._integrity === "mismatch"
+        ? "Integrity check failed. This page is refusing to describe the content as verified; compare it with its published source before relying on it."
+        : result.immutable
+          ? "This Result is marked immutable, but its content hash could not be verified in this browser."
+          : "This is a browser-local draft and is not an immutable published Result.",
+    `immutability-note${result._integrity === "mismatch" ? " danger" : ""}`
   );
 
   resultPage.append(nav, article, actions, immutabilityNote);
 }
 
+function decodeBase64Url(value) {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+  const binary = atob(padded);
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+function importPayloadFromHash() {
+  if (!window.location.hash.startsWith("#import=")) return null;
+  const encoded = window.location.hash.slice("#import=".length);
+  if (!encoded || encoded.length > 20000) throw new Error("Import payload is missing or too large.");
+  const parsed = JSON.parse(decodeBase64Url(encoded));
+  if (!validResult(parsed)) throw new Error("Import payload is not a valid DashGPT Result.");
+  return parsed;
+}
+
+async function importResultFromHash() {
+  const imported = importPayloadFromHash();
+  if (!imported) return null;
+  if (imported.schemaVersion !== 1) throw new Error("Unsupported Result schema version.");
+  if (imported.immutable !== true) throw new Error("Plugin imports must be immutable Results.");
+  if (!HASH_PATTERN.test(imported.contentHash || "")) throw new Error("Imported Result has no valid content hash.");
+
+  const status = await integrityStatus(imported);
+  if (status !== "verified") throw new Error("Imported Result failed its integrity check.");
+
+  const existing = results.find((item) => item.id === imported.id);
+  const stored = {
+    ...imported,
+    favorite: existing && typeof existing.favorite === "boolean" ? existing.favorite : Boolean(imported.favorite),
+    _integrity: "verified"
+  };
+  results = [stored, ...results.filter((item) => item.id !== imported.id)];
+  saveResults();
+  history.replaceState({}, "", resultPagePath(stored));
+  return stored;
+}
+
+function renderImportError(error) {
+  dashboardView.hidden = true;
+  resultPage.hidden = false;
+  addResultButton.hidden = true;
+  resultPage.replaceChildren();
+  const back = document.createElement("a");
+  back.href = "/demo/";
+  back.className = "button";
+  back.textContent = "← Dashboard";
+  const title = document.createElement("h2");
+  title.textContent = "DashGPT import rejected";
+  const detail = paragraph(error instanceof Error ? error.message : "Invalid Result import.", "immutability-note danger");
+  resultPage.append(back, title, detail);
+  document.title = "Import rejected — DashGPT";
+}
+
 async function bootstrap() {
   const local = loadLocalResults();
   const published = await loadPublishedResults();
-  results = mergePublishedAndLocal(published, local);
+  results = await attachIntegrity(mergePublishedAndLocal(published, local));
   saveResults();
+
+  try {
+    const imported = await importResultFromHash();
+    if (imported) {
+      renderStandaloneResult(imported);
+      return;
+    }
+  } catch (error) {
+    renderImportError(error);
+    return;
+  }
 
   const resultId = routeResultId();
   if (resultId) {
