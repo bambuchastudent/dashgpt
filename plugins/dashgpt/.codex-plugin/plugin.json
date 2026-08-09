@@ -25,6 +25,9 @@
       "Use DashGPT to find what I already decided about this topic on my DashGPT site.",
       "Use DashGPT to get the Context Pack for this Result and continue from it.",
       "Save the useful outcome of this conversation to my DashGPT site."
-    ]
+    ],
+    "brandColor": "#0b1220",
+    "composerIcon": "./assets/logo.svg",
+    "logo": "./assets/logo.svg"
   }
 }
