@@ -74,6 +74,27 @@ The dashboard should provide:
 - automatically generated topic/category summaries
 - active and completed topics/projects
 
+### Current topics / memory map
+
+The top of the dashboard should make it easy to answer **“what is relevant now?”** before browsing the complete archive.
+
+The intended order is:
+
+1. recent/current Results;
+2. a compact visual map of indexed categories/topics;
+3. the complete searchable Result collection.
+
+The topic map must be derived from the indexed Result categories rather than maintained as a separate manual taxonomy. Selecting a topic should immediately take the user to the matching Results.
+
+### Durable Result pages
+
+A published Result should have a stable page that can be linked directly.
+
+- Old Result pages should automatically receive improvements to the common DashGPT page format and navigation.
+- Updating the page renderer or dashboard design must not silently rewrite the saved Result content.
+- Published Result content should visibly indicate whether it is immutable and whether its integrity can be verified.
+- If durable content actually changes, that change should be explicit rather than disguised as a presentation update.
+
 ### Continue actions
 
 A Result should support actions equivalent to:
