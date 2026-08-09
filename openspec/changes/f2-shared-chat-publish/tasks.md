@@ -8,6 +8,6 @@
 - [x] Make published content override stale local copies while preserving local favorite state.
 - [x] Show source-chat provenance in Result details.
 - [x] Add source URL to Context Pack output.
-- [ ] Verify fallback behavior when catalog loading fails.
-- [ ] Publish one real shared-chat Result end-to-end from a user-provided URL.
-- [ ] Review the live Cloudflare preview before merge.
+- [x] Verify fallback path in code: failed catalog load falls back to bundled Results.
+- [x] Publish one real shared-chat Result end-to-end from a user-provided URL.
+- [ ] Review `/demo/` after deployment from `develop` and then close Feature 2.
