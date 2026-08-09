@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dashgpt.local/schemas/result.v1.schema.json",
+  "title": "DashGPT published Result v1",
+  "type": "object",
+  "required": [
+    "id",
+    "title",
+    "summary",
+    "category",
+    "tags",
+    "favorite",
+    "decisions",
+    "next",
+    "publishedAt",
+    "immutable",
+    "contentVersion",
+    "contentHash"
+  ],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "summary": { "type": "string", "minLength": 1 },
+    "category": { "type": "string", "minLength": 1 },
+    "tags": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "favorite": { "type": "boolean" },
+    "decisions": { "type": "array", "items": { "type": "string" } },
+    "next": { "type": "string" },
+    "source": {
+      "type": "object",
+      "required": ["type", "url"],
+      "properties": {
+        "type": { "type": "string", "minLength": 1 },
+        "url": { "type": "string", "format": "uri" },
+        "title": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "publishedAt": { "type": "string", "format": "date-time" },
+    "immutable": { "const": true },
+    "contentVersion": { "type": "integer", "minimum": 1 },
+    "contentHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  },
+  "additionalProperties": true
+}
