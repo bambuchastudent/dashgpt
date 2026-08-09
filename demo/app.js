@@ -1,45 +1,9 @@
-const STORAGE_KEY = "dashgpt.demo.results.v2";
-const LEGACY_STORAGE_KEY = "dashgpt.demo.results.v1";
-const LEGACY_SEED_IDS = new Set(["dashgpt-product", "development-workflow", "deployment"]);
+const STORAGE_KEY = "dashgpt.demo.results.v3";
+const LEGACY_STORAGE_KEYS = ["dashgpt.demo.results.v2", "dashgpt.demo.results.v1"];
+const PUBLISHED_RESULTS_URL = "./data/results.json";
 
-const seedResults = [
-  {
-    id: "dashgpt-first-live-demo",
-    title: "DashGPT — от идеи до первой живой демки",
-    summary:
-      "DashGPT задуман как приватный result-first дашборд: сохранять не сырые чаты, а полезные результаты, решения и переносимый контекст, чтобы продолжать работу в любом AI-агенте. Мы зафиксировали продукт и процесс разработки в GitHub, выбрали OpenSpec для spec-driven workflow, сделали M1 vertical slice и выкатили первую демку через Cloudflare Workers.",
-    category: "DashGPT",
-    tags: ["product", "m1", "cloudflare", "context", "openspec"],
-    favorite: true,
-    decisions: [
-      "Result-first, not chat-first: сырой чат — источник, а не главная сущность.",
-      "Контекст принадлежит пользователю и должен переноситься между ChatGPT, Claude, Codex, OpenCode и другими агентами.",
-      "Core остаётся local-first и cloud-optional; Cloudflare и GitHub — удобные адаптеры, а не обязательная зависимость.",
-      "Разработка spec-driven; durable project state хранится в репозитории, агенты взаимозаменяемы.",
-      "Первый M1 доказывает цикл Result → поиск/избранное → детали → Context Pack."
-    ],
-    next:
-      "Проверить демку как реальный пользователь, закрыть доступ через Cloudflare Access, затем перейти от browser-only localStorage к общей persistence и импорту настоящих Results из AI-чатов."
-  },
-  {
-    id: "cold-soups-chogyetang",
-    title: "Холодные супы на бульоне: чогетхан и другие варианты",
-    summary:
-      "Искали холодные супы на курином бульоне по разным кухням: французские, европейские, азиатские и кавказские. Отдельно разобрали корейские нэнмён и чогетхан. Для домашнего варианта особенно подходит чогетхан — холодный куриный суп с лапшой; имеющуюся рисовую лапшу можно использовать как практичную замену традиционной.",
-    category: "Еда",
-    tags: ["cold-soup", "korean", "chogyetang", "naengmyeon", "rice-noodles"],
-    favorite: false,
-    decisions: [
-      "Чогетхан — основной кандидат, когда нужен именно холодный суп на курином бульоне.",
-      "Рисовая лапша подходит для домашней версии, даже если это не самый традиционный вариант.",
-      "Нэнмён оставить альтернативой, если хочется более яркого корейского холодного супа."
-    ],
-    next:
-      "Собрать короткий финальный рецепт чогетхана под конкретный объём бульона и продукты, которые есть дома."
-  }
-];
-
-let results = loadResults();
+let publishedResults = [];
+let results = [];
 let activeCategory = "All";
 let favoritesOnly = false;
 
@@ -57,29 +21,44 @@ const resultsGrid = document.querySelector("#resultsGrid"),
   addDialog = document.querySelector("#addDialog"),
   addResultForm = document.querySelector("#addResultForm");
 
-function mergeSeeds(existing = []) {
-  const merged = new Map(seedResults.map((result) => [result.id, structuredClone(result)]));
-  existing.forEach((result) => {
-    if (!merged.has(result.id)) merged.set(result.id, result);
-  });
-  return [...merged.values()];
+async function fetchPublishedResults() {
+  const response = await fetch(PUBLISHED_RESULTS_URL, { cache: "no-store" });
+  if (!response.ok) throw new Error(`Published Results request failed: ${response.status}`);
+  const data = await response.json();
+  if (!Array.isArray(data)) throw new Error("Published Results payload must be an array");
+  return data;
 }
 
-function loadResults() {
-  try {
-    const current = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (Array.isArray(current) && current.length) return mergeSeeds(current);
-
-    const legacy = JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY));
-    const userCreated = Array.isArray(legacy)
-      ? legacy.filter((result) => !LEGACY_SEED_IDS.has(result.id))
-      : [];
-    const migrated = mergeSeeds(userCreated);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
-    return migrated;
-  } catch {
-    return structuredClone(seedResults);
+function loadLocalResults() {
+  for (const key of [STORAGE_KEY, ...LEGACY_STORAGE_KEYS]) {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(key));
+      if (Array.isArray(parsed) && parsed.length) return parsed;
+    } catch {
+      // Try the next storage generation.
+    }
   }
+  return [];
+}
+
+function mergePublishedWithLocal(published, local) {
+  const localById = new Map(local.map((result) => [result.id, result]));
+  const publishedIds = new Set(published.map((result) => result.id));
+
+  const merged = published.map((result) => {
+    const existing = localById.get(result.id);
+    return {
+      ...structuredClone(result),
+      favorite: existing ? Boolean(existing.favorite) : Boolean(result.favorite),
+      published: true
+    };
+  });
+
+  local.forEach((result) => {
+    if (!publishedIds.has(result.id)) merged.push(result);
+  });
+
+  return merged;
 }
 
 function saveResults() {
@@ -89,8 +68,10 @@ function saveResults() {
 
 function updateSummary() {
   const favorites = results.filter((r) => r.favorite).length;
+  const published = results.filter((r) => r.published).length;
+  const local = results.length - published;
   document.querySelector("#summaryText").textContent =
-    `${results.length} results, ${favorites} favorites. Search, open a result, or generate a portable Context Pack.`;
+    `${results.length} results: ${published} published, ${local} local, ${favorites} favorites. Search, open a result, or generate a portable Context Pack.`;
 }
 
 function categories() {
@@ -123,7 +104,9 @@ function filteredResults() {
       result.category,
       ...(result.tags || []),
       ...(result.decisions || []),
-      result.next
+      result.next,
+      result.source?.label,
+      result.source?.url
     ]
       .filter(Boolean)
       .join(" ")
@@ -182,7 +165,7 @@ function openResult(id) {
   resultDialogContent.innerHTML = "";
   const category = document.createElement("p");
   category.className = "eyebrow";
-  category.textContent = result.category;
+  category.textContent = result.published ? `${result.category} • PUBLISHED` : result.category;
 
   const title = document.createElement("h2");
   title.textContent = result.title;
@@ -193,8 +176,13 @@ function openResult(id) {
 
   const details = document.createElement("div");
   details.className = "detail-grid";
-  details.appendChild(detailBlock("Decisions", (result.decisions || []).join(" • ") || "No decisions captured yet."));
+  details.appendChild(
+    detailBlock("Decisions", (result.decisions || []).join(" • ") || "No decisions captured yet.")
+  );
   details.appendChild(detailBlock("Next", result.next || "No next step captured yet."));
+
+  const actions = document.createElement("div");
+  actions.className = "dialog-actions";
 
   const contextButton = document.createElement("button");
   contextButton.className = "button primary";
@@ -203,8 +191,19 @@ function openResult(id) {
     resultDialog.close();
     openContext(id);
   });
+  actions.appendChild(contextButton);
 
-  resultDialogContent.append(category, title, summary, details, contextButton);
+  if (result.source?.url) {
+    const sourceLink = document.createElement("a");
+    sourceLink.className = "button ghost";
+    sourceLink.href = result.source.url;
+    sourceLink.target = "_blank";
+    sourceLink.rel = "noopener noreferrer";
+    sourceLink.textContent = result.source.label || "Open source";
+    actions.appendChild(sourceLink);
+  }
+
+  resultDialogContent.append(category, title, summary, details, actions);
   resultDialog.showModal();
 }
 
@@ -221,10 +220,11 @@ function detailBlock(label, value) {
 
 function makeContextPack(result) {
   return [
-    "# DashGPT Context Pack v0.1",
+    "# DashGPT Context Pack v0.2",
     "",
     `TITLE: ${result.title}`,
     `CATEGORY: ${result.category}`,
+    result.source?.url ? `SOURCE: ${result.source.url}` : "",
     "",
     "SUMMARY:",
     result.summary,
@@ -240,7 +240,9 @@ function makeContextPack(result) {
     "",
     "CONTINUATION INSTRUCTION:",
     "Continue from this state. Preserve the decisions above unless new evidence requires revisiting them."
-  ].join("\n");
+  ]
+    .filter((line, index, lines) => line !== "" || lines[index - 1] !== "")
+    .join("\n");
 }
 
 function openContext(id) {
@@ -280,13 +282,28 @@ function addResult(formData) {
     tags,
     favorite: false,
     decisions: [],
-    next
+    next,
+    published: false
   });
 
   saveResults();
   activeCategory = "All";
   favoritesOnly = false;
   searchInput.value = "";
+  render();
+}
+
+async function bootstrap() {
+  const local = loadLocalResults();
+  try {
+    publishedResults = await fetchPublishedResults();
+  } catch (error) {
+    console.warn("DashGPT could not refresh published Results; using local cache.", error);
+    publishedResults = [];
+  }
+
+  results = mergePublishedWithLocal(publishedResults, local);
+  saveResults();
   render();
 }
 
@@ -309,4 +326,4 @@ addResultForm.addEventListener("submit", (event) => {
   addDialog.close();
 });
 
-render();
+bootstrap();
