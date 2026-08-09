@@ -34,6 +34,20 @@ function request(url, init = {}) {
   return new Request(url, { ...init, headers });
 }
 
+async function parseMcpResponse(response) {
+  const text = await response.text();
+  const type = response.headers.get("content-type") || "";
+  if (type.includes("application/json")) return JSON.parse(text);
+
+  const dataLines = text
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith("data:"))
+    .map((line) => line.slice(5).trim())
+    .filter(Boolean);
+  if (!dataLines.length) throw new Error(`MCP response was neither JSON nor SSE data: ${text}`);
+  return JSON.parse(dataLines.at(-1));
+}
+
 async function rpc(id, method, params = {}) {
   const response = await worker.fetch(
     request("https://dashgpt.example/mcp", {
@@ -48,7 +62,7 @@ async function rpc(id, method, params = {}) {
     ctx
   );
   assert.equal(response.status, 200, `${method} should return 200; got ${await response.clone().text()}`);
-  return response.json();
+  return parseMcpResponse(response);
 }
 
 function decodeImportUrl(importUrl) {
@@ -119,13 +133,13 @@ assert.equal(imported.schemaVersion, 1);
 assert.match(imported.contentHash, /^sha256:[0-9a-f]{64}$/);
 assert.equal(imported.title, "Smoke Result");
 
-const resultPage = await worker.fetch(
+const resultPageResponse = await worker.fetch(
   request("https://dashgpt.example/demo/result/camping-fishing-el-regajo-fuente-munoz/"),
   env,
   ctx
 );
-assert.equal(resultPage.status, 200);
-assert.match(await resultPage.text(), /DashGPT Demo/);
+assert.equal(resultPageResponse.status, 200);
+assert.match(await resultPageResponse.text(), /DashGPT Demo/);
 
 const challengeMissing = await worker.fetch(
   request("https://dashgpt.example/.well-known/openai-apps-challenge"),
