@@ -29,10 +29,15 @@ const remoteResult = {
   contentHash: "sha256:friendfixture"
 };
 
+function inputUrl(input) {
+  if (input instanceof URL) return input;
+  return new URL(typeof input === "string" ? input : input.url);
+}
+
 const env = {
   ASSETS: {
     async fetch(input) {
-      const url = new URL(typeof input === "string" ? input : input.url);
+      const url = inputUrl(input);
       if (url.pathname === "/data/results.json") {
         return new Response(catalog, { headers: { "content-type": "application/json" } });
       }
@@ -40,7 +45,7 @@ const env = {
     }
   },
   async DASHGPT_FETCH(input) {
-    const url = new URL(typeof input === "string" ? input : input.url);
+    const url = inputUrl(input);
     if (url.origin !== "https://friend.example") return new Response("Not found", { status: 404 });
     if (url.pathname === "/.well-known/dashgpt.json") {
       return Response.json({ product: "dashgpt", protocolVersion: 1, siteUrl: "https://friend.example/demo/" });
