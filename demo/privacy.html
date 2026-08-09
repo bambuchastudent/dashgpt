@@ -16,14 +16,15 @@
 
       <div class="detail-grid page-details">
         <section class="detail-block"><strong>Browser storage</strong><div>The current MVP can store imported and locally created Results in your browser's local storage. Clearing browser data can remove those local Results.</div></section>
-        <section class="detail-block"><strong>Published Results</strong><div>An instance operator may also publish Results with the site. Published Results are delivered by that operator's hosting environment and may be visible to anyone who can access that site.</div></section>
+        <section class="detail-block"><strong>Published Results</strong><div>An instance operator may publish Results with the site. Published Results and the public DashGPT instance protocol are delivered by that operator's hosting environment and may be visible to anyone who can access that site.</div></section>
+        <section class="detail-block"><strong>Remote DashGPT instances</strong><div>When you give the DashGPT plugin another HTTPS DashGPT site URL, the plugin gateway may contact that site to verify that it is a compatible DashGPT instance and read the published Results or Context Packs you requested. The site operator controls that instance and its logs.</div></section>
         <section class="detail-block"><strong>ChatGPT shared links</strong><div>If you provide a public ChatGPT share URL for ingestion, the DashGPT server may fetch that public conversation in order to create a Result. Do not use public share links for material you do not intend to expose through that link.</div></section>
-        <section class="detail-block"><strong>Plugin imports</strong><div>The DashGPT MCP tool prepares a Result and an explicit import link. The import happens when you open that link. The MVP does not silently write a prepared Result into your browser.</div></section>
+        <section class="detail-block"><strong>Plugin imports</strong><div>The DashGPT MCP tool prepares a Result and an explicit import link. The import happens when you open that link. The MVP does not silently write a prepared Result into your browser or another person's DashGPT instance.</div></section>
         <section class="detail-block"><strong>Sensitive data</strong><div>DashGPT's plugin instructions tell the assistant not to save passwords, API keys, payment data, private document identifiers, or similarly sensitive personal data unless the user explicitly requests that exact data and it is necessary.</div></section>
         <section class="detail-block"><strong>Self-hosting</strong><div>When DashGPT is self-hosted, the person or organization operating that instance controls its hosting, logs, access policy, backups, and published content.</div></section>
       </div>
 
-      <p class="immutability-note">This page describes the experimental MVP and will be revised before a public production release.</p>
+      <p class="immutability-note">This page describes the experimental MVP and will be revised as the public product matures.</p>
     </article>
   </main>
 </body>
