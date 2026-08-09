@@ -11,10 +11,10 @@ A living project status board. Keep this file short, current, and operational.
 - Production Cloudflare Workers deploy: **green**.
 - OpenSpec implementation tasks: **complete**.
 - OpenAI Platform submitter role: **Organization Owner** — Apps Management write access satisfied.
-- OpenAI Platform individual publisher verification: **Identity in review**.
-- Observed Platform behavior: **Create plugin → With MCP redirects back to Organization verification while identity is in review; no plugin draft is created yet.**
+- OpenAI Platform individual publisher verification: **Verified**.
+- Current Platform issue: Project Settings → People shows `organization.read` unavailable. This project-level page is not required for plugin submission; the submitting account is already an Organization Owner.
 - Interim next-chat/agent handoff: `docs/handoff-dashgpt-v2.md`.
-- User action required now: **none — wait for Individual identity verification to complete, then retry Create plugin.**
+- User action required now: **return to OpenAI Platform → Plugins and retry Create plugin → With MCP**.
 
 ## DONE
 
@@ -38,13 +38,14 @@ A living project status board. Keep this file short, current, and operational.
 - Deterministic second-instance smoke tests pass.
 - PR #9 merged; production checks and Cloudflare deployment succeeded.
 - OpenAI Platform publisher access confirmed: submitting account is Organization Owner.
+- OpenAI Platform Individual publisher identity verified.
 - Interim `DashGPT v2` continuity handoff created at `docs/handoff-dashgpt-v2.md`.
 
 ## NEXT
 
-1. Wait for the current Individual publisher identity review to complete; do not restart verification while it is in review.
-2. Retry OpenAI Platform → Plugins → Create plugin → **With MCP** after identity becomes verified.
-3. Create **DashGPT** using **Universal** MCP URL: `https://dashgpt.dimkashir.workers.dev/mcp`.
+1. Open OpenAI Platform → Plugins and retry Create plugin → **With MCP** now that publisher identity is verified.
+2. Create **DashGPT** using **Universal** MCP URL: `https://dashgpt.dimkashir.workers.dev/mcp`.
+3. Authentication: None.
 4. Complete domain verification when the portal provides the challenge token, then Scan Tools.
 5. Select the verified Individual identity as Developer Identity.
 6. Fill listing, starter prompts, reviewer tests, availability and release notes from `plugins/dashgpt/SUBMISSION.md`.
@@ -56,7 +57,8 @@ A living project status board. Keep this file short, current, and operational.
 
 ## BLOCKERS / EXTERNAL HINGES
 
-- **Current blocker:** OpenAI Platform Individual publisher verification is in review. The current portal redirects plugin creation back to verification until that review completes.
+- Publisher identity verification is complete.
+- If Create plugin still fails, diagnose the exact OpenAI Platform error; do not change organization/project roles blindly.
 - OpenAI review/approval and final publication are external steps.
 - A second public DashGPT instance/person is required for the final MVP acceptance test.
 - When a concrete manual action becomes necessary, record it here before asking the user to do it.
