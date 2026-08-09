@@ -3,6 +3,20 @@ const LEGACY_STORAGE_KEY = "dashgpt.demo.results.v1";
 const LEGACY_SEED_IDS = new Set(["dashgpt-product", "development-workflow", "deployment"]);
 const DURABLE_FIELDS = ["id", "title", "summary", "category", "tags", "decisions", "next", "source"];
 const HASH_PATTERN = /^sha256:[0-9a-f]{64}$/;
+const SEMANTIC_COLOR_VERSION = 1;
+const SEMANTIC_COLOR_ANCHORS = [
+  { hue: 18, terms: ["car", "cars", "auto", "automobile", "vehicle", "авто", "автомоб", "машин", "coche", "vehículo"] },
+  { hue: 48, terms: ["transport", "transit", "route", "metro", "bus", "train", "mobility", "транспорт", "маршрут", "метро", "автобус", "поезд", "ruta"] },
+  { hue: 78, terms: ["travel", "trip", "flight", "hotel", "tour", "поездк", "путешеств", "рейс", "отел", "viaje"] },
+  { hue: 112, terms: ["food", "recipe", "cook", "еда", "рецепт", "готов", "comida", "receta"] },
+  { hue: 148, terms: ["nature", "camp", "garden", "plant", "природ", "кемп", "растен", "naturaleza"] },
+  { hue: 188, terms: ["project", "product", "design", "проект", "продукт", "дизайн"] },
+  { hue: 218, terms: ["code", "software", "api", "agent", "ai", "код", "разработ", "ии", "агент"] },
+  { hue: 252, terms: ["work", "business", "career", "работ", "бизнес", "карьер"] },
+  { hue: 286, terms: ["home", "housing", "repair", "дом", "жиль", "ремонт", "casa"] },
+  { hue: 324, terms: ["health", "medical", "wellness", "здоров", "медиц", "salud"] },
+  { hue: 352, terms: ["people", "family", "relationship", "люд", "семь", "отношен"] }
+];
 
 let results = [];
 let activeCategory = "All";
@@ -192,6 +206,102 @@ function resultPagePath(result) {
   return `/demo/result/${encodeURIComponent(result.id)}/`;
 }
 
+function semanticText(result) {
+  return [
+    result.title,
+    result.summary,
+    result.category,
+    ...(result.tags || []),
+    ...(result.decisions || []),
+    result.next
+  ].filter(Boolean).join(" ").toLowerCase();
+}
+
+function semanticColorFor(result) {
+  if (result.semanticColor?.version === SEMANTIC_COLOR_VERSION) return result.semanticColor;
+  const text = semanticText(result);
+  const matches = SEMANTIC_COLOR_ANCHORS
+    .map((anchor) => ({
+      ...anchor,
+      weight: anchor.terms.reduce((score, term) => score + (text.includes(term) ? 1 : 0), 0)
+    }))
+    .filter((anchor) => anchor.weight > 0);
+
+  if (!matches.length) {
+    const seed = [...String(result.category || result.title)].reduce(
+      (hash, character) => ((hash * 31) + character.codePointAt(0)) >>> 0,
+      17
+    );
+    return { hue: seed % 360, saturation: 48, lightness: 42, version: SEMANTIC_COLOR_VERSION };
+  }
+
+  const vector = matches.reduce(
+    (sum, anchor) => {
+      const radians = anchor.hue * Math.PI / 180;
+      sum.x += Math.cos(radians) * anchor.weight;
+      sum.y += Math.sin(radians) * anchor.weight;
+      sum.weight += anchor.weight;
+      return sum;
+    },
+    { x: 0, y: 0, weight: 0 }
+  );
+  const hue = Math.round((Math.atan2(vector.y, vector.x) * 180 / Math.PI + 360) % 360);
+  const diversity = Math.min(matches.length, 4);
+  return {
+    hue,
+    saturation: Math.max(44, 64 - diversity * 4),
+    lightness: 42,
+    version: SEMANTIC_COLOR_VERSION
+  };
+}
+
+function applySemanticColor(element, result) {
+  const color = semanticColorFor(result);
+  element.style.setProperty("--card-hue", String(color.hue));
+  element.style.setProperty("--card-saturation", `${color.saturation}%`);
+  element.style.setProperty("--card-lightness", `${color.lightness}%`);
+}
+
+function continuationPrompt(result) {
+  return [
+    "Continue this work from the saved DashGPT Result.",
+    "",
+    `Title: ${result.title}`,
+    `Summary: ${result.summary}`,
+    "",
+    "Decisions:",
+    ...(result.decisions || []).map((item) => `- ${item}`),
+    "",
+    `Next intended action: ${result.next || "Decide the best next step."}`,
+    "",
+    "Do not restart the topic from scratch. Ask only for information that is genuinely missing."
+  ].join("\n");
+}
+
+function continueChatUrl(result) {
+  const url = new URL("https://chatgpt.com/");
+  url.searchParams.set("q", continuationPrompt(result));
+  return url.toString();
+}
+
+function moreMenu(result) {
+  const menu = document.createElement("details");
+  menu.className = "more-menu";
+  const summary = document.createElement("summary");
+  summary.className = "button ghost";
+  summary.textContent = "More";
+  const panel = document.createElement("div");
+  panel.className = "more-menu-panel";
+  const contextButton = document.createElement("button");
+  contextButton.type = "button";
+  contextButton.className = "button ghost";
+  contextButton.textContent = "Context Pack";
+  contextButton.addEventListener("click", () => openContext(result.id));
+  panel.append(contextButton);
+  menu.append(summary, panel);
+  return menu;
+}
+
 function renderDashboard() {
   renderCategoryFilters();
   const visible = filteredResults();
@@ -205,9 +315,15 @@ function renderDashboard() {
 
 function createCard(result) {
   const node = cardTemplate.content.cloneNode(true);
+  const card = node.querySelector(".result-card");
+  applySemanticColor(card, result);
   node.querySelector(".category").textContent = result.category;
   node.querySelector(".title").textContent = result.title;
   node.querySelector(".summary").textContent = result.summary;
+  node.querySelector(".decision-preview").textContent =
+    (result.decisions || [])[0] || "No key decision captured yet.";
+  node.querySelector(".next-preview").textContent =
+    result.next || "No next action captured yet.";
 
   const favoriteButton = node.querySelector(".favorite-button");
   favoriteButton.textContent = result.favorite ? "★" : "☆";
@@ -219,10 +335,8 @@ function createCard(result) {
 
   const pageLink = node.querySelector(".page-link");
   pageLink.href = resultPagePath(result);
-  pageLink.setAttribute("aria-label", `Open permanent page for ${result.title}`);
+  pageLink.setAttribute("aria-label", `Open ${result.title}`);
 
-  node.querySelector(".open-button").addEventListener("click", () => openResult(result.id));
-  node.querySelector(".context-button").addEventListener("click", () => openContext(result.id));
   return node;
 }
 
@@ -325,15 +439,13 @@ function openResult(id) {
   pageLink.className = "button";
   pageLink.href = resultPagePath(result);
   pageLink.textContent = "Open Page";
-  const contextButton = document.createElement("button");
-  contextButton.type = "button";
-  contextButton.className = "button primary";
-  contextButton.textContent = "Generate Context Pack";
-  contextButton.addEventListener("click", () => {
-    resultDialog.close();
-    openContext(id);
-  });
-  actions.append(pageLink, contextButton);
+  const continueLink = document.createElement("a");
+  continueLink.className = "button primary";
+  continueLink.href = continueChatUrl(result);
+  continueLink.target = "_blank";
+  continueLink.rel = "noopener noreferrer";
+  continueLink.textContent = "Continue in new chat";
+  actions.append(pageLink, continueLink, moreMenu(result));
 
   resultDialogContent.append(category, title, badge, summary, details, actions);
   resultDialog.showModal();
@@ -410,6 +522,7 @@ function addResult(formData) {
     favorite: false,
     decisions: [],
     next,
+    semanticColor: semanticColorFor({ title, summary, category, tags, decisions: [], next }),
     immutable: false,
     contentVersion: 1,
     _integrity: "local"
@@ -464,6 +577,7 @@ function renderStandaloneResult(result) {
 
   const article = document.createElement("article");
   article.className = "published-result";
+  applySemanticColor(article, result);
   article.append(paragraph(result.category || "Result", "eyebrow"));
 
   const title = document.createElement("h2");
@@ -500,17 +614,28 @@ function renderStandaloneResult(result) {
 
   const actions = document.createElement("div");
   actions.className = "page-actions";
-  const contextButton = document.createElement("button");
-  contextButton.className = "button primary";
-  contextButton.type = "button";
-  contextButton.textContent = "Generate Context Pack";
-  contextButton.addEventListener("click", () => openContext(result.id));
+  if (result.source?.url) {
+    const sourceLink = document.createElement("a");
+    sourceLink.className = "button";
+    sourceLink.href = result.source.url;
+    sourceLink.target = "_blank";
+    sourceLink.rel = "noopener noreferrer";
+    sourceLink.textContent = result.source.type === "chatgpt-share" ? "Open original chat ↗" : "Open source ↗";
+    actions.append(sourceLink);
+  }
+  const continueLink = document.createElement("a");
+  continueLink.className = "button primary";
+  continueLink.href = continueChatUrl(result);
+  continueLink.target = "_blank";
+  continueLink.rel = "noopener noreferrer";
+  continueLink.textContent = "Continue in new chat";
+  actions.append(continueLink);
   const favoriteButton = document.createElement("button");
   favoriteButton.className = "button";
   favoriteButton.type = "button";
   favoriteButton.textContent = result.favorite ? "★ Favorite" : "☆ Favorite";
   favoriteButton.addEventListener("click", () => toggleFavorite(result.id));
-  actions.append(contextButton, favoriteButton);
+  actions.append(favoriteButton, moreMenu(result));
 
   const immutabilityNote = paragraph(
     result._integrity === "verified"
