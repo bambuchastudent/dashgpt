@@ -1,0 +1,30 @@
+name: F3 shared-chat smoke
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/f3-shared-chat-smoke.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  parse-share:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --ignore-scripts
+      - name: Parse shared ChatGPT conversation
+        env:
+          SHARE_URL: "https://chatgpt.com/share/6a787ebb-dd38-83eb-940a-bd6c77efad95?ogimg=plain"
+        run: |
+          node --input-type=module <<'NODE'
+          import { fetchChatGptShare } from "chatgpt-share-parser";
+          const chat = await fetchChatGptShare(process.env.SHARE_URL);
+          console.log("DASHGPT_SHARED_CHAT_JSON_BEGIN");
+          console.log(JSON.stringify(chat, null, 2));
+          console.log("DASHGPT_SHARED_CHAT_JSON_END");
+          NODE
