@@ -2,7 +2,7 @@ const STORAGE_KEY = "dashgpt.demo.results.v2";
 const LEGACY_STORAGE_KEY = "dashgpt.demo.results.v1";
 const LEGACY_SEED_IDS = new Set(["dashgpt-product", "development-workflow", "deployment"]);
 
-const seedResults = [
+const fallbackResults = [
   {
     id: "dashgpt-first-live-demo",
     title: "DashGPT — от идеи до первой живой демки",
@@ -39,7 +39,7 @@ const seedResults = [
   }
 ];
 
-let results = loadResults();
+let results = [];
 let activeCategory = "All";
 let favoritesOnly = false;
 
@@ -57,29 +57,65 @@ const resultsGrid = document.querySelector("#resultsGrid"),
   addDialog = document.querySelector("#addDialog"),
   addResultForm = document.querySelector("#addResultForm");
 
-function mergeSeeds(existing = []) {
-  const merged = new Map(seedResults.map((result) => [result.id, structuredClone(result)]));
-  existing.forEach((result) => {
-    if (!merged.has(result.id)) merged.set(result.id, result);
-  });
-  return [...merged.values()];
+function validResult(result) {
+  return Boolean(
+    result &&
+      typeof result.id === "string" &&
+      typeof result.title === "string" &&
+      typeof result.summary === "string"
+  );
 }
 
-function loadResults() {
+async function loadPublishedResults() {
+  try {
+    const response = await fetch("./data/results.json", { cache: "no-store" });
+    if (!response.ok) throw new Error(`Published Result catalog returned ${response.status}`);
+    const parsed = await response.json();
+    return Array.isArray(parsed) ? parsed.filter(validResult) : [];
+  } catch (error) {
+    console.warn("DashGPT: published Result catalog unavailable, using fallback data.", error);
+    return [];
+  }
+}
+
+function loadLocalResults() {
   try {
     const current = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (Array.isArray(current) && current.length) return mergeSeeds(current);
+    if (Array.isArray(current)) return current.filter(validResult);
 
     const legacy = JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY));
-    const userCreated = Array.isArray(legacy)
-      ? legacy.filter((result) => !LEGACY_SEED_IDS.has(result.id))
+    return Array.isArray(legacy)
+      ? legacy.filter((result) => validResult(result) && !LEGACY_SEED_IDS.has(result.id))
       : [];
-    const migrated = mergeSeeds(userCreated);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
-    return migrated;
   } catch {
-    return structuredClone(seedResults);
+    return [];
   }
+}
+
+function mergePublishedAndLocal(published, local) {
+  const localById = new Map(local.map((result) => [result.id, result]));
+  const merged = new Map();
+
+  published.forEach((publishedResult) => {
+    const localResult = localById.get(publishedResult.id);
+    const favorite =
+      localResult && typeof localResult.favorite === "boolean"
+        ? localResult.favorite
+        : Boolean(publishedResult.favorite);
+
+    merged.set(publishedResult.id, {
+      ...structuredClone(publishedResult),
+      favorite
+    });
+  });
+
+  local.forEach((localResult) => {
+    if (!merged.has(localResult.id) && !LEGACY_SEED_IDS.has(localResult.id)) {
+      merged.set(localResult.id, localResult);
+    }
+  });
+
+  return [...merged.values()];
 }
 
 function saveResults() {
@@ -123,7 +159,8 @@ function filteredResults() {
       result.category,
       ...(result.tags || []),
       ...(result.decisions || []),
-      result.next
+      result.next,
+      result.source?.url
     ]
       .filter(Boolean)
       .join(" ")
@@ -175,6 +212,23 @@ function toggleFavorite(id) {
   render();
 }
 
+function sourceBlock(source) {
+  const block = document.createElement("div");
+  block.className = "detail-block";
+
+  const strong = document.createElement("strong");
+  strong.textContent = "Source";
+
+  const link = document.createElement("a");
+  link.href = source.url;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.textContent = source.type === "chatgpt-share" ? "Open source chat ↗" : "Open source ↗";
+
+  block.append(strong, link);
+  return block;
+}
+
 function openResult(id) {
   const result = results.find((item) => item.id === id);
   if (!result) return;
@@ -193,8 +247,11 @@ function openResult(id) {
 
   const details = document.createElement("div");
   details.className = "detail-grid";
-  details.appendChild(detailBlock("Decisions", (result.decisions || []).join(" • ") || "No decisions captured yet."));
+  details.appendChild(
+    detailBlock("Decisions", (result.decisions || []).join(" • ") || "No decisions captured yet.")
+  );
   details.appendChild(detailBlock("Next", result.next || "No next step captured yet."));
+  if (result.source?.url) details.appendChild(sourceBlock(result.source));
 
   const contextButton = document.createElement("button");
   contextButton.className = "button primary";
@@ -221,7 +278,7 @@ function detailBlock(label, value) {
 
 function makeContextPack(result) {
   return [
-    "# DashGPT Context Pack v0.1",
+    "# DashGPT Context Pack v0.2",
     "",
     `TITLE: ${result.title}`,
     `CATEGORY: ${result.category}`,
@@ -234,6 +291,9 @@ function makeContextPack(result) {
     "",
     "TAGS:",
     (result.tags || []).map((tag) => `#${tag}`).join(" ") || "none",
+    "",
+    "SOURCE:",
+    result.source?.url || "Not captured.",
     "",
     "NEXT INTENDED ACTION:",
     result.next || "Not captured.",
@@ -290,6 +350,15 @@ function addResult(formData) {
   render();
 }
 
+async function bootstrap() {
+  const local = loadLocalResults();
+  const published = await loadPublishedResults();
+  const canonical = published.length ? published : fallbackResults;
+  results = mergePublishedAndLocal(canonical, local);
+  saveResults();
+  render();
+}
+
 searchInput.addEventListener("input", render);
 document.querySelector("#showFavoritesButton").addEventListener("click", () => {
   favoritesOnly = true;
@@ -309,4 +378,4 @@ addResultForm.addEventListener("submit", (event) => {
   addDialog.close();
 });
 
-render();
+bootstrap();
