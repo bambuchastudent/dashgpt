@@ -1,0 +1,21 @@
+name: Immutable Results
+
+on:
+  pull_request:
+    paths:
+      - "demo/data/results.json"
+      - "scripts/check-immutable-results.mjs"
+      - ".github/workflows/immutable-results.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check immutable published content
+        run: node scripts/check-immutable-results.mjs "origin/${{ github.base_ref }}"
