@@ -89,32 +89,62 @@ Keep these concerns separate:
 - `docs/development-summary.md` = HOW the team/agents build it.
 - `docs/roadmap.md` = milestone ordering and current delivery intent.
 - OpenSpec changes/specs = detailed scoped work.
-- ADRs (when introduced) = durable architectural decisions and their rationale.
+- ADRs = durable architectural decisions and their rationale.
+
+## Published page implementation
+
+Standalone Result pages use one shared client-side renderer rather than copied per-Result HTML.
+
+- Cloudflare Workers Static Assets serves the SPA shell for Result routes.
+- Dashboard and Result pages share the same `index.html`, JavaScript and CSS.
+- Published knowledge stays in the canonical Result catalog, separate from presentation code.
+- `immutable: true` plus `contentVersion` marks locked published content.
+- `scripts/check-immutable-results.mjs` and CI reject in-place changes to locked content after it reaches the base branch.
+- Corrections should become new revisions rather than edits to old immutable Results.
+
+The durable architecture rationale is recorded in `docs/adr/0001-shared-renderer-immutable-results.md`.
+
+## ChatGPT plugin implementation
+
+The plugin package lives under `plugins/dashgpt/` and uses the stable manifest identifier `dashgpt`.
+
+The current MVP integration boundary is a read-only MCP endpoint exposed by each DashGPT deployment at `/mcp`. Initial tools are intentionally small:
+
+- `list_results`
+- `get_result`
+- `get_context_pack`
+
+This lets the same repository build produce both a human web surface and an agent-readable surface without putting ChatGPT-specific fields into the Result model.
+
+The repository manifest establishes plugin identity and skill behavior. ChatGPT MCP connection wiring (`.app.json`) is added only after the deployed MCP endpoint has been registered in ChatGPT developer mode and a real `plugin_asdk_app...` connection id exists; do not invent that id in source control.
 
 ## Current development state
 
-Status: **M1 merged; Feature 2 shared-chat publishing MVP in progress**.
+Status: **Feature 2 merged; Feature 3 immutable pages + DashGPT ChatGPT plugin MVP in progress**.
 
 Completed:
 
 - repository bootstrap and durable product/development summaries
 - M1 local-first Result → dashboard → Context Pack vertical slice
-- mobile-responsive static demo
-- Cloudflare Workers static deployment
-- project-level Cloudflare MCP configuration for supported agent clients
-- first real seeded Results used to validate the information model
+- Feature 2 shared-chat → published Result ingestion
+- mobile-responsive Cloudflare Workers demo under `/demo/`
+- Git-backed published Result catalog with source provenance
+- real ChatGPT shared-chat Results used to validate the flow
 
 Active change:
 
-- `openspec/changes/f2-shared-chat-publish/`
-- branch: `feature/m2-shared-chat-publish`
-- goal: allow an external assistant to turn a public shared-chat URL into a published DashGPT Result without introducing a mandatory model API
-- MVP publication storage: Git-backed `demo/data/results.json`
-- browser-local Results remain supported and are merged with published Results
+- branch: `feature/m3-immutable-pages-chatgpt-plugin`
+- shared `/demo/result/<id>/` renderer
+- explicit immutable published content with CI guard
+- sanitized Result from the second shared conversation
+- read-only `/mcp` endpoint
+- `plugins/dashgpt/.codex-plugin/plugin.json` and plugin skill
 
 Next verification:
 
-- publish one real user-provided ChatGPT shared link end-to-end
-- confirm the new card appears after Cloudflare deployment without clearing local storage
-- confirm source provenance and Context Pack output
-- then merge the Feature 2 change into `develop`
+- run repository syntax/immutability checks
+- verify the Cloudflare branch preview renders the dashboard and standalone Result page
+- verify `/mcp` discovery/tool calls
+- register the MCP endpoint in ChatGPT developer mode as **DashGPT**
+- add the real registered connection id to plugin packaging
+- repeat the connection against a second DashGPT instance to satisfy the MVP friend/demo-user test
