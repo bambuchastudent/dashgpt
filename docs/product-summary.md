@@ -72,6 +72,7 @@ The dashboard should provide:
 - recent/active items
 - search
 - related Results
+- semantic heat-map coloring: each Result stores a blended color derived from the meaning of its category and content when the Result is created or revised
 - image previews
 - automatically generated topic/category summaries
 - active and completed topics/projects
@@ -81,9 +82,9 @@ The dashboard should provide:
 A Result should support actions equivalent to:
 
 - continue the original chat when a source conversation link is available
-- start a new chat with generated context
-- send/export context to another agent
-- inspect/copy the Context Pack
+- start a new chat with the Result summary and captured decisions as the primary continuation action
+- send/export context to another agent from a secondary overflow menu
+- inspect/copy the Context Pack from the same secondary menu rather than presenting it as the main card action
 - share a deliberately selected item when supported
 
 ### Shared-chat publishing MVP
