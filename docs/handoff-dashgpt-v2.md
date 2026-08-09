@@ -1,12 +1,11 @@
-# DashGPT v2 — handoff for the next chat / agent
+# DashGPT v2 — handoff for next chat / agent
 
-> Interim continuity handoff created on 2026-08-09 while Feature 4 is waiting on OpenAI publisher identity verification. This file is **not** a declaration that the MVP is complete.
+> Interim continuity handoff created on 2026-08-09 while Feature 4 is blocked on OpenAI publisher identity verification. This is **not** an MVP-complete release note.
 
-## 0. Start here
+## Start here
 
-Repository: `bambuchastudent/dashgpt`
-
-Working branch for normal product state: `develop`
+Repository: `bambuchastudent/dashgpt`  
+Primary branch/source of truth: `develop`
 
 Live production:
 
@@ -15,197 +14,157 @@ Live production:
 - Universal MCP: `https://dashgpt.dimkashir.workers.dev/mcp`
 - DashGPT discovery: `https://dashgpt.dimkashir.workers.dev/.well-known/dashgpt.json`
 
-Current chat share URL: **PENDING**. The assistant cannot read the browser URL for the current private ChatGPT conversation. If continuity through the original chat is desired, paste `Share → Copy link` here later.
+Current chat share URL: `https://chatgpt.com/share/6a78a99f-bff4-83eb-80ce-e51389a70861`
 
-### Instruction to the next agent
+### Required reading order for the next agent
 
-1. Read this file.
-2. Read `DASH.md` for operational state.
-3. Read `docs/product-summary.md` for **WHAT** DashGPT is.
-4. Read `docs/development-summary.md` for **HOW** DashGPT is built.
-5. Read the active OpenSpec change:
-   - `openspec/changes/f4-plugin-directory-submission/proposal.md`
-   - `openspec/changes/f4-plugin-directory-submission/spec.md`
-   - `openspec/changes/f4-plugin-directory-submission/tasks.md`
-6. Read `plugins/dashgpt/SUBMISSION.md` before touching the OpenAI submission flow.
-7. Do not redesign the product, archive Feature 4, or declare MVP complete until the second-user acceptance test passes.
+1. `docs/handoff-dashgpt-v2.md`
+2. `DASH.md`
+3. `docs/product-summary.md` — **WHAT** we build
+4. `docs/development-summary.md` — **HOW** we build
+5. `openspec/changes/f4-plugin-directory-submission/proposal.md`
+6. `openspec/changes/f4-plugin-directory-submission/spec.md`
+7. `openspec/changes/f4-plugin-directory-submission/tasks.md`
+8. `plugins/dashgpt/SUBMISSION.md`
+
+Do not redesign Feature 4, archive it, or declare MVP complete before the second-user acceptance test passes.
 
 ---
 
-# 1. PRODUCT SUMMARY — WHAT WE BUILD
+# PRODUCT SUMMARY — WHAT WE BUILD
 
-DashGPT is a private, result-first personal dashboard for useful AI outcomes and portable context between chats/agents.
+DashGPT is a private, result-first dashboard for useful AI outcomes and portable context between chats/agents.
 
-Core idea:
+Core principles:
 
-- **Result-first, not chat-first.** Raw conversation is a source, not the main durable object.
-- A saved Result must contain enough distilled context that a human or another agent can continue without rereading the original chat.
-- ChatGPT is an important client, but not the system of record.
-- User-owned context, provider-neutral core, open exports, local-first/cloud-optional.
-- Mobile should explain the current state concisely; laptop can expose deeper structure.
+- **Result-first, not chat-first.** Raw chat is a source, not the durable primary object.
+- A saved Result must preserve enough distilled context to continue without rereading the original conversation.
+- ChatGPT is an important client, not the system of record.
+- Provider-neutral core, user-owned context, open exports, local-first/cloud-optional.
+- Phone UX should explain state concisely; laptop UX can expose deeper structure.
 
-Primary entities:
+Primary objects:
 
-- **Result** — title, summary, category/tags, decisions, next step, source/provenance, immutable content metadata, related assets/context.
-- **Context Pack** — portable continuation context for another chat or agent.
+- **Result** — title, summary, category/tags, decisions, next action, source/provenance, immutable content metadata.
+- **Context Pack** — portable continuation context.
 - **Project** — structured project state/results/decisions/specs.
-- **Source** — ChatGPT shared chat, URL, repo, file, image, etc.
-- **Asset** — image/file attached to durable knowledge.
+- **Source** — ChatGPT share, URL, repo, file, image, etc.
+- **Asset** — attached image/file.
 
-Dashboard behavior already demonstrated:
+Already demonstrated:
 
-- categories/tags/search/favorites;
-- Result detail pages;
+- search/categories/tags/favorites;
+- Result details and standalone Result pages;
 - Context Pack generation;
-- mobile project-status view;
-- Result pages can visually evolve without mutating old knowledge content.
+- mobile project status;
+- shared renderer so presentation can evolve without mutating old knowledge.
 
-Important UX note from user feedback:
+UX note from user feedback:
 
-- current UI is convenient but visually rough;
+- current interface is convenient but visually rough;
 - do not over-polish prematurely;
-- visual language, card design, mobile navigation and hierarchy remain a later product-design task.
+- visual language, cards, mobile navigation and hierarchy remain later work.
 
-MVP acceptance criterion is stronger than “works on developer account”:
+## MVP acceptance criterion
 
-> Another person must be able to install/connect the public **DashGPT** plugin, point it at that person's own compatible DashGPT site, read their Results, obtain a Context Pack, and explicitly save/import a new Result into their own DashGPT.
+MVP is **not** complete when it works only for the developer.
 
-Only after that is the MVP complete.
+Another person must be able to:
+
+1. install/connect public **DashGPT**;
+2. point it at that person's own compatible DashGPT site;
+3. list/read their Results;
+4. get a Context Pack;
+5. explicitly save/import a new Result into their own DashGPT.
+
+Only then call MVP complete.
 
 ---
 
-# 2. DEVELOPMENT SUMMARY — HOW WE BUILD
+# DEVELOPMENT SUMMARY — HOW WE BUILD
 
-Development is spec-driven and repository-centered.
-
-Rules:
-
+- Spec-driven development.
 - Git/repo = durable project memory.
 - OpenSpec = current change/spec/task lifecycle.
 - Agents are replaceable; project state is not.
-- Keep `AGENTS.md` short; detailed workflow belongs in specs/skills.
-- Use strong models for architecture/spec review/hard debugging; cheaper/local models are acceptable for mechanical implementation when quality is sufficient.
-- Ground changes against repo/code/tests, not chat memory.
-- Explicit handoffs are required.
+- Keep `AGENTS.md` short; detailed workflow lives in specs/skills.
+- Strong models for architecture/spec review/hard debugging; cheaper/local models acceptable for mechanical execution when sufficient.
+- Ground changes against repo/code/tests, never hidden chat memory alone.
+- Explicit handoffs required.
 
 Tooling direction:
 
 - OpenSpec: required baseline.
 - Git/tests/CI: objective verification.
 - Serena: optional preferred symbol-aware navigation/editing.
-- Graphify/CodeGraphContext: optional structural context reduction when repo size justifies it.
-- Beads: optional later if multi-agent task dependencies outgrow OpenSpec tasks.
-- Agent Skills: portable workflow layer across providers.
+- Graphify/CodeGraphContext: optional structural context reduction.
+- Beads: optional later if task dependencies outgrow OpenSpec.
+- Agent Skills: portable workflows across providers.
 
-Documentation separation must remain strict:
+Documentation separation:
 
-- `docs/product-summary.md` = WHAT.
-- `docs/development-summary.md` = HOW.
-- `docs/roadmap.md` = milestone ordering.
-- OpenSpec = scoped active change.
-- ADRs = durable architecture rationale.
-- `DASH.md` = short operational NOW / DONE / NEXT / BLOCKERS.
+- `docs/product-summary.md` = WHAT
+- `docs/development-summary.md` = HOW
+- `docs/roadmap.md` = milestone ordering
+- OpenSpec = scoped active change
+- ADRs = durable architecture rationale
+- `DASH.md` = operational NOW / DONE / NEXT / BLOCKERS
 
 ---
 
-# 3. WHAT HAS BEEN BUILT
+# BUILT SO FAR
 
-## M0 / bootstrap
+## M0 / M1
 
-- private GitHub repo created;
-- durable product/development summaries;
-- roadmap and agent instructions;
-- Cloudflare Workers Git deployment wired to `develop` for production.
+- repo/bootstrap and durable product/development summaries;
+- Cloudflare Workers deployment from `develop`;
+- local-first Result vertical slice with create/persist/browse/search/favorite/details/Context Pack.
 
-## M1 — local-first Result vertical slice
+## Feature 2 — shared ChatGPT link → Result
 
-Working demo supports:
+Public ChatGPT share URLs can be fetched server-side and converted to durable Results. Real examples include DashGPT context, cold soups, chicken Kyiv, and camping/fishing.
 
-- create Result;
-- browser-local persistence;
-- browse/search/filter;
-- favorite;
-- details;
-- generate/copy Context Pack.
+Shared-chat parsing runs in the Worker because dynamic `chatgpt.com/share` pages were unreliable to fetch directly.
 
-## Feature 2 — shared ChatGPT link → published Result
-
-A public ChatGPT share URL can be fetched server-side and turned into a durable published Result.
-
-Real examples were added, including:
-
-- DashGPT project-summary Result;
-- cold soups Result;
-- chicken Kyiv Result from a shared ChatGPT conversation;
-- camping/fishing Result from another shared conversation.
-
-The shared-chat reader was moved into the Worker because direct browser/tool fetching of dynamic `chatgpt.com/share` pages was unreliable.
-
-## Feature 3 — immutable Result pages + shared renderer + MCP foundation
+## Feature 3 — immutable pages + MCP foundation
 
 Implemented:
 
-- stable Result pages: `/demo/result/<id>/`;
-- one shared renderer for old/new Result pages;
-- presentation changes update old pages without mutating their content;
-- immutable Result metadata:
-  - `schemaVersion`
-  - `immutable`
-  - `contentVersion`
-  - `contentHash`
-- deterministic SHA-256 verification in CI and browser;
-- old immutable Results must be revised by creating a new revision, not silently edited;
-- MCP endpoint at `/mcp` using the official MCP SDK / Cloudflare Agents MCP handler;
-- plugin identity reserved as `dashgpt` / **DashGPT**;
-- privacy/terms/support surfaces;
-- OpenAI domain-verification challenge endpoint.
+- stable `/demo/result/<id>/` pages;
+- shared renderer for old/new Results;
+- `schemaVersion`, `immutable`, `contentVersion`, `contentHash`;
+- SHA-256 verification in CI and browser;
+- corrections create new revisions rather than silently mutating old content;
+- MCP endpoint `/mcp` via official MCP SDK / Cloudflare Agents;
+- stable identity `dashgpt` / **DashGPT**;
+- privacy/terms/support pages;
+- OpenAI domain challenge endpoint.
 
-Architecture rationale is in:
-
-- `docs/adr/0001-shared-renderer-immutable-results.md`
+ADR: `docs/adr/0001-shared-renderer-immutable-results.md`
 
 ## Mobile DASH
 
-Operational project state is visible at:
-
-`https://dashgpt.dimkashir.workers.dev/demo/dash/`
-
-Source of truth:
-
-- `DASH.md`
-
-Mobile mirror:
-
-- `demo/data/dash.json`
-
-Sync checker:
-
-- `scripts/sync-dash.mjs`
-
-CI rejects drift between `DASH.md` and the phone mirror.
+- Live: `https://dashgpt.dimkashir.workers.dev/demo/dash/`
+- Source: `DASH.md`
+- Mirror: `demo/data/dash.json`
+- Sync checker: `scripts/sync-dash.mjs`
+- CI rejects drift.
 
 ---
 
-# 4. FEATURE 4 — PUBLIC DASHGPT PLUGIN
+# FEATURE 4 — PUBLIC DASHGPT PLUGIN
 
-Feature 4 implementation is merged into `develop`.
+Implementation PR #9 (`Feature 4: public DashGPT plugin + universal instance gateway`) is merged into `develop`. Old PR #7 was superseded and closed.
 
-Previous stale PR #7 was superseded and closed.
+## Architecture
 
-Final implementation PR:
-
-- PR #9 — `Feature 4: public DashGPT plugin + universal instance gateway`
-- merged into `develop` after checks passed.
-
-## Key architecture
-
-Public plugin uses **one Universal MCP endpoint**:
+Public plugin uses one fixed **Universal MCP** endpoint:
 
 `https://dashgpt.dimkashir.workers.dev/mcp`
 
-It must not be hard-coded to developer data.
+It is not hard-coded to developer data.
 
-Read/context MCP tools accept optional `siteUrl`, allowing the same public plugin to operate against another compatible DashGPT site.
+Read/context tools accept optional `siteUrl`, allowing the same public plugin to operate against another compatible DashGPT site.
 
 DashGPT instance protocol v1:
 
@@ -214,240 +173,240 @@ DashGPT instance protocol v1:
 - `GET /api/dashgpt/results/<id>`
 - `GET /api/dashgpt/context/<id>`
 
-Remote site requirements:
+Remote sites must use HTTPS and expose a compatible DashGPT discovery manifest.
 
-- HTTPS;
-- compatible DashGPT discovery manifest;
-- public protocol endpoints above.
-
-Current MCP tools:
+MCP tools:
 
 - `list_results`
 - `get_result`
 - `get_context_pack`
 - `prepare_result_import`
 
-`prepare_result_import` does **not** silently write external state. It creates an immutable payload + explicit `/demo/#import=...` link that the user opens to import into the selected DashGPT site.
+`prepare_result_import` is intentionally non-mutating: it creates an immutable payload + explicit `/demo/#import=...` URL. The user opens that link to import. No authenticated DB write API is required for MVP.
 
-This explicit import is intentionally the MVP write path; no auth/database write API is required yet.
+## Submission packet
 
-## Submission package
+Source: `plugins/dashgpt/SUBMISSION.md`
 
-Primary runbook:
+Current metadata:
 
-- `plugins/dashgpt/SUBMISSION.md`
+- Public name: **DashGPT**
+- Stable id: `dashgpt`
+- Version: `0.3.0`
+- Category: Productivity
+- Type: With MCP + bundled skill
+- MCP URL type: Universal
+- MCP URL: `https://dashgpt.dimkashir.workers.dev/mcp`
+- Authentication: None
+- Embedded MCP UI: none
 
-Package metadata:
+Packet already includes listing copy, site/support/privacy/terms URLs, logo source, starter prompts, 5 positive tests, 3 negative tests, tool annotations, domain verification instructions, release notes and portal runbook.
 
-- `plugins/dashgpt/.codex-plugin/plugin.json`
-- current package/plugin version: `0.3.0`
-- public name: **DashGPT**
-- stable id: `dashgpt`
-- category: Productivity
-- authentication for current MVP submission: None
-- no embedded MCP UI component in this version
-
-Submission packet already contains:
-
-- listing copy;
-- website/support/privacy/terms URLs;
-- logo asset reference;
-- starter prompts;
-- 5 positive reviewer tests;
-- 3 negative reviewer tests;
-- tool annotation expectations;
-- domain-verification instructions;
-- release notes;
-- portal runbook.
-
-Availability regions remain intentionally `TBD at submission time` until publisher/support/legal readiness is reviewed.
+Availability regions remain `TBD at submission time`.
 
 ---
 
-# 5. OPENSPEC STATUS — VERIFIED CURRENT
+# OPENSPEC STATUS — VERIFIED CURRENT
 
 Active change:
 
 `openspec/changes/f4-plugin-directory-submission/`
 
-Files verified immediately before this handoff:
+Current files verified:
 
-- `proposal.md` — current public-plugin goal and second-user MVP criterion.
-- `spec.md` — Universal MCP architecture, instance protocol, tool behavior, privacy/safety, submission and acceptance requirements.
-- `tasks.md` — current implementation/manual checklist.
+- `proposal.md` — public-plugin goal and second-user MVP criterion.
+- `spec.md` — Universal MCP, instance protocol, tool behavior, privacy/safety, submission and acceptance.
+- `tasks.md` — exact current implementation/manual checklist.
 
-OpenSpec is **not archived** because Feature 4 is not complete.
+Feature 4 OpenSpec is **not archived** because submission/review/second-user acceptance remain incomplete.
 
 ## Completed OpenSpec tasks
 
-All technical implementation work is checked off, including:
+Technical tasks are checked off:
 
 - public plugin requirements audit;
 - correct OpenAI Platform submission path;
-- Universal MCP choice;
-- instance protocol and second-user criteria;
+- Universal MCP decision;
+- instance protocol + second-user acceptance criteria;
 - instance-neutral `siteUrl` routing;
-- discovery/result/context public endpoints;
+- public discovery/result/context endpoints;
 - MCP annotations;
 - local + remote smoke tests;
 - support/privacy updates;
-- plugin metadata/brand asset;
+- plugin metadata + brand asset;
 - full submission packet;
-- Cloudflare preview + production-shaped MCP smoke verification;
+- preview + production-shaped MCP smoke verification;
 - merge into `develop`;
-- OpenAI publisher permission check;
-- interim DashGPT v2 continuity handoff.
+- publisher permission check;
+- interim DashGPT v2 handoff.
 
-OpenAI publisher permission is closed because the submitting account is confirmed as **Organization Owner**, which satisfies Apps Management write access.
+Publisher permission is complete because the submitting account is confirmed **Organization Owner**, satisfying Apps Management write access.
 
-## Remaining OpenSpec tasks
+## Remaining OpenSpec tasks / exact next steps
 
-1. **Publisher identity verification**
-   - current state: `Individual — Identity in review`;
-   - observed Platform behavior on 2026-08-09: `Create plugin → With MCP` redirects back to Organization verification and creates no draft while identity is in review;
-   - do not restart verification while it remains in review.
+### 1. Publisher identity verification
 
-2. **After identity becomes Verified**
-   - OpenAI Platform → Plugins;
-   - Create plugin;
-   - With MCP;
-   - Universal;
-   - MCP URL: `https://dashgpt.dimkashir.workers.dev/mcp`;
-   - Authentication: None.
+Current state: **Individual — Identity in review**.
 
-3. **Domain verification**
-   - portal will provide a challenge token;
-   - set Cloudflare Worker environment/secret `OPENAI_APPS_CHALLENGE` to exactly that token;
-   - Worker already exposes `/.well-known/openai-apps-challenge` and returns the configured token;
-   - complete verification in the portal.
+Observed on 2026-08-09:
 
-4. **Scan Tools**
-   - verify four tool names/schemas/annotations against `SUBMISSION.md`.
+`Create plugin → With MCP` redirects to Organization verification and creates no draft while identity is in review.
 
-5. **Fill the submission**
-   - listing copy;
-   - verified Developer Identity;
-   - starter prompts;
-   - 5 positive tests;
-   - 3 negative tests;
-   - availability regions;
-   - release notes;
-   - required attestations.
+Do not restart verification while it remains in review.
 
-6. **Submit for OpenAI review.**
+### 2. When identity becomes Verified
 
-7. **After approval, publish** DashGPT to the universal Plugins Directory.
+OpenAI Platform:
 
-8. **Second-user MVP test**
-   - use another ChatGPT account/person;
-   - use a separate compatible DashGPT instance;
-   - install/connect public DashGPT;
-   - prove list/read on that person's Results;
-   - prove Context Pack retrieval;
-   - prove explicit save/import to that person's site.
+1. Plugins
+2. Create plugin
+3. With MCP
+4. Universal
+5. MCP URL: `https://dashgpt.dimkashir.workers.dev/mcp`
+6. Authentication: None
 
-9. Only after step 8:
-   - mark MVP complete;
-   - archive/sync Feature 4 OpenSpec as appropriate;
-   - produce final completion/release handoff.
+### 3. Domain verification
+
+Portal provides a challenge token.
+
+Set Cloudflare Worker secret/env:
+
+`OPENAI_APPS_CHALLENGE=<exact portal token>`
+
+Worker already exposes:
+
+`/.well-known/openai-apps-challenge`
+
+### 4. Scan Tools
+
+Verify all four tool names/schemas/annotations against `plugins/dashgpt/SUBMISSION.md`.
+
+### 5. Fill submission
+
+Use prepared packet for:
+
+- listing;
+- verified Developer Identity;
+- starter prompts;
+- 5 positive tests;
+- 3 negative tests;
+- availability regions;
+- release notes;
+- attestations.
+
+### 6. Submit for OpenAI review
+
+Record submission state in OpenSpec + DASH.
+
+### 7. After approval
+
+Publish DashGPT to the universal Plugins Directory.
+
+### 8. Second-user MVP acceptance
+
+Use another person/account and a separate compatible DashGPT instance.
+
+Prove:
+
+- list/read their Results;
+- Context Pack retrieval;
+- explicit save/import into their site.
+
+### 9. Only after acceptance
+
+- mark MVP complete;
+- archive/sync Feature 4 OpenSpec as appropriate;
+- produce final completion/release handoff.
 
 ---
 
-# 6. CURRENT EXTERNAL BLOCKER
+# CURRENT EXTERNAL BLOCKER
 
 As of 2026-08-09 18:16 (+02:00):
 
-- OpenAI Platform organization role: **Owner** — permission requirement satisfied.
+- OpenAI Platform role: **Organization Owner** — permission gate satisfied.
 - Individual publisher verification: **Identity in review**.
-- Clicking `Create plugin → With MCP` currently redirects back to Organization verification and does not create a draft.
+- Plugin draft creation is blocked by that verification in the observed UI.
 
-Therefore **no productive manual submission action is available until identity becomes Verified**.
+Therefore there is currently **no productive manual submission step** until identity becomes Verified.
 
-Do not ask the user to re-run identity verification or create special roles.
-
-When status becomes `Verified`, continue directly with the submission steps in section 5.
+Do not ask the user to create roles or restart verification.
 
 ---
 
-# 7. CLOUD / DEPLOYMENT STATE
+# DEPLOYMENT STATE / RULES
 
-Cloudflare Worker/project: `dashgpt`
-
+Cloudflare Worker/project: `dashgpt`  
 Production branch: `develop`
 
-Stable user-facing route:
+Normal user entry:
 
 `https://dashgpt.dimkashir.workers.dev/demo/`
 
-Rule established by user:
+User rule:
 
-- latest working product is always at `/demo/`;
-- if historical snapshots are ever needed, use `/demo/v1/`, `/demo/v2/`, etc.;
-- do not make the user open long feature-branch preview domains for normal use.
+- latest working product always at `/demo/`;
+- historical snapshots only if useful: `/demo/v1/`, `/demo/v2/`, ...;
+- do not make the user open long feature-preview domains for normal use.
 
-Cloudflare previews are still useful internally for CI/review but should not be the normal user entry point.
+Develop head at handoff completion: `b77198787a9af2b97dc3e227a6118a2ed62fbf84`.
 
-Production checks and Cloudflare deploy were green after Feature 4 merge.
+Latest checks after handoff update:
+
+- GitHub quality check: **success**
+- Cloudflare Workers build/deploy: **success**
 
 ---
 
-# 8. IMPORTANT PRODUCT / PROCESS DECISIONS
+# IMPORTANT DECISIONS / DO NOT REGRESS
 
-- Do not couple the domain model to ChatGPT, Cloudflare or GitHub.
-- Public plugin must work against another person's instance, not only developer demo data.
-- Published knowledge content is immutable; renderer/UI can evolve globally.
-- Result content hash covers durable knowledge fields, not presentation/local UI state.
-- Corrections create new revisions instead of mutating old immutable Results.
+- Do not couple product domain to ChatGPT, Cloudflare, or GitHub.
+- Public plugin must work against another person's instance.
+- Published knowledge is immutable; renderer/UI can evolve globally.
+- Corrections create revisions rather than mutating immutable Results.
 - Save/import remains explicit in MVP.
 - No mandatory paid LLM API for the core product.
-- Public/self-hosted Git/storage provider should remain replaceable.
 - Keep PRODUCT SUMMARY and DEVELOPMENT SUMMARY separate.
-- Keep DASH operational and short.
-- Keep OpenSpec current as implementation/manual status changes.
-- User prefers action-first workflow: progress independently until a genuinely external manual step is required, then ask only for that step.
+- Keep DASH short and operational.
+- Keep OpenSpec current after every meaningful state change.
+- Action-first workflow: progress independently until a real external/manual hinge appears, then ask only for that step.
 
----
+Do not:
 
-# 9. WHAT NOT TO DO NEXT
-
-Do **not**:
-
-- create a new Feature 4 architecture;
-- replace Universal MCP with per-user/template MCP URLs without new evidence;
-- hard-code developer Result data into the public plugin;
+- redesign Feature 4 without new evidence;
+- replace Universal MCP with per-user/template URLs casually;
+- hard-code developer data;
 - invent a ChatGPT connection/app id;
-- archive Feature 4 while identity/review/second-user tasks remain;
-- declare MVP finished just because the production MCP works;
-- ask the user to create roles — Owner permission is already confirmed;
-- ask the user to restart Individual verification while it says `Identity in review`;
-- mutate already published immutable Result content for visual changes.
+- archive Feature 4 while review/second-user tasks remain;
+- declare MVP done because MCP works;
+- restart identity verification while it is in review;
+- mutate old immutable Result content for visual changes.
 
 ---
 
-# 10. NEXT CHAT — FIRST MESSAGE / EXECUTION PLAN
+# NEXT CHAT FIRST INSTRUCTION
 
-Recommended next-agent response if identity is still in review:
+If identity is still in review:
 
-> Read `docs/handoff-dashgpt-v2.md`, `DASH.md`, and the Feature 4 OpenSpec. The technical implementation is merged and green. Current external blocker is OpenAI Platform Individual publisher verification (`Identity in review`). Do not redesign or repeat setup steps. Keep DASH/OpenSpec current and resume submission immediately when the user reports `Verified`.
+> Read this handoff, `DASH.md`, and Feature 4 OpenSpec. Technical implementation is merged and green. Current blocker is OpenAI Platform Individual publisher verification (`Identity in review`). Do not redesign or repeat setup. Keep DASH/OpenSpec current and resume submission immediately when the user reports `Verified`.
 
-Recommended next-agent execution once user reports `Verified`:
+When user reports `Verified`:
 
-1. Confirm screenshot/status shows Verified.
-2. Update `DASH.md`, `demo/data/dash.json`, and Feature 4 `tasks.md` to mark identity verification complete.
-3. Guide user to OpenAI Platform → Plugins → Create plugin → With MCP → Universal.
-4. Use production MCP URL `https://dashgpt.dimkashir.workers.dev/mcp` and Authentication None.
-5. When portal gives domain challenge token, configure `OPENAI_APPS_CHALLENGE` in Cloudflare and verify endpoint.
-6. Scan tools and compare with `plugins/dashgpt/SUBMISSION.md`.
-7. Fill listing/tests/prompts/availability/release notes.
-8. Submit for review and record submission state in DASH + OpenSpec.
-9. After approval, publish and run the second-person acceptance test.
-10. Only then close Feature 4/MVP and prepare the final release handoff.
+1. Confirm screenshot/status.
+2. Update `DASH.md`, `demo/data/dash.json`, and Feature 4 `tasks.md`.
+3. Continue OpenAI Platform plugin creation with Universal MCP.
+4. Handle domain challenge token via `OPENAI_APPS_CHALLENGE`.
+5. Scan tools and fill submission from `SUBMISSION.md`.
+6. Submit for review and record state.
+7. After approval, publish.
+8. Run second-user acceptance.
+9. Only then close Feature 4/MVP.
 
 ---
 
-# 11. SOURCE-OF-TRUTH INDEX
+# SOURCE-OF-TRUTH INDEX
 
-Operational state:
+Operational:
 
 - `DASH.md`
 - `demo/data/dash.json`
@@ -462,7 +421,7 @@ Development:
 - `docs/development-summary.md`
 - `AGENTS.md`
 
-Active Feature 4 OpenSpec:
+OpenSpec:
 
 - `openspec/changes/f4-plugin-directory-submission/proposal.md`
 - `openspec/changes/f4-plugin-directory-submission/spec.md`
@@ -478,7 +437,7 @@ Architecture:
 
 - `docs/adr/0001-shared-renderer-immutable-results.md`
 
-Implementation / verification:
+Implementation/checks:
 
 - `src/index.js`
 - `scripts/smoke.mjs`
@@ -486,12 +445,4 @@ Implementation / verification:
 - `scripts/sync-dash.mjs`
 - `.github/workflows/quality.yml`
 
-Live status on phone:
-
-- `https://dashgpt.dimkashir.workers.dev/demo/dash/`
-
----
-
-## Final continuity rule
-
-If any fact in this handoff conflicts with current `develop`, current OpenSpec, or `DASH.md`, **the repository wins**. Re-read the repo before acting.
+If this handoff conflicts with current `develop`, current OpenSpec, or `DASH.md`, **the repository wins**.
