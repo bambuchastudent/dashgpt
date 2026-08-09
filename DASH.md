@@ -4,11 +4,12 @@ A living project status board. Keep this file short, current, and operational.
 
 ## NOW
 
-**Active:** Feature 4 — submit DashGPT to the ChatGPT Plugins Directory and prove the MVP on a second person's own DashGPT instance.
+**Active:** Feature 4 — make DashGPT submit-ready as a public ChatGPT/Codex plugin and prove the MVP on a second person's own DashGPT instance.
 
-- Branch: `feature/m4-plugin-directory-submission`
-- PR: #7 — `Feature 4: submit DashGPT to Plugins Directory`
-- User action required now: **none**
+- Branch: `feature/m4-plugin-directory-submission-v2`
+- PR: #9 — `Feature 4: public DashGPT plugin + universal instance gateway`
+- Implementation state: Universal MCP gateway + instance protocol + submission packet are in review/CI.
+- User action required now: **none** until production checks pass.
 
 ## DONE
 
@@ -20,32 +21,35 @@ A living project status board. Keep this file short, current, and operational.
 - Shared renderer: presentation updates can improve old Result pages without changing their knowledge content.
 - Published Results support explicit immutability metadata and SHA-256 integrity verification.
 - CI guard rejects silent mutation/removal of immutable published Results.
-- Second real shared-chat Result published from the camping/fishing conversation; sensitive document identifiers excluded.
-- DashGPT MCP surface added at `/mcp`.
-- Current MCP capabilities include listing Results, reading a Result, generating a Context Pack, and preparing an explicit Result import.
-- Stable plugin identity reserved in the repository: `dashgpt` / **DashGPT**.
-- Feature 3 merged into `develop` and deployed successfully.
-- ChatGPT Developer mode was enabled on the test account, but the current UI exposes no custom-app creation flow; therefore the MVP path moved to real Plugins Directory distribution instead of relying on developer-account-only wiring.
-- Mobile project-status view is available at `/demo/dash/`; it mirrors this DASH so DONE / NOW / NEXT / BLOCKERS are readable from a phone.
+- DashGPT MCP surface exists at `/mcp`.
+- Stable plugin identity reserved: `dashgpt` / **DashGPT**.
+- Mobile project-status view is live at `/demo/dash/`.
+- Feature 4 OpenSpec now has proposal + full spec + tracked tasks.
+- Public plugin path corrected: submission is prepared for the OpenAI Platform plugin submission portal, not the missing custom-app button in ChatGPT Settings.
+- Feature 4 uses one Universal MCP endpoint; read/context tools can target a compatible user-selected DashGPT `siteUrl`.
+- DashGPT instance protocol v1 is implemented for public discovery, Result reads and Context Packs.
+- Public support/privacy/terms surfaces and a submission packet with reviewer tests are prepared.
+- Plugin package metadata is at version 0.3.0 with an MVP brand asset.
 
 ## NEXT
 
-1. Audit DashGPT against current OpenAI/ChatGPT plugin submission requirements.
-2. Finish public-facing plugin metadata and remove developer-instance assumptions.
-3. Finalize privacy, terms, support, verification, icons/assets, and directory submission material.
-4. Submit **DashGPT** to the Plugins Directory when the submission surface is available.
-5. Install/connect it from a second ChatGPT account.
-6. Connect that second user to a separate DashGPT instance.
-7. Prove the full MVP loop on that person's data:
-   - ChatGPT can list/read their Results;
-   - ChatGPT can obtain their Context Pack;
-   - ChatGPT can explicitly save/import a useful outcome into their DashGPT.
-8. Only after that call the MVP complete.
+1. Run PR #9 CI and Cloudflare preview; fix any failures.
+2. Verify the production-shaped MCP scan surface and remote-instance routing.
+3. Mark completed OpenSpec tasks and merge Feature 4 implementation into `develop`.
+4. After production deploy, complete the external OpenAI Platform prerequisites:
+   - Apps Management: Write for the submitter;
+   - verified developer or business identity.
+5. Create **DashGPT** in the OpenAI Platform plugin submission portal, scan the production Universal MCP URL, complete domain verification, add listing/prompts/tests, and submit for review.
+6. After approval, publish DashGPT to the universal Plugins Directory.
+7. Install/connect it from a second ChatGPT account against a separate DashGPT instance.
+8. Prove list/read + Context Pack + explicit import/save on that person's data.
+9. Only after that call the MVP complete and produce the `DashGPT v2` handoff.
 
 ## BLOCKERS / EXTERNAL HINGES
 
-- Current personal ChatGPT UI does not expose a custom app creation form even with Developer mode enabled.
-- Plugins Directory submission/approval is an external OpenAI step and may require manual verification or submission from the user later.
+- Public submission requires an OpenAI Platform publisher with Apps Management write access and verified developer/business identity.
+- OpenAI review/approval and final publication are external steps.
+- A second public DashGPT instance/person is required for the final MVP acceptance test.
 - When a concrete manual action becomes necessary, record it here before asking the user to do it.
 
 ## RULES FOR THIS DASH
