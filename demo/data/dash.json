@@ -14,7 +14,8 @@
         "- OpenSpec implementation tasks: **complete**.",
         "- OpenAI Platform submitter role: **Organization Owner** — Apps Management write access satisfied.",
         "- OpenAI Platform individual publisher verification: **Identity in review**.",
-        "- User action required now: **create the DashGPT plugin draft in OpenAI Platform while identity review continues**."
+        "- Observed Platform behavior: **Create plugin → With MCP redirects back to Organization verification while identity is in review; no plugin draft is created yet.**",
+        "- User action required now: **none — wait for Individual identity verification to complete, then retry Create plugin.**"
       ]
     },
     {
@@ -45,11 +46,11 @@
     {
       "title": "NEXT",
       "lines": [
-        "1. Open OpenAI Platform → Plugins and create a **DashGPT** plugin draft.",
-        "2. Choose **With MCP** and **Universal** MCP URL.",
-        "3. Use the production MCP endpoint: `https://dashgpt.dimkashir.workers.dev/mcp`.",
+        "1. Wait for the current Individual publisher identity review to complete; do not restart verification while it is in review.",
+        "2. Retry OpenAI Platform → Plugins → Create plugin → **With MCP** after identity becomes verified.",
+        "3. Create **DashGPT** using **Universal** MCP URL: `https://dashgpt.dimkashir.workers.dev/mcp`.",
         "4. Complete domain verification when the portal provides the challenge token, then Scan Tools.",
-        "5. Wait for Individual publisher identity review to finish; once verified, select it as Developer Identity.",
+        "5. Select the verified Individual identity as Developer Identity.",
         "6. Fill listing, starter prompts, reviewer tests, availability and release notes from `plugins/dashgpt/SUBMISSION.md`.",
         "7. Submit for OpenAI review.",
         "8. After approval, publish DashGPT to the universal Plugins Directory.",
@@ -61,7 +62,7 @@
     {
       "title": "BLOCKERS / EXTERNAL HINGES",
       "lines": [
-        "- OpenAI Platform Individual publisher verification is currently in review; final submission cannot use the identity until verification completes.",
+        "- **Current blocker:** OpenAI Platform Individual publisher verification is in review. The current portal redirects plugin creation back to verification until that review completes.",
         "- OpenAI review/approval and final publication are external steps.",
         "- A second public DashGPT instance/person is required for the final MVP acceptance test.",
         "- When a concrete manual action becomes necessary, record it here before asking the user to do it."
