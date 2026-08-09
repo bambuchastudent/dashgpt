@@ -10,7 +10,7 @@
 - [x] Add browser integrity status to Result pages/cards.
 - [x] Add recent/current Results to the top of the dashboard.
 - [x] Add indexed category mindmap with click-to-filter behavior.
-- [ ] Run repository quality checks in CI.
+- [x] Run repository quality checks in CI.
 - [ ] Verify Cloudflare feature deployment and deep Result route.
 - [ ] Review mobile dashboard/mindmap UX.
 - [ ] Review immutable El Regajo Result page before merge.
