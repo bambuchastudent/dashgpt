@@ -26,6 +26,7 @@ A living project status board. Keep this file short, current, and operational.
 - Stable plugin identity reserved in the repository: `dashgpt` / **DashGPT**.
 - Feature 3 merged into `develop` and deployed successfully.
 - ChatGPT Developer mode was enabled on the test account, but the current UI exposes no custom-app creation flow; therefore the MVP path moved to real Plugins Directory distribution instead of relying on developer-account-only wiring.
+- Mobile project-status view is available at `/demo/dash/`; it mirrors this DASH so DONE / NOW / NEXT / BLOCKERS are readable from a phone.
 
 ## NEXT
 
@@ -51,6 +52,7 @@ A living project status board. Keep this file short, current, and operational.
 
 - Update after every meaningful merge, deployment, architecture decision, blocker, or external manual step.
 - Keep **DONE / NOW / NEXT / BLOCKERS** separate.
+- Keep the phone mirror `demo/data/dash.json` synchronized with this file; CI must reject drift.
 - Do not duplicate product requirements from `docs/product-summary.md` or development process from `docs/development-summary.md`.
 - Prefer links/PR numbers/branches over long narrative history.
 - This file is operational state, not an immutable Result.
