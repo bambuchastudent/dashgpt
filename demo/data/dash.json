@@ -12,8 +12,9 @@
         "- Production GitHub checks: **green**.",
         "- Production Cloudflare Workers deploy: **green**.",
         "- OpenSpec implementation tasks: **complete**.",
+        "- OpenAI Platform submitter role: **Organization Owner** — Apps Management write access satisfied.",
         "- OpenAI Platform individual publisher verification: **Identity in review**.",
-        "- User action required now: **confirm organization role / Apps Management access while identity review completes**."
+        "- User action required now: **create the DashGPT plugin draft in OpenAI Platform while identity review continues**."
       ]
     },
     {
@@ -37,29 +38,30 @@
         "- Public support/privacy/terms surfaces and a submission packet with reviewer tests are prepared.",
         "- Plugin package metadata is version 0.3.0 with an MVP brand asset.",
         "- Deterministic second-instance smoke tests pass.",
-        "- PR #9 merged; production checks and Cloudflare deployment succeeded."
+        "- PR #9 merged; production checks and Cloudflare deployment succeeded.",
+        "- OpenAI Platform publisher access confirmed: submitting account is Organization Owner."
       ]
     },
     {
       "title": "NEXT",
       "lines": [
-        "1. Confirm the OpenAI Platform publishing organization has a submitter with Apps Management write access; organization owners already satisfy this requirement.",
-        "2. Wait for the current Individual publisher identity review to complete; do not restart verification while it is in review.",
-        "3. Create **DashGPT** in the OpenAI Platform plugin submission flow using the production Universal MCP URL.",
-        "4. Complete domain verification using the portal challenge token.",
-        "5. Scan tools and fill listing, starter prompts, reviewer tests, availability and release notes from `plugins/dashgpt/SUBMISSION.md`.",
-        "6. Submit for OpenAI review.",
-        "7. After approval, publish DashGPT to the universal Plugins Directory.",
-        "8. Install/connect it from a second ChatGPT account against a separate DashGPT instance.",
-        "9. Prove list/read + Context Pack + explicit import/save on that person's data.",
-        "10. Only after that call the MVP complete and produce the `DashGPT v2` handoff."
+        "1. Open OpenAI Platform → Plugins and create a **DashGPT** plugin draft.",
+        "2. Choose **With MCP** and **Universal** MCP URL.",
+        "3. Use the production MCP endpoint: `https://dashgpt.dimkashir.workers.dev/mcp`.",
+        "4. Complete domain verification when the portal provides the challenge token, then Scan Tools.",
+        "5. Wait for Individual publisher identity review to finish; once verified, select it as Developer Identity.",
+        "6. Fill listing, starter prompts, reviewer tests, availability and release notes from `plugins/dashgpt/SUBMISSION.md`.",
+        "7. Submit for OpenAI review.",
+        "8. After approval, publish DashGPT to the universal Plugins Directory.",
+        "9. Install/connect it from a second ChatGPT account against a separate DashGPT instance.",
+        "10. Prove list/read + Context Pack + explicit import/save on that person's data.",
+        "11. Only after that call the MVP complete and produce the `DashGPT v2` handoff."
       ]
     },
     {
       "title": "BLOCKERS / EXTERNAL HINGES",
       "lines": [
-        "- OpenAI Platform Individual publisher verification is currently in review.",
-        "- Apps Management write access / owner status still needs confirmation for the submitting account.",
+        "- OpenAI Platform Individual publisher verification is currently in review; final submission cannot use the identity until verification completes.",
         "- OpenAI review/approval and final publication are external steps.",
         "- A second public DashGPT instance/person is required for the final MVP acceptance test.",
         "- When a concrete manual action becomes necessary, record it here before asking the user to do it."
