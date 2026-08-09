@@ -1,7 +1,7 @@
 {
   "name": "dashgpt",
-  "version": "0.1.0",
-  "description": "Browse durable Results and portable Context Packs from a DashGPT site.",
+  "version": "0.2.0",
+  "description": "Use durable AI Results from your DashGPT site and explicitly save useful conversation outcomes back to it.",
   "author": {
     "name": "DashGPT"
   },
@@ -12,15 +12,18 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "DashGPT",
-    "shortDescription": "Use your durable AI Results in ChatGPT",
-    "longDescription": "Connect ChatGPT to a DashGPT site, find durable Results, inspect their provenance, and continue work with portable Context Packs.",
+    "shortDescription": "Keep and reuse durable AI Results",
+    "longDescription": "Connect ChatGPT to a DashGPT site, find durable Results, inspect provenance, continue with portable Context Packs, and explicitly import a distilled outcome from the current conversation.",
     "developerName": "DashGPT",
     "category": "Productivity",
-    "capabilities": ["Read"],
+    "capabilities": ["Read", "Write"],
     "websiteURL": "https://dashgpt.dimkashir.workers.dev/demo/",
+    "privacyPolicyURL": "https://dashgpt.dimkashir.workers.dev/demo/privacy.html",
+    "termsOfServiceURL": "https://dashgpt.dimkashir.workers.dev/demo/terms.html",
     "defaultPrompt": [
       "Use DashGPT to find what I already decided about this topic.",
-      "Use DashGPT to get the Context Pack for this Result and continue from it."
+      "Use DashGPT to get the Context Pack for this Result and continue from it.",
+      "Save the useful outcome of this conversation to DashGPT."
     ]
   }
 }
