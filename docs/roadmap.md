@@ -6,13 +6,7 @@ This roadmap is intentionally high-level. Detailed work belongs in OpenSpec chan
 
 Goal: make the repository understandable and operable by multiple AI providers without relying on chat history.
 
-Exit criteria:
-
-- product and development summaries exist
-- roadmap exists
-- minimal agent entry instructions exist
-- OpenSpec is initialized locally for target agents
-- first implementation change is proposed and reviewed
+Status: **complete enough to proceed**.
 
 ## M1 — Local-first Result vertical slice
 
@@ -30,6 +24,25 @@ Scope:
 - minimal usable laptop/mobile-responsive web UI
 
 Exit criterion: a user can save a useful outcome and export enough context to continue it elsewhere.
+
+Status: **merged into `develop`**.
+
+## Tactical Feature 2 — Shared chat → published Result
+
+Goal: prove ingestion of a real AI conversation before building the full API/MCP import layer.
+
+Target flow:
+
+public ChatGPT shared link → assistant/agent summary → published DashGPT Result → searchable card with source provenance.
+
+MVP constraints:
+
+- agent-mediated summarization is acceptable
+- no mandatory model API inside DashGPT
+- Git-backed published Result catalog is acceptable as temporary storage
+- browser-local Results must not be lost
+
+This is a tactical slice between M1 and the later integration milestones; it does not replace roadmap M2.
 
 ## M2 — Project state and human summaries
 
@@ -95,8 +108,8 @@ Potential scope after the core loop is proven:
 - old-chat import pipelines
 - smarter context-size selection and relevance ranking
 
-## Current milestone
+## Current delivery intent
 
-**M0 — Project bootstrap**
+**Active: Tactical Feature 2 — Shared chat → published Result.**
 
-Next implementation milestone: **M1 — Local-first Result vertical slice**.
+After its end-to-end proof, continue with roadmap **M2 — Project state and human summaries**, unless real usage shows a more important blocker in the Result ingestion/storage model.

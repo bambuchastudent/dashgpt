@@ -84,6 +84,20 @@ A Result should support actions equivalent to:
 - inspect/copy the Context Pack
 - share a deliberately selected item when supported
 
+### Shared-chat publishing MVP
+
+A deliberately simple first ingestion flow should work before a full importer exists:
+
+1. the user creates a public/shareable AI conversation link;
+2. the user sends that link to an assistant/agent that can access DashGPT;
+3. the assistant reads the conversation and distills the useful outcome into a Result;
+4. the Result is published into DashGPT with the original shared link preserved as provenance;
+5. the card becomes available for search, inspection and Context Pack generation.
+
+For the first MVP, the summarizing assistant may perform the summarization outside DashGPT. DashGPT does not need a mandatory model API merely to accept the Result.
+
+Later versions should make this flow available through normal DashGPT/agent APIs and may support direct automated import where appropriate.
+
 ### Mobile experience
 
 The phone UI should explain state rather than expose repository internals.
@@ -176,5 +190,7 @@ The first useful vertical slice should prove the central loop:
 4. favorite/open a Result
 5. generate a Context Pack
 6. copy/export it for continuation
+
+The next practical ingestion slice proves that a real shared AI chat can be distilled and published as a Result without requiring a built-in paid LLM API.
 
 Later milestones add MCP, ChatGPT integration, richer project-state summaries, quick hosted deployment, images/assets and advanced relationships.

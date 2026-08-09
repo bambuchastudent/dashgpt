@@ -93,18 +93,28 @@ Keep these concerns separate:
 
 ## Current development state
 
-Status: **bootstrap / pre-implementation**.
+Status: **M1 merged; Feature 2 shared-chat publishing MVP in progress**.
 
-Decided:
+Completed:
 
-- spec-driven development
-- OpenSpec as initial SDD framework
-- provider-agnostic repository context
-- minimal global agent instructions
-- optional Serena/code-graph tooling rather than mandatory dependence
+- repository bootstrap and durable product/development summaries
+- M1 local-first Result → dashboard → Context Pack vertical slice
+- mobile-responsive static demo
+- Cloudflare Workers static deployment
+- project-level Cloudflare MCP configuration for supported agent clients
+- first real seeded Results used to validate the information model
 
-Next:
+Active change:
 
-- initialize OpenSpec locally for the desired agent integrations
-- run an exploration pass over product summary + roadmap
-- create the first implementation change for the local-first Result → dashboard → Context Pack vertical slice
+- `openspec/changes/f2-shared-chat-publish/`
+- branch: `feature/m2-shared-chat-publish`
+- goal: allow an external assistant to turn a public shared-chat URL into a published DashGPT Result without introducing a mandatory model API
+- MVP publication storage: Git-backed `demo/data/results.json`
+- browser-local Results remain supported and are merged with published Results
+
+Next verification:
+
+- publish one real user-provided ChatGPT shared link end-to-end
+- confirm the new card appears after Cloudflare deployment without clearing local storage
+- confirm source provenance and Context Pack output
+- then merge the Feature 2 change into `develop`
