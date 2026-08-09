@@ -161,9 +161,16 @@ Expected capabilities include concepts equivalent to:
 
 DashGPT should be usable from ChatGPT through the current supported app/plugin mechanism backed by the same provider-neutral core/MCP interface. It should not require a separate ChatGPT-specific data model.
 
-The product plugin identity is **DashGPT** (`dashgpt`). The MVP must prove more than a connection to the developer's own test site: another person should be able to connect ChatGPT to **their own DashGPT instance** and use the same recognizable DashGPT experience to list Results, open durable knowledge and obtain Context Packs.
+The product plugin identity is **DashGPT** (`dashgpt`). From a normal ChatGPT conversation, the user should be able to say the equivalent of **“save the useful result of this conversation to DashGPT”**. ChatGPT should distill the conversation rather than dump raw history, show what is about to be saved, and give the user an explicit action that places the Result into their connected DashGPT instance.
 
-The MVP acceptance test is therefore a friend/demo-user flow: deploy or use a separate DashGPT site, connect it to ChatGPT as DashGPT, and demonstrate that ChatGPT is reading that person's site rather than hard-coded developer data.
+The same plugin must also be able to search that instance, open durable Results and obtain Context Packs for continuation.
+
+The MVP must prove more than a connection to the developer's own test site: another person should be able to connect ChatGPT to **their own DashGPT instance** and use the same recognizable DashGPT experience for both directions:
+
+- their DashGPT → ChatGPT: find/use their Results;
+- ChatGPT → their DashGPT: save a useful current outcome as a new Result.
+
+The MVP acceptance test is therefore a friend/demo-user flow: deploy or use a separate DashGPT site, connect it to ChatGPT as DashGPT, create/use a Result through ChatGPT, and demonstrate that the data belongs to that person's site rather than being hard-coded developer data.
 
 ### Other agents
 
@@ -210,6 +217,6 @@ The first useful vertical slice should prove the central loop:
 
 The next practical ingestion slice proves that a real shared AI chat can be distilled and published as a Result without requiring a built-in paid LLM API.
 
-The current MVP completion gate adds stable immutable Result pages plus a working DashGPT ChatGPT plugin/MCP connection that can be demonstrated against a second person's DashGPT site.
+The current MVP completion gate adds stable immutable Result pages plus a working DashGPT ChatGPT plugin/MCP connection that can be demonstrated bidirectionally against a second person's DashGPT site.
 
 Later milestones add richer project-state summaries, quick hosted deployment, images/assets and advanced relationships.
