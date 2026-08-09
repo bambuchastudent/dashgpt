@@ -6,6 +6,20 @@ import { z } from "zod";
 const ALLOWED_SHARE_HOSTS = new Set(["chatgpt.com", "chat.openai.com"]);
 const MCP_VERSION = "0.3.0";
 const INSTANCE_PROTOCOL_VERSION = 1;
+const SEMANTIC_COLOR_VERSION = 1;
+const SEMANTIC_COLOR_ANCHORS = [
+  { hue: 18, terms: ["car", "cars", "auto", "automobile", "vehicle", "авто", "автомоб", "машин", "coche", "vehículo"] },
+  { hue: 48, terms: ["transport", "transit", "route", "metro", "bus", "train", "mobility", "транспорт", "маршрут", "метро", "автобус", "поезд", "ruta"] },
+  { hue: 78, terms: ["travel", "trip", "flight", "hotel", "tour", "поездк", "путешеств", "рейс", "отел", "viaje"] },
+  { hue: 112, terms: ["food", "recipe", "cook", "еда", "рецепт", "готов", "comida", "receta"] },
+  { hue: 148, terms: ["nature", "camp", "garden", "plant", "природ", "кемп", "растен", "naturaleza"] },
+  { hue: 188, terms: ["project", "product", "design", "проект", "продукт", "дизайн"] },
+  { hue: 218, terms: ["code", "software", "api", "agent", "ai", "код", "разработ", "ии", "агент"] },
+  { hue: 252, terms: ["work", "business", "career", "работ", "бизнес", "карьер"] },
+  { hue: 286, terms: ["home", "housing", "repair", "дом", "жиль", "ремонт", "casa"] },
+  { hue: 324, terms: ["health", "medical", "wellness", "здоров", "медиц", "salud"] },
+  { hue: 352, terms: ["people", "family", "relationship", "люд", "семь", "отношен"] }
+];
 const DURABLE_FIELDS = ["id", "title", "summary", "category", "tags", "decisions", "next", "source"];
 const OPEN_READ_ANNOTATIONS = {
   readOnlyHint: true,
@@ -202,6 +216,47 @@ function resultPageUrl(instanceOrigin, result) {
   return new URL(`/demo/result/${encodeURIComponent(result.id)}/`, instanceOrigin).toString();
 }
 
+function semanticColorFor(result) {
+  const text = [
+    result.title,
+    result.summary,
+    result.category,
+    ...(result.tags || []),
+    ...(result.decisions || []),
+    result.next
+  ].filter(Boolean).join(" ").toLowerCase();
+  const matches = SEMANTIC_COLOR_ANCHORS
+    .map((anchor) => ({
+      ...anchor,
+      weight: anchor.terms.reduce((score, term) => score + (text.includes(term) ? 1 : 0), 0)
+    }))
+    .filter((anchor) => anchor.weight > 0);
+
+  if (!matches.length) {
+    const seed = [...String(result.category || result.title)].reduce(
+      (hash, character) => ((hash * 31) + character.codePointAt(0)) >>> 0,
+      17
+    );
+    return { hue: seed % 360, saturation: 48, lightness: 42, version: SEMANTIC_COLOR_VERSION };
+  }
+
+  const vector = matches.reduce(
+    (sum, anchor) => {
+      const radians = anchor.hue * Math.PI / 180;
+      sum.x += Math.cos(radians) * anchor.weight;
+      sum.y += Math.sin(radians) * anchor.weight;
+      return sum;
+    },
+    { x: 0, y: 0 }
+  );
+  return {
+    hue: Math.round((Math.atan2(vector.y, vector.x) * 180 / Math.PI + 360) % 360),
+    saturation: Math.max(44, 64 - Math.min(matches.length, 4) * 4),
+    lightness: 42,
+    version: SEMANTIC_COLOR_VERSION
+  };
+}
+
 function contextPack(instanceOrigin, result) {
   return [
     "# DashGPT Context Pack v0.4",
@@ -393,6 +448,7 @@ function createDashGptServer(request, env) {
         favorite: false,
         decisions,
         next,
+        semanticColor: semanticColorFor({ title, summary, category, tags, decisions, next }),
         ...(source ? { source } : {}),
         publishedAt: new Date().toISOString(),
         immutable: true,
