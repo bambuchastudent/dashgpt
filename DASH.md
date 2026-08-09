@@ -13,6 +13,7 @@ A living project status board. Keep this file short, current, and operational.
 - OpenAI Platform submitter role: **Organization Owner** — Apps Management write access satisfied.
 - OpenAI Platform individual publisher verification: **Identity in review**.
 - Observed Platform behavior: **Create plugin → With MCP redirects back to Organization verification while identity is in review; no plugin draft is created yet.**
+- Interim next-chat/agent handoff: `docs/handoff-dashgpt-v2.md`.
 - User action required now: **none — wait for Individual identity verification to complete, then retry Create plugin.**
 
 ## DONE
@@ -37,6 +38,7 @@ A living project status board. Keep this file short, current, and operational.
 - Deterministic second-instance smoke tests pass.
 - PR #9 merged; production checks and Cloudflare deployment succeeded.
 - OpenAI Platform publisher access confirmed: submitting account is Organization Owner.
+- Interim `DashGPT v2` continuity handoff created at `docs/handoff-dashgpt-v2.md`.
 
 ## NEXT
 
@@ -50,7 +52,7 @@ A living project status board. Keep this file short, current, and operational.
 8. After approval, publish DashGPT to the universal Plugins Directory.
 9. Install/connect it from a second ChatGPT account against a separate DashGPT instance.
 10. Prove list/read + Context Pack + explicit import/save on that person's data.
-11. Only after that call the MVP complete and produce the `DashGPT v2` handoff.
+11. Only after that call the MVP complete, archive/sync Feature 4 as appropriate, and produce the final completion handoff/release summary.
 
 ## BLOCKERS / EXTERNAL HINGES
 
