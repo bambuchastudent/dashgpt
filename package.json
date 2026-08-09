@@ -6,9 +6,12 @@
     "check": "node --check src/index.js && node --check demo/app.js && node scripts/smoke.mjs"
   },
   "dependencies": {
-    "chatgpt-share-parser": "0.1.1"
+    "@modelcontextprotocol/server": "2.0.0",
+    "agents": "0.20.1",
+    "chatgpt-share-parser": "0.1.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "wrangler": "^4.44.0"
+    "wrangler": "^4.71.0"
   }
 }
