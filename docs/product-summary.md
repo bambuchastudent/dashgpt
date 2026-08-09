@@ -102,6 +102,19 @@ The same state may have short, normal, detailed and agent representations.
 
 The laptop view may expose deeper structured information such as Results, specs, sources, decisions, history, assets and detailed context.
 
+## UX / visual design — open questions
+
+The first M1 demo is intentionally utilitarian: the interaction model is already convenient enough to validate the Result → Context Pack loop, but the visual design is not a target design.
+
+Keep for later exploration:
+
+- define a distinctive visual language for DashGPT instead of a generic dashboard look
+- preserve the current low-friction interaction flow while improving hierarchy, typography, spacing and density
+- make cards feel more like durable knowledge/results than generic admin-panel tiles
+- reconsider mobile navigation and quick actions once real Results/projects exist
+- test whether categories, projects, recent items and favorites should be visually stronger than tags/metadata
+- avoid polishing the UI so early that it hides flaws in the underlying information model
+
 ## Integrations
 
 ### Agent interoperability
