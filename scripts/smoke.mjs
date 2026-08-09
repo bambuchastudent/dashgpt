@@ -4,12 +4,30 @@ import worker from "../src/index.js";
 
 const catalog = readFileSync(new URL("../demo/data/results.json", import.meta.url), "utf8");
 const indexHtml = readFileSync(new URL("../demo/index.html", import.meta.url), "utf8");
+const supportHtml = readFileSync(new URL("../demo/support.html", import.meta.url), "utf8");
+const privacyHtml = readFileSync(new URL("../demo/privacy.html", import.meta.url), "utf8");
+const termsHtml = readFileSync(new URL("../demo/terms.html", import.meta.url), "utf8");
 const plugin = JSON.parse(
   readFileSync(new URL("../plugins/dashgpt/.codex-plugin/plugin.json", import.meta.url), "utf8")
 );
 const marketplace = JSON.parse(
   readFileSync(new URL("../.agents/plugins/marketplace.json", import.meta.url), "utf8")
 );
+
+const remoteResult = {
+  id: "friend-result",
+  schemaVersion: 1,
+  title: "Friend's DashGPT Result",
+  summary: "A Result served by a second DashGPT instance.",
+  category: "Demo",
+  tags: ["friend", "instance"],
+  favorite: false,
+  decisions: ["Use the friend's site as the source of truth."],
+  next: "Continue from the friend's own DashGPT context.",
+  immutable: true,
+  contentVersion: 1,
+  contentHash: "sha256:friendfixture"
+};
 
 const env = {
   ASSETS: {
@@ -20,6 +38,26 @@ const env = {
       }
       return new Response(indexHtml, { headers: { "content-type": "text/html" } });
     }
+  },
+  async DASHGPT_FETCH(input) {
+    const url = new URL(typeof input === "string" ? input : input.url);
+    if (url.origin !== "https://friend.example") return new Response("Not found", { status: 404 });
+    if (url.pathname === "/.well-known/dashgpt.json") {
+      return Response.json({ product: "dashgpt", protocolVersion: 1, siteUrl: "https://friend.example/demo/" });
+    }
+    if (url.pathname === "/api/dashgpt/results") {
+      return Response.json({ protocolVersion: 1, results: [remoteResult] });
+    }
+    if (url.pathname === "/api/dashgpt/results/friend-result") {
+      return Response.json({ result: remoteResult });
+    }
+    if (url.pathname === "/api/dashgpt/context/friend-result") {
+      return Response.json({
+        result: remoteResult,
+        contextPack: "# DashGPT Context Pack v0.4\n\nTITLE: Friend's DashGPT Result\nRESULT PAGE: https://friend.example/demo/result/friend-result/"
+      });
+    }
+    return new Response("Not found", { status: 404 });
   }
 };
 
@@ -72,14 +110,30 @@ function decodeImportUrl(importUrl) {
   const encoded = url.hash.slice("#import=".length);
   const normalized = encoded.replace(/-/g, "+").replace(/_/g, "/");
   const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
-  return JSON.parse(Buffer.from(padded, "base64").toString("utf8"));
+  return { url, result: JSON.parse(Buffer.from(padded, "base64").toString("utf8")) };
 }
 
 assert.equal(plugin.name, "dashgpt");
 assert.equal(plugin.interface?.displayName, "DashGPT");
-assert.equal(plugin.version, "0.2.0");
+assert.equal(plugin.version, "0.3.0");
+assert.equal(plugin.interface?.privacyPolicyURL.endsWith("/demo/privacy.html"), true);
+assert.equal(plugin.interface?.termsOfServiceURL.endsWith("/demo/terms.html"), true);
+assert.match(supportHtml, /DashGPT support/);
+assert.match(privacyHtml, /Remote DashGPT instances/);
+assert.match(termsHtml, /Terms of use/);
 assert.equal(marketplace.plugins[0].name, "dashgpt");
 assert.equal(marketplace.plugins[0].source.path, "./plugins/dashgpt");
+
+const discoveryResponse = await worker.fetch(request("https://dashgpt.example/.well-known/dashgpt.json"), env, ctx);
+assert.equal(discoveryResponse.status, 200);
+const discovery = await discoveryResponse.json();
+assert.equal(discovery.product, "dashgpt");
+assert.equal(discovery.protocolVersion, 1);
+
+const publicResultsResponse = await worker.fetch(request("https://dashgpt.example/api/dashgpt/results"), env, ctx);
+assert.equal(publicResultsResponse.status, 200);
+const publicResults = await publicResultsResponse.json();
+assert.ok(publicResults.results.length >= 4);
 
 const initialize = await rpc(1, "initialize", {
   protocolVersion: "2025-06-18",
@@ -87,6 +141,7 @@ const initialize = await rpc(1, "initialize", {
   clientInfo: { name: "dashgpt-smoke", version: "1" }
 });
 assert.equal(initialize.result.serverInfo.name, "dashgpt");
+assert.equal(initialize.result.serverInfo.version, "0.3.0");
 assert.ok(initialize.result.capabilities.tools);
 
 const tools = await rpc(2, "tools/list");
@@ -95,6 +150,9 @@ assert.deepEqual(
   ["list_results", "get_result", "get_context_pack", "prepare_result_import"]
 );
 assert.ok(tools.result.tools.slice(0, 3).every((tool) => tool.annotations?.readOnlyHint === true));
+assert.ok(tools.result.tools.slice(0, 3).every((tool) => tool.annotations?.openWorldHint === true));
+assert.equal(tools.result.tools[3].annotations?.readOnlyHint, true);
+assert.equal(tools.result.tools[3].annotations?.openWorldHint, false);
 
 const list = await rpc(3, "tools/call", { name: "list_results", arguments: { limit: 10 } });
 assert.ok(list.result.structuredContent.results.length >= 4);
@@ -116,9 +174,35 @@ const context = await rpc(4, "tools/call", {
 assert.match(context.result.structuredContent.contextPack, /CONTENT IMMUTABLE: true/);
 assert.match(context.result.structuredContent.contextPack, /CONTENT HASH: sha256:/);
 
-const prepared = await rpc(5, "tools/call", {
+const remoteList = await rpc(5, "tools/call", {
+  name: "list_results",
+  arguments: { siteUrl: "https://friend.example/demo/", limit: 10 }
+});
+assert.equal(remoteList.result.structuredContent.siteUrl, "https://friend.example");
+assert.deepEqual(remoteList.result.structuredContent.results.map((item) => item.id), ["friend-result"]);
+assert.equal(
+  remoteList.result.structuredContent.results[0].pageUrl,
+  "https://friend.example/demo/result/friend-result/"
+);
+
+const remoteGet = await rpc(6, "tools/call", {
+  name: "get_result",
+  arguments: { siteUrl: "https://friend.example", id: "friend-result" }
+});
+assert.equal(remoteGet.result.structuredContent.result.title, "Friend's DashGPT Result");
+assert.equal(remoteGet.result.structuredContent.result.pageUrl, "https://friend.example/demo/result/friend-result/");
+
+const remoteContext = await rpc(7, "tools/call", {
+  name: "get_context_pack",
+  arguments: { siteUrl: "https://friend.example", id: "friend-result" }
+});
+assert.match(remoteContext.result.structuredContent.contextPack, /Friend's DashGPT Result/);
+assert.match(remoteContext.result.structuredContent.contextPack, /https:\/\/friend\.example\/demo\/result\/friend-result\//);
+
+const prepared = await rpc(8, "tools/call", {
   name: "prepare_result_import",
   arguments: {
+    siteUrl: "https://friend.example",
     title: "Smoke Result",
     summary: "A distilled outcome prepared by the DashGPT plugin.",
     category: "Test",
@@ -128,10 +212,11 @@ const prepared = await rpc(5, "tools/call", {
   }
 });
 const imported = decodeImportUrl(prepared.result.structuredContent.importUrl);
-assert.equal(imported.immutable, true);
-assert.equal(imported.schemaVersion, 1);
-assert.match(imported.contentHash, /^sha256:[0-9a-f]{64}$/);
-assert.equal(imported.title, "Smoke Result");
+assert.equal(imported.url.origin, "https://friend.example");
+assert.equal(imported.result.immutable, true);
+assert.equal(imported.result.schemaVersion, 1);
+assert.match(imported.result.contentHash, /^sha256:[0-9a-f]{64}$/);
+assert.equal(imported.result.title, "Smoke Result");
 
 const resultPageResponse = await worker.fetch(
   request("https://dashgpt.example/demo/result/camping-fishing-el-regajo-fuente-munoz/"),
