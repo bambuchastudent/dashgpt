@@ -349,8 +349,6 @@ User rule:
 - historical snapshots only if useful: `/demo/v1/`, `/demo/v2/`, ...;
 - do not make the user open long feature-preview domains for normal use.
 
-Develop head at handoff completion: `b77198787a9af2b97dc3e227a6118a2ed62fbf84`.
-
 Latest checks after handoff update:
 
 - GitHub quality check: **success**
