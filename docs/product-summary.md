@@ -40,6 +40,8 @@ Expected fields include:
 - related Results
 - continuation context
 
+A published Result may be marked **immutable**. Once published as immutable, its knowledge content must not be silently rewritten. Corrections or materially changed knowledge become a new revision while the old Result remains addressable.
+
 ### Context Pack
 
 A portable representation of the current useful context for continuation by another chat or agent.
@@ -98,6 +100,17 @@ For the first MVP, the summarizing assistant may perform the summarization outsi
 
 Later versions should make this flow available through normal DashGPT/agent APIs and may support direct automated import where appropriate.
 
+### Published Result pages
+
+Every published Result should have a stable standalone page that can be opened or shown without navigating the dashboard first.
+
+The page has two deliberately separate concerns:
+
+- **content is durable:** title, summary, decisions, next steps and provenance remain the published Result;
+- **presentation is living:** layout, typography, navigation and shared DashGPT UI may improve later and those improvements should appear on old Result pages too.
+
+An immutable Result page must visibly communicate that its content is locked. Updating the common DashGPT presentation must not count as changing the Result itself.
+
 ### Mobile experience
 
 The phone UI should explain state rather than expose repository internals.
@@ -148,6 +161,10 @@ Expected capabilities include concepts equivalent to:
 
 DashGPT should be usable from ChatGPT through the current supported app/plugin mechanism backed by the same provider-neutral core/MCP interface. It should not require a separate ChatGPT-specific data model.
 
+The product plugin identity is **DashGPT** (`dashgpt`). The MVP must prove more than a connection to the developer's own test site: another person should be able to connect ChatGPT to **their own DashGPT instance** and use the same recognizable DashGPT experience to list Results, open durable knowledge and obtain Context Packs.
+
+The MVP acceptance test is therefore a friend/demo-user flow: deploy or use a separate DashGPT site, connect it to ChatGPT as DashGPT, and demonstrate that ChatGPT is reading that person's site rather than hard-coded developer data.
+
 ### Other agents
 
 Context should be portable to tools such as Codex, Claude, OpenCode, Copilot and local agents without changing the underlying Result.
@@ -193,4 +210,6 @@ The first useful vertical slice should prove the central loop:
 
 The next practical ingestion slice proves that a real shared AI chat can be distilled and published as a Result without requiring a built-in paid LLM API.
 
-Later milestones add MCP, ChatGPT integration, richer project-state summaries, quick hosted deployment, images/assets and advanced relationships.
+The current MVP completion gate adds stable immutable Result pages plus a working DashGPT ChatGPT plugin/MCP connection that can be demonstrated against a second person's DashGPT site.
+
+Later milestones add richer project-state summaries, quick hosted deployment, images/assets and advanced relationships.
