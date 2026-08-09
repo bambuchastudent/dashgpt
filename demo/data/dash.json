@@ -7,7 +7,7 @@
     {
       "title": "NOW",
       "lines": [
-        "**Active:** Feature 4 — release/submission phase for the public **DashGPT** plugin.",
+        "**Active:** Feature 4 release/submission remains externally blocked; semantic card UX is proceeding independently in PR scope.",
         "- PR #9 implementation is merged into `develop`.",
         "- Production GitHub checks: **green**.",
         "- Production Cloudflare Workers deploy: **green**.",
@@ -16,7 +16,8 @@
         "- OpenAI Platform individual publisher verification: **Identity in review**.",
         "- Observed Platform behavior: **Create plugin → With MCP redirects back to Organization verification while identity is in review; no plugin draft is created yet.**",
         "- Interim next-chat/agent handoff: `docs/handoff-dashgpt-v2.md`.",
-        "- User action required now: **none — wait for Individual identity verification to complete, then retry Create plugin.**"
+        "- User action required for Feature 4 now: **none — wait for Individual identity verification to complete, then retry Create plugin.**",
+        "- In progress: semantic heat-map card colors, richer card content, original-chat and new-chat continuation actions, with Context Pack moved to overflow."
       ]
     },
     {
