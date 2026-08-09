@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node --check src/index.js && node --check demo/app.js && node scripts/smoke.mjs"
+    "check": "node --check src/index.js && node --check demo/app.js && node scripts/verify-results.mjs && node scripts/smoke.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "2.0.0",
