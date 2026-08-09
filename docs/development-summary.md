@@ -95,56 +95,84 @@ Keep these concerns separate:
 
 Standalone Result pages use one shared client-side renderer rather than copied per-Result HTML.
 
-- Cloudflare Workers Static Assets serves the SPA shell for Result routes.
-- Dashboard and Result pages share the same `index.html`, JavaScript and CSS.
-- Published knowledge stays in the canonical Result catalog, separate from presentation code.
-- `immutable: true` plus `contentVersion` marks locked published content.
-- `scripts/check-immutable-results.mjs` and CI reject in-place changes to locked content after it reaches the base branch.
-- Corrections should become new revisions rather than edits to old immutable Results.
+- Cloudflare Workers Static Assets serves the SPA shell for `/demo/result/<id>/` routes.
+- Dashboard and Result pages share the same `index.html`, JavaScript and CSS, so renderer/style updates apply to old pages automatically.
+- Published knowledge stays in `demo/data/results.json`, separate from presentation code.
+- Published Results carry `schemaVersion`, `immutable`, `contentVersion` and `contentHash`.
+- The hash covers stable Result identity plus durable knowledge fields (`id`, title, summary, category, tags, decisions, next and source); presentation/local state is deliberately excluded.
+- `scripts/verify-results.mjs` deterministically canonicalizes those fields and rejects a catalog whose stored SHA-256 no longer matches its immutable content.
+- The browser independently recomputes the same digest and shows verified, unverified or mismatch state.
+- Corrections should become explicit new revisions rather than edits to old immutable Results.
 
 The durable architecture rationale is recorded in `docs/adr/0001-shared-renderer-immutable-results.md`.
 
 ## ChatGPT plugin implementation
 
-The plugin package lives under `plugins/dashgpt/` and uses the stable manifest identifier `dashgpt`.
+The plugin package lives under `plugins/dashgpt/` and uses the stable manifest identifier `dashgpt`. The repository also exposes it through `.agents/plugins/marketplace.json` for repo-scoped testing.
 
-The current MVP integration boundary is a read-only MCP endpoint exposed by each DashGPT deployment at `/mcp`. Initial tools are intentionally small:
+Each DashGPT deployment exposes an MCP endpoint at `/mcp`. The Worker uses Cloudflare Agents' stateless `createMcpHandler` with the official Model Context Protocol server SDK rather than a handwritten protocol implementation.
+
+Current MCP tools:
 
 - `list_results`
 - `get_result`
 - `get_context_pack`
+- `prepare_result_import`
 
-This lets the same repository build produce both a human web surface and an agent-readable surface without putting ChatGPT-specific fields into the Result model.
+The first three read an instance's published Results. `prepare_result_import` distills a supplied Result payload into schema v1, computes the immutable content hash, and returns an explicit `/demo/#import=...` URL. Opening that URL verifies the hash in the browser and stores the Result locally. This is a tactical MVP write path: it avoids a database/auth write API while still making user intent explicit.
 
-The repository manifest establishes plugin identity and skill behavior. ChatGPT MCP connection wiring (`.app.json`) is added only after the deployed MCP endpoint has been registered in ChatGPT developer mode and a real `plugin_asdk_app...` connection id exists; do not invent that id in source control.
+The same plugin package can therefore be tested against another DashGPT deployment by registering that deployment's `/mcp` endpoint in ChatGPT developer mode. A public production plugin will need a durable production connection/auth architecture rather than hard-coding developer data.
+
+ChatGPT MCP connection wiring (`.app.json`) is added only after a deployed endpoint has been registered in ChatGPT developer mode and a real `plugin_asdk_app...` connection id exists; do not invent that id in source control.
+
+For future public submission, the Worker already has `/.well-known/openai-apps-challenge`; it returns the exact `OPENAI_APPS_CHALLENGE` environment value when configured.
+
+## Verification
+
+`.github/workflows/quality.yml` runs the project checks on the active feature branch and PRs.
+
+`npm run check` currently covers:
+
+- JavaScript syntax
+- immutable Result catalog hashes
+- plugin manifest + repo marketplace identity
+- MCP initialization and tool discovery
+- Result/context retrieval
+- explicit plugin import-link generation
+- Result deep-link routing
+- OpenAI domain-verification challenge behavior
+
+Cloudflare branch previews remain deployment verification; production is `develop` and the stable demo entry point is `/demo/`.
 
 ## Current development state
 
 Status: **Feature 2 merged; Feature 3 immutable pages + DashGPT ChatGPT plugin MVP in progress**.
 
-Completed:
+Completed before this change:
 
 - repository bootstrap and durable product/development summaries
 - M1 local-first Result → dashboard → Context Pack vertical slice
 - Feature 2 shared-chat → published Result ingestion
 - mobile-responsive Cloudflare Workers demo under `/demo/`
 - Git-backed published Result catalog with source provenance
-- real ChatGPT shared-chat Results used to validate the flow
 
 Active change:
 
-- branch: `feature/m3-immutable-pages-chatgpt-plugin`
+- PR #6 / branch `feature/m3-immutable-pages-chatgpt-plugin`
 - shared `/demo/result/<id>/` renderer
-- explicit immutable published content with CI guard
+- immutable Result digests with repository + browser verification
 - sanitized Result from the second shared conversation
-- read-only `/mcp` endpoint
-- `plugins/dashgpt/.codex-plugin/plugin.json` and plugin skill
+- official stateless `/mcp` implementation
+- explicit ChatGPT → DashGPT import-link MVP
+- stable `dashgpt` plugin package, skill and repo marketplace
+- MVP privacy/terms pages and future domain-verification endpoint
 
 Next verification:
 
-- run repository syntax/immutability checks
-- verify the Cloudflare branch preview renders the dashboard and standalone Result page
-- verify `/mcp` discovery/tool calls
-- register the MCP endpoint in ChatGPT developer mode as **DashGPT**
-- add the real registered connection id to plugin packaging
-- repeat the connection against a second DashGPT instance to satisfy the MVP friend/demo-user test
+- make the repository quality workflow green
+- make the Cloudflare feature deployment green
+- verify a standalone Result page and `/mcp`
+- connect the deployed MCP endpoint in ChatGPT developer mode as **DashGPT**
+- record the real registered connection id in `.app.json`
+- test the same plugin flow against a second/separate DashGPT deployment
+- only then treat the friend/demo-user MVP gate as satisfied
