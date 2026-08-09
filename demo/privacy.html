@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Privacy — DashGPT</title>
+  <link rel="stylesheet" href="/demo/styles.css" />
+</head>
+<body>
+  <main class="shell result-page">
+    <nav class="page-nav"><a class="button ghost" href="/demo/">← DashGPT</a></nav>
+    <article class="published-result">
+      <p class="eyebrow">MVP POLICY</p>
+      <h1 class="result-page-title">Privacy</h1>
+      <p class="result-lead">DashGPT is designed to keep useful AI outcomes under the control of the person running the DashGPT instance.</p>
+
+      <div class="detail-grid page-details">
+        <section class="detail-block"><strong>Browser storage</strong><div>The current MVP can store imported and locally created Results in your browser's local storage. Clearing browser data can remove those local Results.</div></section>
+        <section class="detail-block"><strong>Published Results</strong><div>An instance operator may also publish Results with the site. Published Results are delivered by that operator's hosting environment and may be visible to anyone who can access that site.</div></section>
+        <section class="detail-block"><strong>ChatGPT shared links</strong><div>If you provide a public ChatGPT share URL for ingestion, the DashGPT server may fetch that public conversation in order to create a Result. Do not use public share links for material you do not intend to expose through that link.</div></section>
+        <section class="detail-block"><strong>Plugin imports</strong><div>The DashGPT MCP tool prepares a Result and an explicit import link. The import happens when you open that link. The MVP does not silently write a prepared Result into your browser.</div></section>
+        <section class="detail-block"><strong>Sensitive data</strong><div>DashGPT's plugin instructions tell the assistant not to save passwords, API keys, payment data, private document identifiers, or similarly sensitive personal data unless the user explicitly requests that exact data and it is necessary.</div></section>
+        <section class="detail-block"><strong>Self-hosting</strong><div>When DashGPT is self-hosted, the person or organization operating that instance controls its hosting, logs, access policy, backups, and published content.</div></section>
+      </div>
+
+      <p class="immutability-note">This page describes the experimental MVP and will be revised before a public production release.</p>
+    </article>
+  </main>
+</body>
+</html>
