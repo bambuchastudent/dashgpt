@@ -5,6 +5,7 @@ on:
     paths:
       - "demo/data/results.json"
       - "scripts/check-immutable-results.mjs"
+      - "scripts/verify-results.mjs"
       - ".github/workflows/immutable-results.yml"
 
 permissions:
@@ -14,8 +15,10 @@ jobs:
   guard:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: Check immutable published content
         run: node scripts/check-immutable-results.mjs "origin/${{ github.base_ref }}"
+      - name: Verify current content hashes
+        run: node scripts/verify-results.mjs
