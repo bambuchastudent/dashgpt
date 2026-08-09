@@ -1,0 +1,26 @@
+{
+  "name": "dashgpt",
+  "version": "0.1.0",
+  "description": "Browse durable Results and portable Context Packs from a DashGPT site.",
+  "author": {
+    "name": "DashGPT"
+  },
+  "homepage": "https://dashgpt.dimkashir.workers.dev/demo/",
+  "repository": "https://github.com/bambuchastudent/dashgpt",
+  "license": "BSD-3-Clause",
+  "keywords": ["knowledge", "context", "mcp", "chatgpt", "results"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "DashGPT",
+    "shortDescription": "Use your durable AI Results in ChatGPT",
+    "longDescription": "Connect ChatGPT to a DashGPT site, find durable Results, inspect their provenance, and continue work with portable Context Packs.",
+    "developerName": "DashGPT",
+    "category": "Productivity",
+    "capabilities": ["Read"],
+    "websiteURL": "https://dashgpt.dimkashir.workers.dev/demo/",
+    "defaultPrompt": [
+      "Use DashGPT to find what I already decided about this topic.",
+      "Use DashGPT to get the Context Pack for this Result and continue from it."
+    ]
+  }
+}
