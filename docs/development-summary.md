@@ -68,6 +68,22 @@ Recommended default routing, not a hard product requirement:
 - repository/symbol exploration → native code tools, Serena and/or optional graph tooling
 - durable decisions/milestones → repository specs/docs, never model memory alone
 
+## Published Result rendering and immutability
+
+Published Result content and page presentation are separate concerns.
+
+- Published Results remain structured records in the Result catalog.
+- All Result URLs are rendered by one shared application renderer instead of generating copied HTML pages.
+- Renderer/CSS/navigation changes therefore update old Result pages without rewriting their stored content.
+- Published records use `schemas/result.v1.schema.json` as the current portable contract.
+- Durable fields are canonicalized deterministically and protected with SHA-256 content hashes.
+- `immutable: true`, `contentVersion` and `contentHash` make the boundary visible and machine-checkable.
+- Favorite state and other local presentation/user state are deliberately outside the durable content hash.
+- Browser verification uses WebCrypto; repository verification uses `scripts/verify-results.mjs`.
+- The current deterministic JSON canonicalization is intentionally small. RFC 8785 JCS is the standards-based upgrade path if cross-language signatures or stronger interoperability require a formal canonicalization contract.
+
+Cloudflare serves the common renderer for stable `/demo/result/<id>` routes. This is a deployment adapter; the Result model itself is not Cloudflare-specific.
+
 ## Spec lifecycle
 
 For a meaningful change:
@@ -89,32 +105,34 @@ Keep these concerns separate:
 - `docs/development-summary.md` = HOW the team/agents build it.
 - `docs/roadmap.md` = milestone ordering and current delivery intent.
 - OpenSpec changes/specs = detailed scoped work.
-- ADRs (when introduced) = durable architectural decisions and their rationale.
+- ADRs/architecture notes = durable architectural decisions and rationale.
 
 ## Current development state
 
-Status: **M1 merged; Feature 2 shared-chat publishing MVP in progress**.
+Status: **M1 and Feature 2 merged; Feature 3 immutable Result pages + topic map in progress**.
 
 Completed:
 
 - repository bootstrap and durable product/development summaries
 - M1 local-first Result → dashboard → Context Pack vertical slice
-- mobile-responsive static demo
-- Cloudflare Workers static deployment
-- project-level Cloudflare MCP configuration for supported agent clients
-- first real seeded Results used to validate the information model
+- Cloudflare Workers deployment with `develop` as production branch
+- Feature 2 shared ChatGPT link → published Git-backed Result flow
+- source provenance in Result details and Context Packs
+- first real shared-chat Result published end-to-end
 
 Active change:
 
-- `openspec/changes/f2-shared-chat-publish/`
-- branch: `feature/m2-shared-chat-publish`
-- goal: allow an external assistant to turn a public shared-chat URL into a published DashGPT Result without introducing a mandatory model API
-- MVP publication storage: Git-backed `demo/data/results.json`
-- browser-local Results remain supported and are merged with published Results
+- branch: `feature/f3-immutable-results-mindmap`
+- common shared renderer for stable Result pages
+- schema + immutable flag + SHA-256 content integrity
+- current/latest Results before the archive
+- indexed category mindmap for topic navigation
+- second real shared-chat Result, with personal document data intentionally excluded from publication
 
 Next verification:
 
-- publish one real user-provided ChatGPT shared link end-to-end
-- confirm the new card appears after Cloudflare deployment without clearing local storage
-- confirm source provenance and Context Pack output
-- then merge the Feature 2 change into `develop`
+- run syntax and immutable-content checks
+- verify feature deployment and stable deep-link Result routes
+- inspect category mindmap on mobile
+- review the second published Result page
+- merge only after review
