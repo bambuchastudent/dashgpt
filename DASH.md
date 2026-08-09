@@ -15,7 +15,7 @@ A living project status board. Keep this file short, current, and operational.
 - Observed Platform behavior: **Create plugin → With MCP redirects back to Organization verification while identity is in review; no plugin draft is created yet.**
 - Interim next-chat/agent handoff: `docs/handoff-dashgpt-v2.md`.
 - User action required for Feature 4 now: **none — wait for Individual identity verification to complete, then retry Create plugin.**
-- In progress: semantic heat-map card colors, richer card content, original-chat and new-chat continuation actions, with Context Pack moved to overflow.
+- PR #10 preview is deployed and CI is green: semantic heat-map card colors, richer card content, original-chat and new-chat continuation actions, with Context Pack moved to overflow.
 
 ## DONE
 
