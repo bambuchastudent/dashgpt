@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#111827" />
   <title>DashGPT Demo</title>
   <link rel="stylesheet" href="/demo/styles.css" />
+  <link rel="stylesheet" href="/demo/dash.css" />
 </head>
 <body>
   <main class="shell">
@@ -15,7 +16,10 @@
         <a class="brand-link" href="/demo/"><h1>DashGPT</h1></a>
         <p class="subtitle">Useful AI outcomes, not chat history.</p>
       </div>
-      <button id="addResultButton" class="button primary">+ Add Result</button>
+      <div class="topbar-actions">
+        <a class="button ghost dash-nav-link" href="/demo/dash/">DASH</a>
+        <button id="addResultButton" class="button primary">+ Add Result</button>
+      </div>
     </header>
 
     <div id="dashboardView">
@@ -68,5 +72,6 @@
   </template>
 
   <script src="/demo/app.js" defer></script>
+  <script src="/demo/dash.js" defer></script>
 </body>
 </html>
