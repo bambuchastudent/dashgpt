@@ -1,19 +1,20 @@
 {
   "name": "dashgpt",
-  "version": "0.2.0",
-  "description": "Use durable AI Results from your DashGPT site and explicitly save useful conversation outcomes back to it.",
+  "version": "0.3.0",
+  "description": "Keep useful AI outcomes as durable Results, read them from your DashGPT site, and carry portable context into the next chat or agent.",
   "author": {
-    "name": "DashGPT"
+    "name": "DashGPT",
+    "url": "https://dashgpt.dimkashir.workers.dev/demo/"
   },
   "homepage": "https://dashgpt.dimkashir.workers.dev/demo/",
   "repository": "https://github.com/bambuchastudent/dashgpt",
   "license": "BSD-3-Clause",
-  "keywords": ["knowledge", "context", "mcp", "chatgpt", "results"],
+  "keywords": ["knowledge", "context", "mcp", "chatgpt", "results", "handoff"],
   "skills": "./skills/",
   "interface": {
     "displayName": "DashGPT",
     "shortDescription": "Keep and reuse durable AI Results",
-    "longDescription": "Connect ChatGPT to a DashGPT site, find durable Results, inspect provenance, continue with portable Context Packs, and explicitly import a distilled outcome from the current conversation.",
+    "longDescription": "Connect ChatGPT or Codex to a DashGPT site, find durable Results, inspect provenance, continue with portable Context Packs, and explicitly prepare a useful conversation outcome for import into the DashGPT site you choose.",
     "developerName": "DashGPT",
     "category": "Productivity",
     "capabilities": ["Read", "Write"],
@@ -21,9 +22,9 @@
     "privacyPolicyURL": "https://dashgpt.dimkashir.workers.dev/demo/privacy.html",
     "termsOfServiceURL": "https://dashgpt.dimkashir.workers.dev/demo/terms.html",
     "defaultPrompt": [
-      "Use DashGPT to find what I already decided about this topic.",
+      "Use DashGPT to find what I already decided about this topic on my DashGPT site.",
       "Use DashGPT to get the Context Pack for this Result and continue from it.",
-      "Save the useful outcome of this conversation to DashGPT."
+      "Save the useful outcome of this conversation to my DashGPT site."
     ]
   }
 }
