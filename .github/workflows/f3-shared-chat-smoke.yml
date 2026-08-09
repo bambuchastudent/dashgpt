@@ -1,7 +1,9 @@
 name: F3 shared-chat smoke
 
 on:
-  pull_request:
+  push:
+    branches:
+      - feature/f3-immutable-results-mindmap
     paths:
       - ".github/workflows/f3-shared-chat-smoke.yml"
 
