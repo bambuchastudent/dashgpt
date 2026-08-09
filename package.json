@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node --check src/index.js && node --check demo/app.js"
+    "check": "node --check src/index.js && node --check demo/app.js && node scripts/smoke.mjs"
   },
   "dependencies": {
     "chatgpt-share-parser": "0.1.1"
