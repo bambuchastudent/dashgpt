@@ -1,0 +1,22 @@
+# Tasks
+
+- [x] Audit current public plugin requirements against the current official OpenAI Plugins docs.
+- [x] Replace the old assumption that the user will create a private custom MCP app from ChatGPT settings; public submission happens through the OpenAI Platform plugin submission portal.
+- [x] Decide on a Universal MCP URL for submission instead of relying on restricted Template MCP URLs.
+- [x] Define the public DashGPT instance protocol and second-user acceptance criteria in `spec.md`.
+- [ ] Make `list_results`, `get_result`, and `get_context_pack` instance-neutral with optional `siteUrl`.
+- [ ] Add `/.well-known/dashgpt.json` plus public read/context instance endpoints.
+- [ ] Make MCP tool annotations accurately reflect open-world reads and non-mutating import preparation.
+- [ ] Add/refresh automated smoke tests for local and remote-instance routing.
+- [ ] Add public support page and update privacy copy for remote-instance reads.
+- [ ] Bring `plugins/dashgpt/.codex-plugin/plugin.json` to submission-ready metadata/version.
+- [ ] Prepare `plugins/dashgpt/SUBMISSION.md` with listing copy, starter prompts, 5 positive tests, 3 negative tests, availability, release notes and portal checklist.
+- [ ] Verify the feature branch Cloudflare preview and production-shaped `/mcp` behavior.
+- [ ] Merge Feature 4 implementation into `develop` after checks pass.
+- [ ] Manual: ensure the publishing OpenAI Platform organization grants Apps Management Write to the submitter.
+- [ ] Manual: complete/confirm verified developer or business identity for the publisher.
+- [ ] Manual: open the OpenAI Platform plugin submission portal, create **DashGPT**, scan the production MCP server, complete domain verification, and submit for review.
+- [ ] After approval, publish DashGPT to the universal Plugins Directory.
+- [ ] Test installation from a second ChatGPT account against a separate DashGPT instance.
+- [ ] Prove list/read + Context Pack + explicit import/save on that second person's data.
+- [ ] Only then mark MVP complete and produce the `DashGPT v2` handoff.
