@@ -4,7 +4,7 @@ A living project status board. Keep this file short, current, and operational.
 
 ## NOW
 
-**Active internal work:** Feature 7 — Semantic Dashes implementation PR.
+**Active internal work:** Feature 7 — Semantic Dashes implementation PR #18.
 
 - OpenSpec change `f7-semantic-dashes` covers the reference-only Dash model, semantic lookup, Review refresh, overrides, dashboard/chat presentation and privacy behavior.
 - The change passed strict OpenSpec validation before production-code edits.
@@ -30,7 +30,7 @@ A living project status board. Keep this file short, current, and operational.
 ## NEXT
 
 1. Configure `GITHUB_APP_PRIVATE_KEY` and `GITHUB_SESSION_SECRET` on the production Worker without putting secrets in chat/repository/Vault.
-2. Review and merge the dedicated Feature 7 Semantic Dashes PR after CI/preview verification.
+2. Review and merge Semantic Dashes PR #18 after CI/preview verification.
 3. Install `dashgpt-storage` on one disposable/private test repository and prove real pair → sync → idempotent re-sync → disconnect while local Vault survives.
 4. Mark Slice B fully activated only after that real smoke test.
 5. Start Slice C in a new PR: Google Drive StorageLocator + authorization + adapter contract reuse.
