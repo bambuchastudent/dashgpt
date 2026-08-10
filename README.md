@@ -11,10 +11,11 @@ Semantic Dashes turn related Results from multiple conversations into saved, ref
 For humans and agents:
 
 1. `docs/product-summary.md` — **what we are building**.
-2. `docs/development-summary.md` — **how we are building it**.
-3. `docs/roadmap.md` — current milestones.
-4. `AGENTS.md` — minimal instructions for coding agents.
-5. `docs/bootstrap.md` — first local/OpenSpec setup commands.
+2. `docs/product-conversation-guide.md` — usability-first product discussion, public ChatGPT App target, prior-art review and feature correctness.
+3. `docs/development-summary.md` — **how we are building it**.
+4. `docs/roadmap.md` — current milestones.
+5. `AGENTS.md` — minimal instructions for coding agents.
+6. `docs/bootstrap.md` — first local/OpenSpec setup commands.
 
 ## Core constraints
 
