@@ -27,4 +27,8 @@ assert.match(app, /More ···/, "Result details must keep secondary actions beh
 assert.match(app, /Original chat ↗/, "Original chat must remain a prominent action when source exists");
 assert.match(app, /Continue in new chat ↗/, "Continuation must remain a prominent action");
 
+// Explicit local user state must override catalog defaults, including false overriding a seeded true.
+assert.match(app, /typeof localResult\.favorite === "boolean"/, "published/local merge must honor explicit local favorite state");
+assert.doesNotMatch(app, /localResult\.favorite\s*\|\|\s*publishedResult\.favorite/, "favorite merge must not make published true impossible to unset");
+
 console.log("DashGPT UI contract checks passed.");
