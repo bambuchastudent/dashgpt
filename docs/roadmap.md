@@ -183,7 +183,7 @@ MVP scope:
 - visible discovery from the normal dashboard and Dash catalog
 - explicit storage slices instead of one ambiguous storage `done` state
 
-Status: **implemented in PR #21 under strictly validated `openspec/changes/f9-living-product-board/`; combined current-`develop` verification is required before merge, and stable deployment/product acceptance remain separate gates**.
+Status: **merged into `develop` via PR #21 under strictly validated `openspec/changes/f9-living-product-board/`; combined repository and Chromium browser gates passed before merge, while stable deployment/product acceptance remain separate gates**.
 
 ## M5 — Optional private quick deploy
 
@@ -217,8 +217,8 @@ Potential scope after the core loop is proven:
 
 ## Current delivery intent
 
-**Active:** Living Product Board PR #21.
+**Active:** stable-production verification and the next separately specified product slice.
 
-Semantic Dashes PR #18, Semantic Gallery UX PR #19 and Structured Chat Continuation PR #20 are merged. Feature 6 production GitHub activation remains an explicit external gate rather than a merged-code status. Semantic Navigator, Localization, Developer Fast Path, Chat-to-Result capture, Google Drive, provider mirroring and authenticated private-Vault access remain separate future changes and should not be folded into Feature 9 without updating its OpenSpec scope.
+Semantic Dashes PR #18, Semantic Gallery UX PR #19, Structured Chat Continuation PR #20 and Living Product Board PR #21 are merged. Feature 6 production GitHub activation remains an explicit external gate rather than a merged-code status. Semantic Navigator, Localization, Developer Fast Path, Chat-to-Result capture, Google Drive, provider mirroring and authenticated private-Vault access remain separate future changes and require their own OpenSpec scope.
 
 Feature 6's production GitHub activation and the public plugin release remain external tracks. Semantic Gallery is already merged via PR #19 and remains a separate presentation capability rather than continuation scope.
