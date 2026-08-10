@@ -10,17 +10,19 @@
 - [x] Define local-first synchronization and immutable conflict rules.
 - [x] Define explicit/user-approved DashGPT Profile boundary.
 - [x] Define phased GitHub / Google Drive / local / DashGPT-instance adapter delivery.
-- [ ] Review/merge Feature 6 architecture PR before implementation.
+- [x] Review/merge Feature 6 architecture PR before implementation (`#11`).
 
 ## Slice A — Vault core + migration
 
-- [ ] Add Vault v1 schema/validators and portable object identifiers.
-- [ ] Replace direct browser `localStorage` coupling with a storage interface while preserving current UI behavior.
-- [ ] Add local/browser adapter and migration from `dashgpt.demo.results.v2`.
-- [ ] Add append-only user-state events for favorite/archive-style state.
-- [ ] Add vault export/import round-trip.
-- [ ] Add paired / unpaired / unsynced status surfaces.
-- [ ] Add regression tests for immutable hashes and no credential serialization.
+- [x] Add Vault v1 schema/validators and portable object identifiers.
+- [x] Replace direct browser Result persistence with the Vault storage boundary while preserving current UI behavior.
+- [x] Add local/browser adapter and migration from `dashgpt.demo.results.v2`.
+- [x] Add append-only user-state events for favorite/archive-style state.
+- [x] Add vault export/import round-trip.
+- [x] Add paired / unpaired / unsynced status surfaces.
+- [x] Add regression tests for immutable conflicts and no credential serialization.
+
+Implementation PR: `#12` (`feature/f6-vault-core`).
 
 ## Slice B — GitHub sync
 
