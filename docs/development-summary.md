@@ -118,11 +118,12 @@ The public-plugin implementation uses one **Universal MCP gateway** rather than 
 Current MCP tools:
 
 - `list_results`
+- `open_semantic_dash`
 - `get_result`
 - `get_context_pack`
 - `prepare_result_import`
 
-`list_results`, `get_result` and `get_context_pack` are read-only but open-world because they may fetch a user-selected public DashGPT site. `prepare_result_import` remains non-mutating at tool-call time: it builds schema-v1 immutable Result data, computes the content hash and returns an explicit `/demo/#import=...` URL for the chosen site.
+`list_results`, `open_semantic_dash`, `get_result` and `get_context_pack` are read-only but open-world because they may fetch a user-selected public DashGPT site. `open_semantic_dash` can reopen an intentionally exposed saved Dash, return ambiguity choices, or prepare an explicit `#dash-import=` temporary preview; it cannot inspect an unexposed private browser Vault. `prepare_result_import` remains non-mutating at tool-call time: it builds schema-v1 immutable Result data, computes the content hash and returns an explicit `/demo/#import=...` URL for the chosen site.
 
 A remote `siteUrl` is accepted only as HTTPS and is treated as DashGPT data only after compatible instance discovery. DashGPT instance protocol v1 exposes:
 
@@ -130,6 +131,7 @@ A remote `siteUrl` is accepted only as HTTPS and is treated as DashGPT data only
 - `GET /api/dashgpt/results`
 - `GET /api/dashgpt/results/<id>`
 - `GET /api/dashgpt/context/<id>`
+- `GET /api/dashgpt/dashes`
 
 This is intentionally a public/read-only MVP protocol. Private catalogs and automatic server-side writes will need a future authenticated protocol rather than weakening the current explicit-import boundary.
 
@@ -163,6 +165,9 @@ The repository does not invent or require a `plugin_asdk_app...` id for the publ
 - public DashGPT instance discovery/read endpoints
 - deterministic remote-instance routing
 - explicit import-link generation for a selected DashGPT site
+- semantic Result ranking and saved/temporary Dash routing
+- Dash Review proposals, override precedence and inaccessible-Result redaction
+- Dash Vault/GitHub object round trips and backward-compatible Vault loading
 - public support/privacy/terms assets
 - Result deep-link routing
 - OpenAI domain-verification challenge behavior
@@ -171,21 +176,9 @@ Cloudflare branch previews are deployment verification. Production tracks `devel
 
 ## Current development state
 
-Status: **Feature 4 implementation in PR #9; automated checks and Cloudflare branch deployment are passing before merge.**
+Status: **Feature 7 Semantic Dashes is implemented under the validated `f7-semantic-dashes` OpenSpec change and is being published as a dedicated PR to `develop`.**
 
-Completed in the Feature 4 implementation branch:
-
-- current public-plugin requirements audited against official OpenAI plugin documentation
-- full OpenSpec proposal/spec/tasks
-- Universal MCP gateway architecture
-- DashGPT instance protocol v1
-- instance-neutral read/context tools with `siteUrl`
-- explicit import-link write boundary retained
-- plugin package version 0.3.0 and MVP brand asset
-- public support page and updated privacy disclosure
-- Git-tracked submission packet with starter prompts, five positive reviewer tests and three negative reviewer tests
-- deterministic second-instance smoke fixture
-- green project CI and successful Cloudflare feature preview deployment
+The implementation shares one dependency-free semantic engine between browser and Worker, stores Dash revisions and user overrides separately from immutable Results, and filters eligibility before ranking or summarization. The dashboard owns private local/Vault interactions. The public MCP catalog remains an explicitly exposed, read-only surface and does not imply access to the user's private Vault.
 
 External/manual release gates after merge:
 
