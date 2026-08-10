@@ -8,6 +8,9 @@
     "GITHUB_APP_ID": "4544269",
     "GITHUB_APP_SLUG": "dashgpt-storage"
   },
+  "browser": {
+    "binding": "BROWSER"
+  },
   "assets": {
     "directory": "./demo",
     "binding": "ASSETS",

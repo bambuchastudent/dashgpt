@@ -1,0 +1,3 @@
+schema: spec-driven
+created: 2026-08-10
+goal: Make public ChatGPT share-link onboarding resilient when direct server fetches are blocked with 403.
