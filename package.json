@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node --check src/index.js && node --check src/storage-locator.js && node --check src/vault-layout.js && node --check src/github-storage.js && node --check demo/vault.js && node --check demo/app.js && node --check demo/dash.js && node scripts/sync-dash.mjs --check && node scripts/verify-results.mjs && node scripts/verify-vault.mjs && node scripts/verify-github-storage.mjs && node scripts/verify-ui-contract.mjs && node scripts/smoke.mjs"
+    "check": "node --check src/index.js && node --check src/worker.js && node --check src/storage-locator.js && node --check src/vault-layout.js && node --check src/github-storage.js && node --check demo/vault.js && node --check demo/app.js && node --check demo/dash.js && node scripts/sync-dash.mjs --check && node scripts/verify-results.mjs && node scripts/verify-vault.mjs && node scripts/verify-github-storage.mjs && node scripts/verify-ui-contract.mjs && node scripts/smoke.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "2.0.0",
