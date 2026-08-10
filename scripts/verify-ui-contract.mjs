@@ -5,6 +5,7 @@ const css = ["../demo/styles.css", "../demo/semantic.css"]
   .map((path) => readFileSync(new URL(path, import.meta.url), "utf8"))
   .join("\n");
 const app = readFileSync(new URL("../demo/app.js", import.meta.url), "utf8");
+const githubSync = readFileSync(new URL("../demo/github-sync.js", import.meta.url), "utf8");
 const html = readFileSync(new URL("../demo/index.html", import.meta.url), "utf8");
 
 assert.match(app, /function semanticHue\(result\)/, "semanticHue(result) renderer is required");
@@ -22,6 +23,12 @@ assert.match(css, /\.result-card\{[^}]*background:[^}]*hsla\(var\(--semantic-hue
 assert.match(html, /semantic\.css/, "semantic visual layer must be loaded by the dashboard");
 assert.match(html, /vault\.css/, "vault storage status layer must be loaded by the dashboard");
 assert.match(html, /id="storageButton"/, "local vault status must be visible from the dashboard");
+assert.match(html, /id="githubStorageUrl"/, "GitHub pairing must accept a repository/folder URL");
+assert.match(html, /github-sync\.js/, "GitHub sync client must be loaded by the dashboard");
+assert.doesNotMatch(html, /(?:personal access token|github token|pat)/i, "DashGPT UI must not ask users to paste GitHub tokens");
+assert.doesNotMatch(html, /type="password"[^>]*(?:github|token)/i, "GitHub storage must not expose a token/password field");
+assert.match(githubSync, /\/api\/storage\/github\/pair/, "GitHub pairing must use the server-side GitHub App flow");
+assert.match(githubSync, /\/api\/storage\/github\/sync/, "GitHub sync must use the server-side adapter endpoint");
 assert.doesNotMatch(html, /class="[^"]*context-button[^"]*"/, "Context Pack must not return as a primary card action");
 assert.match(app, /More ···/, "Result details must keep secondary actions behind More");
 assert.match(app, /Original chat ↗/, "Original chat must remain a prominent action when source exists");

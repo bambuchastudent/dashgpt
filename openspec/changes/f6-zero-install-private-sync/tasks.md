@@ -22,15 +22,25 @@
 - [x] Add paired / unpaired / unsynced status surfaces.
 - [x] Add regression tests for immutable conflicts and no credential serialization.
 
-Implementation PR: `#12` (`feature/f6-vault-core`).
+Implementation PR: `#12` (`feature/f6-vault-core`), merged into `develop`.
 
 ## Slice B — GitHub sync
 
-- [ ] Recognize supported GitHub repository/path links as StorageLocators.
-- [ ] Add explicit GitHub authorization flow with minimum practical permissions.
-- [ ] Implement GitHub adapter against Vault v1 object operations.
-- [ ] Support offline local writes and later push/pull synchronization.
-- [ ] Add deterministic GitHub adapter contract tests and conflict fixtures.
+- [x] Recognize supported GitHub repository/path links as StorageLocators.
+- [x] Add explicit GitHub App installation flow with minimum practical repository permissions.
+- [x] Keep GitHub installation tokens server-side and pairing metadata in signed HttpOnly cookies.
+- [x] Implement GitHub adapter against Vault v1 object operations.
+- [x] Store Vault data as ordinary GitHub files under a selected root.
+- [x] Merge local/remote Vault state before writing and reject different `vaultId` targets.
+- [x] Commit one atomic Git tree/commit per logical synchronization.
+- [x] Preserve local/offline usability and allow later retry after provider failure.
+- [x] Add deterministic GitHub adapter contract tests, idempotence checks and conflict fixtures.
+- [x] Add browser pairing/sync/disconnect UX without PAT/token input.
+- [x] Add privacy disclosure, ADR 0004 and activation runbook.
+- [ ] Register/configure the production public GitHub App and Worker secrets.
+- [ ] Run the real private-repository acceptance smoke test from `docs/github-storage-setup.md`.
+
+Implementation PR: `#13` (`feature/f6-github-sync`).
 
 ## Slice C — Google Drive sync
 
