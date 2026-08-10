@@ -197,16 +197,17 @@ async function productionRepoClient(env, installationId, locator) {
         headers: { "x-github-api-version": API_VERSION }
       })).data;
     },
-    async initializeFile(path, content, branch) {
-      return (await octokit.request("PUT /repos/{owner}/{repo}/contents/{path}", {
+    async initializeFile(path, content, branch = null) {
+      const parameters = {
         owner: locator.owner,
         repo: locator.repo,
         path,
         message: "Initialize DashGPT Vault",
         content: base64UrlToBase64(base64UrlEncodeText(content)),
-        branch,
         headers: { "x-github-api-version": API_VERSION }
-      })).data;
+      };
+      if (branch) parameters.branch = branch;
+      return (await octokit.request("PUT /repos/{owner}/{repo}/contents/{path}", parameters)).data;
     }
   };
 }
@@ -265,7 +266,7 @@ async function writeObjectCommit(client, locator, branch, remote, desiredObjects
   if (!remote.branchExists) {
     const manifest = desiredObjects.find((object) => object.path === `${locator.path}/dashgpt-vault.json`);
     if (!manifest) throw new Error("DashGPT Vault manifest is missing.");
-    await client.initializeFile(manifest.path, manifest.content, branch);
+    await client.initializeFile(manifest.path, manifest.content, null);
     const initialized = await readRemoteObjects(client, locator, branch);
     return writeObjectCommit(client, locator, branch, initialized, desiredObjects);
   }
@@ -382,7 +383,7 @@ export async function handleGitHubSync(request, env) {
     const repository = await client.getRepo();
     const branch = session.locator.ref || repository.default_branch;
     const remote = await readRemoteObjects(client, session.locator, branch);
-    const merged = mergeVaultObjectSets(localVault, remote.objects, session.locator.path, { updatedAt: new Date().toISOString() });
+    const merged = mergeVaultObjectSets(localVault, remote.objects, session.locator.path);
     const desired = vaultToObjects(merged, session.locator.path);
     const write = await writeObjectCommit(client, session.locator, branch, remote, desired);
     return json({
