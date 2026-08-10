@@ -3,6 +3,23 @@ import { PUBLISHED_RESULT_PATHS, mergePublishedResultCatalogs } from "./result-c
 const nativeFetch = globalThis.fetch.bind(globalThis);
 const primaryPath = PUBLISHED_RESULT_PATHS[0];
 
+function publishedCatalogAllowed() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("showcase") === "1") return true;
+  return /^\/demo\/(?:result|dash)\//.test(window.location.pathname);
+}
+
+function emptyCatalogResponse() {
+  return new Response("[]", {
+    status: 200,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+      "x-dashgpt-catalog-scope": "personal"
+    }
+  });
+}
+
 async function mergedPublishedResults(input, init) {
   const primaryResponse = await nativeFetch(input, init);
   if (!primaryResponse.ok) return primaryResponse;
@@ -23,6 +40,7 @@ async function mergedPublishedResults(input, init) {
   const headers = new Headers(primaryResponse.headers);
   headers.set("content-type", "application/json; charset=utf-8");
   headers.set("cache-control", "no-store");
+  headers.set("x-dashgpt-catalog-scope", "published");
   return new Response(JSON.stringify(combined), {
     status: primaryResponse.status,
     statusText: primaryResponse.statusText,
@@ -33,11 +51,20 @@ async function mergedPublishedResults(input, init) {
 globalThis.fetch = async (input, init) => {
   const url = new URL(input instanceof Request ? input.url : String(input), window.location.href);
   if (url.origin === window.location.origin && url.pathname === primaryPath) {
+    if (!publishedCatalogAllowed()) return emptyCatalogResponse();
     return mergedPublishedResults(input, init);
   }
   return nativeFetch(input, init);
 };
 
-await import("./app.js");
-await import("./product-board-discovery.js");
+if (!document.querySelector('link[data-dashgpt-onboarding]')) {
+  const stylesheet = document.createElement("link");
+  stylesheet.rel = "stylesheet";
+  stylesheet.href = "/demo/onboarding.css";
+  stylesheet.dataset.dashgptOnboarding = "true";
+  document.head.append(stylesheet);
+}
 
+await import("./app.js");
+await import("./public-onboarding.js");
+await import("./product-board-discovery.js");
