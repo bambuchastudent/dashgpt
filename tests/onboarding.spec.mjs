@@ -1,7 +1,8 @@
 import { expect, test } from "@playwright/test";
 
 const VAULT_KEY = "dashgpt.demo.vault.v1";
-const SHARE_URL = "https://chatgpt.com/share/onboarding-test";
+const MOBILE_SHARE_URL = "https://chatgpt.com/s/t_onboarding-test";
+const CANONICAL_SHARE_URL = "https://chatgpt.com/share/t_onboarding-test";
 
 test("clean personal entry shows welcome and no publisher cards", async ({ page }) => {
   await page.goto("/demo/?personal=1");
@@ -20,7 +21,9 @@ test("clean personal entry shows welcome and no publisher cards", async ({ page 
 });
 
 test("sharing a visitor chat creates only the visitor's first card", async ({ page }) => {
+  let requestedShareUrl = "";
   await page.route("**/api/shared-chat?**", async route => {
+    requestedShareUrl = new URL(route.request().url()).searchParams.get("url") || "";
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -35,10 +38,11 @@ test("sharing a visitor chat creates only the visitor's first card", async ({ pa
   });
 
   await page.goto("/demo/?personal=1");
-  await page.locator("#publicShareUrl").fill(SHARE_URL);
+  await page.locator("#publicShareUrl").fill(MOBILE_SHARE_URL);
   await page.getByRole("button", { name: "Добавить мой чат" }).click();
 
   await expect(page.locator("#publicShareReview")).toBeVisible();
+  expect(requestedShareUrl).toBe(CANONICAL_SHARE_URL);
   await expect(page.locator("#publicReviewTitle")).toHaveValue("Мой план на выходные");
   await expect(page.locator("#publicReviewSummary")).toHaveValue(/утром рынок/);
 
@@ -56,5 +60,5 @@ test("sharing a visitor chat creates only the visitor's first card", async ({ pa
   }, VAULT_KEY);
   expect(stored).toHaveLength(1);
   expect(stored[0].title).toBe("Мой план на выходные");
-  expect(stored[0].source).toEqual({ type: "chatgpt-share", url: SHARE_URL, title: "Мой план на выходные" });
+  expect(stored[0].source).toEqual({ type: "chatgpt-share", url: CANONICAL_SHARE_URL, title: "Мой план на выходные" });
 });
