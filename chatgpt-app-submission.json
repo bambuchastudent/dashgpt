@@ -121,11 +121,11 @@
       "expected_output_url": null
     },
     {
-      "description": "Do not treat an arbitrary website as a compatible DashGPT instance.",
-      "user_prompt": "Read my DashGPT Results from https://example.com even if it is just a normal website.",
+      "description": "Do not invoke DashGPT for an unrelated messaging request.",
+      "user_prompt": "Send Alex a message that I will be ten minutes late.",
       "file_attachment_urls": null,
       "tools_triggered": null,
-      "expected_output": "The request should not result in arbitrary website content being interpreted as DashGPT data; a compatible DashGPT discovery manifest is required.",
+      "expected_output": "DashGPT should not be invoked because sending messages is outside its supported workflows.",
       "expected_output_url": null
     },
     {
