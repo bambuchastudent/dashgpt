@@ -1,0 +1,39 @@
+[
+  {
+    "schemaVersion": 1,
+    "dashId": "dashgpt-product",
+    "dashRevisionId": "dashrev-dashgpt-product-1",
+    "baseRevisionId": null,
+    "title": "DashGPT",
+    "description": "Public demo Dash for DashGPT product discussions and capabilities.",
+    "semanticDefinition": {
+      "query": "DashGPT Product",
+      "normalizedTerms": [
+        "concept:dashgpt",
+        "concept:product",
+        "dashgpt",
+        "product"
+      ],
+      "engineVersion": 1
+    },
+    "scope": {
+      "providers": [
+        "*"
+      ],
+      "sourceTypes": [
+        "*"
+      ],
+      "includeArchived": false,
+      "excludedResultIds": [],
+      "excludedSourceIds": [],
+      "excludedSourceUrls": []
+    },
+    "updateMode": "review",
+    "automaticResultIds": [
+      "dashgpt-first-live-demo"
+    ],
+    "suggestedResultIds": [],
+    "createdAt": "2026-08-10T12:00:00.000Z",
+    "lastUpdatedAt": "2026-08-10T12:00:00.000Z"
+  }
+]
