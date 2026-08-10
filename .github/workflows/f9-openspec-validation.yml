@@ -1,4 +1,4 @@
-name: F9 OpenSpec strict gate
+name: F9 OpenSpec and fast verification
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  openspec-strict:
+  f9-fast:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -17,5 +17,5 @@ jobs:
         with:
           node-version: 22
       - run: npm install -g @fission-ai/openspec@latest
-      - run: openspec --version
       - run: openspec validate f9-zero-friction-mobile-demo --strict
+      - run: npm run verify:fast
