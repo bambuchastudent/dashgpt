@@ -40,7 +40,7 @@ test("sharing a visitor chat creates only the visitor's first card", async ({ pa
 
   await expect(page.locator("#publicShareReview")).toBeVisible();
   await expect(page.locator("#publicReviewTitle")).toHaveValue("Мой план на выходные");
-  await expect(page.locator("#publicReviewSummary")).toContainText("утром рынок");
+  await expect(page.locator("#publicReviewSummary")).toHaveValue(/утром рынок/);
 
   await page.getByRole("button", { name: "Сохранить первую карточку" }).click();
   await page.waitForURL(/\/demo\/$/);
