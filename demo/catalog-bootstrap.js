@@ -77,5 +77,6 @@ if (!document.querySelector('link[data-dashgpt-onboarding]')) {
 }
 
 await import("./app.js");
+await import("./share-link-compat.js");
 await import("./public-onboarding.js");
 await import("./product-board-discovery.js");
