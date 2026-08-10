@@ -45,7 +45,7 @@ jobs:
           import assert from 'node:assert/strict';
           import { chromium, webkit } from 'playwright';
 
-          async function verify(engine, label, viewport, mobile = false) {
+          async function verify(engine, label, viewport, mobile = false, exercisePersistence = false) {
             const browser = await engine.launch();
             const context = await browser.newContext({ viewport, isMobile: mobile, hasTouch: mobile });
             const page = await context.newPage();
@@ -96,11 +96,38 @@ jobs:
             assert.ok(await page.getByRole('heading', { name: 'Вот что DashGPT сохранит' }).isVisible(), `${label}: review step missing`);
             await page.locator('#cancelReviewButton').click();
 
+            if (exercisePersistence) {
+              const saveOwnCard = async index => {
+                const title = `Моя поездка ${index}`;
+                await page.locator('#addResultButton').click();
+                await page.locator('[name="captureTitle"]').fill(title);
+                await page.locator('[name="captureSummary"]').fill(`Проверочная карточка ${index}: сохранение только после review.`);
+                await page.locator('[name="captureCategory"]').fill('Поездки');
+                await page.locator('#prepareReviewButton').click();
+                await page.locator('#reviewStep button[type="submit"]').click();
+                await page.locator('#addDialog[open]').waitFor({ state: 'hidden' });
+                await page.locator('#resultsGrid .result-card .title').filter({ hasText: title }).waitFor({ state: 'visible' });
+                return title;
+              };
+
+              await saveOwnCard(1);
+              assert.equal(await page.locator('#persistenceDialog[open]').count(), 0, `${label}: persistence prompt appeared after one own card`);
+              await saveOwnCard(2);
+              assert.equal(await page.locator('#persistenceDialog[open]').count(), 0, `${label}: persistence prompt appeared after two own cards`);
+              await saveOwnCard(3);
+              await page.locator('#persistenceDialog[open]').waitFor();
+              assert.ok(await page.getByRole('heading', { name: 'Сохранить свою память?' }).isVisible(), `${label}: third-card persistence title missing`);
+              assert.ok(await page.getByText('У тебя уже три полезные карточки. Можно сохранить их надолго и открывать на других устройствах.', { exact: true }).isVisible(),
+                `${label}: third-card persistence explanation missing`);
+              await page.locator('#dismissPersistenceButton').click();
+              assert.equal(await page.locator('#persistenceDialog[open]').count(), 0, `${label}: persistence prompt did not dismiss`);
+            }
+
             assert.deepEqual(pageErrors, [], `${label}: page errors: ${pageErrors.join(' | ')}`);
             await browser.close();
           }
 
-          await verify(chromium, '360px Chromium', { width: 360, height: 800 }, true);
+          await verify(chromium, '360px Chromium', { width: 360, height: 800 }, true, true);
           await verify(webkit, 'mobile WebKit', { width: 390, height: 844 }, true);
           await verify(chromium, 'desktop Chromium', { width: 1280, height: 900 }, false);
           console.log('DashGPT F9 browser viewport checks passed.');
