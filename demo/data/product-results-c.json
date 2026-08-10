@@ -1,0 +1,65 @@
+[
+  {
+    "id": "dashgpt-command-first-capture",
+    "schemaVersion": 1,
+    "title": "DashGPT — команда `dashgpt` как основной capture",
+    "goal": "Сделать сохранение полезного результата разговора максимально естественным: пользователь пишет `dashgpt` прямо в текущем чате, а ChatGPT сам выделяет итог и передаёт его в DashGPT без share-link и скрейпинга.",
+    "summary": "Главный продуктовый путь DashGPT должен происходить внутри самого AI-чата. Команда `dashgpt` (и естественные варианты вроде «сохрани это в DashGPT») означает: модель использует уже доступный ей контекст текущего разговора, превращает его в структурированный Result и сохраняет в пользовательскую борду. Публичные share-ссылки остаются только fallback для старых чатов и не должны быть первым onboarding-сценарием. Проверка в private mode показала, что server-side чтение ChatGPT share-page ненадёжно из-за anti-bot защиты; chat-first onboarding уже заменил этот путь временным handoff через JSON, а следующий ключевой capability — настоящий authenticated `save_result`, устраняющий копипаст.",
+    "currentState": "PR #28 уже перевёл чистый/private onboarding на chat-first handoff без вызовов `/api/shared-chat`: пользователь просит ChatGPT подготовить Result envelope и вставляет ответ в DashGPT. Прямой `save_result` из установленного DashGPT plugin/app ещё не реализован.",
+    "category": "DashGPT",
+    "tags": ["dashgpt", "chat-first", "capture", "save-result", "onboarding", "plugin", "mcp"],
+    "favorite": false,
+    "decisions": [
+      "Основной UX сохранения — команда `dashgpt` прямо внутри текущего разговора.",
+      "Сам ChatGPT должен делать саммари из уже видимого ему контекста; DashGPT не должен скрейпить transcript для happy path.",
+      "Share-link import не является основным onboarding и остаётся только compatibility fallback для старых разговоров.",
+      "Новый/приватный браузер не должен видеть чужие карточки и не должен выполнять `/api/shared-chat` в основном первом сценарии.",
+      "Временный chat-first handoff через структурированный JSON допустим только как промежуточный шаг до прямого write-tool.",
+      "Следующий основной capability — authenticated `save_result`, который создаёт карточку сразу после команды без возврата на сайт и копипаста."
+    ],
+    "facts": [
+      "PR #28 `Make clean onboarding chat-first` слит в `develop`.",
+      "Регрессионные browser-тесты фиксируют ноль вызовов `/api/shared-chat` в primary onboarding.",
+      "Cloudflare/серверное чтение публичных ChatGPT share-страниц может блокироваться anti-bot защитой, поэтому этот механизм нельзя считать надёжным фундаментом продукта."
+    ],
+    "constraints": [
+      "Не требовать browser extension.",
+      "Не требовать от нового пользователя понимания Vault, MCP, storage providers или архитектуры синхронизации.",
+      "Не сохранять raw chat по умолчанию; хранить долговременный полезный Result.",
+      "Не передавать в Result секреты, API-ключи, платёжные данные и другие чувствительные данные без явной необходимости.",
+      "Прямой write-path должен сохранять пользовательскую приватность и требовать корректную идентификацию/авторизацию пользователя."
+    ],
+    "userPreferences": [
+      "Команда должна быть максимально короткой и естественной — в идеале просто `dashgpt`.",
+      "Любой новый пользователь должен суметь сохранить и просуммировать свои собственные чаты без технической настройки.",
+      "Первый опыт не должен зависеть от публичного share-link или браузерного скрейпинга."
+    ],
+    "openQuestions": [
+      "Какой механизм идентификации/авторизации использовать для публичного DashGPT app/plugin write-tool.",
+      "Куда сохранять первый Result до выбора пользователем постоянного storage provider.",
+      "Как обеспечить idempotency, чтобы повторная команда `dashgpt` не создавала случайные дубликаты."
+    ],
+    "next": "Создать отдельный OpenSpec change для authenticated direct save: добавить write-tool `save_result`, пользовательскую идентификацию, idempotency и сохранение Result в персональную борду; затем сделать `dashgpt` полноценным zero-copy happy path.",
+    "suggestedNextStep": "Начать PR `Authenticated Direct Save`, не расширяя его обратно в share-link scraping: tool получает уже distilled Result от модели и возвращает подтверждение сохранения/Result id.",
+    "language": "ru",
+    "continuationContext": {
+      "role": "Продолжить разработку DashGPT по OpenSpec, сохраняя chat-first продуктовый принцип.",
+      "goal": "Сделать команду `dashgpt` полноценным zero-copy сохранением текущего разговора в пользовательскую борду.",
+      "knownContext": "Chat-first onboarding без share scraping уже слит PR #28. Следующий недостающий кусок — authenticated write-tool `save_result`.",
+      "constraints": [
+        "Не возвращать share-link scraping в основной UX.",
+        "Соблюдать privacy/storage границы и не сохранять raw transcript без необходимости.",
+        "Добавить idempotency, тесты и явную продуктовую проверку на чистом устройстве."
+      ]
+    },
+    "source": {
+      "type": "chatgpt-conversation",
+      "title": "DashGPT — chat-first capture и private-mode onboarding"
+    },
+    "publishedAt": "2026-08-10T22:35:00Z",
+    "immutable": true,
+    "contentVersion": 1,
+    "status": "decision",
+    "contentHash": "sha256:394b0977790bc8e51efc67c90e9bebdfb7582b410ecfc9acd3e0a03ae39fff1e"
+  }
+]
