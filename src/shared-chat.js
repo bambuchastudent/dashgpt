@@ -3,6 +3,8 @@ import { CHATGPT_SHARE_HEADERS, parseChatGptShareHtml } from "chatgpt-share-pars
 const ALLOWED_SHARE_HOSTS = new Set(["chatgpt.com", "chat.openai.com"]);
 const VISIBLE_MESSAGE_SELECTOR = "[data-message-author-role]";
 const UNREADABLE_SHARE_MESSAGE = "Unable to read this public ChatGPT conversation. Try again or use DashGPT from inside the original chat.";
+const JINA_READER_PREFIX = "https://r.jina.ai/";
+const ALL_ORIGINS_PREFIX = "https://api.allorigins.win/raw?url=";
 
 function json(data, init = {}) {
   const headers = new Headers(init.headers || {});
@@ -39,6 +41,11 @@ function upstreamFetch(env, input, init) {
   return fetch(input, init);
 }
 
+function resolverFetch(env, input, init) {
+  if (typeof env?.DASHGPT_RESOLVER_FETCH === "function") return env.DASHGPT_RESOLVER_FETCH(input, init);
+  return fetch(input, init);
+}
+
 async function directHtml(sourceUrl, env) {
   const response = await upstreamFetch(env, sourceUrl, {
     headers: CHATGPT_SHARE_HEADERS,
@@ -46,6 +53,39 @@ async function directHtml(sourceUrl, env) {
   });
   if (!response.ok) {
     const error = new Error(`Direct ChatGPT share fetch returned ${response.status}.`);
+    error.status = response.status;
+    throw error;
+  }
+  return response.text();
+}
+
+async function readerText(sourceUrl, env) {
+  const resolverUrl = `${JINA_READER_PREFIX}${sourceUrl.toString()}`;
+  const response = await resolverFetch(env, resolverUrl, {
+    method: "GET",
+    headers: {
+      accept: "text/plain, text/markdown;q=0.9, */*;q=0.1",
+      "x-timeout": "12"
+    },
+    redirect: "follow"
+  });
+  if (!response.ok) {
+    const error = new Error(`Reader resolver returned ${response.status}.`);
+    error.status = response.status;
+    throw error;
+  }
+  return response.text();
+}
+
+async function allOriginsHtml(sourceUrl, env) {
+  const resolverUrl = `${ALL_ORIGINS_PREFIX}${encodeURIComponent(sourceUrl.toString())}`;
+  const response = await resolverFetch(env, resolverUrl, {
+    method: "GET",
+    headers: { accept: "text/html, */*;q=0.1" },
+    redirect: "follow"
+  });
+  if (!response.ok) {
+    const error = new Error(`Raw proxy resolver returned ${response.status}.`);
     error.status = response.status;
     throw error;
   }
@@ -91,6 +131,83 @@ function fallbackTitle(replies) {
   const firstUser = replies.find(reply => reply.type === "user")?.statement || replies[0]?.statement || "Shared ChatGPT conversation";
   const firstLine = cleanVisibleText(firstUser).split("\n").find(Boolean) || "Shared ChatGPT conversation";
   return firstLine.length > 96 ? `${firstLine.slice(0, 93)}…` : firstLine;
+}
+
+function makeReply(role, statement) {
+  return {
+    authorName: role === "user" ? "You" : "ChatGPT",
+    type: role,
+    statement: cleanVisibleText(statement),
+    createdAt: null,
+    assets: []
+  };
+}
+
+function readerRoleLabel(value) {
+  const label = String(value || "").trim().toLowerCase();
+  if (/^(?:you(?: said)?|user(?: \d+)?(?: said)?)$/.test(label)) return "user";
+  if (/^(?:chatgpt(?: said)?|assistant(?: \d+)?(?: said)?)$/.test(label)) return "assistant";
+  return null;
+}
+
+export function parseReaderShareText(raw, sourceUrl) {
+  const text = cleanVisibleText(raw);
+  if (!text) throw new Error("Reader resolver returned no content.");
+
+  const lines = text.split("\n");
+  const replies = [];
+  let title = "";
+  let currentRole = null;
+  let currentLines = [];
+
+  const flush = () => {
+    if (!currentRole) return;
+    const statement = cleanVisibleText(currentLines.join("\n"));
+    if (statement) {
+      const previous = replies.at(-1);
+      if (!(previous?.type === currentRole && previous.statement === statement)) {
+        replies.push(makeReply(currentRole, statement));
+      }
+    }
+    currentLines = [];
+  };
+
+  for (const rawLine of lines) {
+    const line = rawLine.trimEnd();
+    if (!title) {
+      const metadataTitle = line.match(/^Title:\s*(.+)$/i)?.[1]?.trim();
+      if (metadataTitle && !/^chatgpt$/i.test(metadataTitle)) title = metadataTitle;
+    }
+
+    const withoutHeading = line.replace(/^#{1,6}\s+/, "").trim();
+    if (!title && /^#\s+/.test(line)) {
+      const heading = line.replace(/^#\s+/, "").trim();
+      if (heading && !/^chatgpt$/i.test(heading) && !/^markdown content$/i.test(heading)) title = heading;
+    }
+
+    const roleMatch = withoutHeading.match(/^(You(?: said)?|User(?: \d+)?(?: said)?|ChatGPT(?: said)?|Assistant(?: \d+)?(?: said)?):?\s*(.*)$/i);
+    const role = roleMatch ? readerRoleLabel(roleMatch[1]) : null;
+    if (role) {
+      flush();
+      currentRole = role;
+      currentLines = roleMatch[2] ? [roleMatch[2]] : [];
+      continue;
+    }
+
+    if (currentRole) currentLines.push(line);
+  }
+  flush();
+
+  if (!replies.length) throw new Error("Reader resolver contained no recognizable conversation turns.");
+  const shareId = sourceUrl.pathname.split("/").filter(Boolean).at(-1) || "";
+
+  return {
+    shareId,
+    aiModel: "unknown",
+    title: title || fallbackTitle(replies),
+    updatedAt: null,
+    replies
+  };
 }
 
 export function parseRenderedShareScrape(payload, sourceUrl) {
@@ -171,6 +288,26 @@ function unreadableShareError(details) {
 }
 
 export async function readSharedChat(sourceUrl, env = {}) {
+  let readerError;
+  try {
+    return {
+      chat: parseReaderShareText(await readerText(sourceUrl, env), sourceUrl),
+      retrieval: "reader"
+    };
+  } catch (error) {
+    readerError = error;
+  }
+
+  let proxyError;
+  try {
+    return {
+      chat: parseReadableChat(await allOriginsHtml(sourceUrl, env)),
+      retrieval: "raw-proxy"
+    };
+  } catch (error) {
+    proxyError = error;
+  }
+
   let domError;
   if (hasBrowserBinding(env)) {
     try {
@@ -205,7 +342,7 @@ export async function readSharedChat(sourceUrl, env = {}) {
     }
   }
 
-  throw unreadableShareError({ domError, directError, payloadError });
+  throw unreadableShareError({ readerError, proxyError, domError, directError, payloadError });
 }
 
 export async function handleSharedChat(request, env = {}) {

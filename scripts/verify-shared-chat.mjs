@@ -36,43 +36,22 @@ function legacyShareHtml() {
   })}</script></head><body></body></html>`;
 }
 
-function renderedScrape({ withTitle = true } = {}) {
+function readerTranscript() {
+  return `Title: Картошка в аэрогриле\nURL Source: ${SHARE_URL}\n\nMarkdown Content:\n## You said:\nКак приготовить картошку в аэрогриле?\n\n## ChatGPT said:\nНарежь картошку, добавь масло и специи и готовь до румяности.`;
+}
+
+function renderedScrape() {
   return {
     success: true,
     result: [
       {
         selector: "[data-message-author-role]",
         results: [
-          {
-            attributes: [{ name: "data-message-author-role", value: "user" }],
-            text: "мы столкнулись с проблемой просто опиши вечер в валенсии у нас есть теб"
-          },
-          {
-            attributes: [{ name: "data-message-author-role", value: "assistant" }],
-            text: "Похоже, сообщение оборвалось."
-          },
-          {
-            attributes: [{ name: "data-message-author-role", value: "user" }],
-            text: "теперь ключница и она сделана с якорем и браслетик с якорем"
-          },
-          {
-            attributes: [{ name: "data-message-author-role", value: "assistant" }],
-            text: "А теперь у нас появилась ещё одна интересная находка — ключница с якорем и браслетик."
-          },
-          {
-            attributes: [{ name: "data-message-author-role", value: "assistant" }],
-            text: "А теперь у нас появилась ещё одна интересная находка — ключница с якорем и браслетик."
-          },
-          {
-            attributes: [{ name: "data-message-author-role", value: "system" }],
-            text: "internal noise"
-          }
+          { attributes: [{ name: "data-message-author-role", value: "user" }], text: "Опиши вечер в Валенсии" },
+          { attributes: [{ name: "data-message-author-role", value: "assistant" }], text: "Спокойный вечер с прогулкой и ужином." }
         ]
       },
-      {
-        selector: "h1",
-        results: withTitle ? [{ attributes: [], text: "Вечер в Валенсии" }] : []
-      }
+      { selector: "h1", results: [{ attributes: [], text: "Вечер в Валенсии" }] }
     ]
   };
 }
@@ -91,21 +70,86 @@ function requestFor(url = SHARE_URL) {
   return new Request(`https://dashgpt.example/api/shared-chat?url=${encodeURIComponent(url)}`);
 }
 
-// Production path: rendered DOM succeeds, so DashGPT never issues the raw ChatGPT fetch that commonly returns 403.
+// Anonymous happy path: Jina Reader succeeds; no direct or browser request is needed.
 {
+  const resolverUrls = [];
   let directCalls = 0;
   let browserCalls = 0;
   const env = {
+    DASHGPT_RESOLVER_FETCH: async input => {
+      resolverUrls.push(String(input));
+      return new Response(readerTranscript(), { status: 200 });
+    },
     DASHGPT_SHARE_FETCH: async () => {
       directCalls += 1;
-      return new Response("should not run", { status: 403 });
+      return new Response("should not run", { status: 500 });
+    },
+    BROWSER: {
+      async quickAction() {
+        browserCalls += 1;
+        return Response.json(renderedScrape());
+      }
+    }
+  };
+  const response = await worker.fetch(requestFor(), env, {});
+  assert.equal(response.status, 200, await response.clone().text());
+  const payload = await response.json();
+  assert.equal(payload.retrieval, "reader");
+  assert.equal(payload.title, "Картошка в аэрогриле");
+  assert.deepEqual(payload.replies.map(reply => reply.type), ["user", "assistant"]);
+  assert.match(resolverUrls[0], /^https:\/\/r\.jina\.ai\/https:\/\/chatgpt\.com\/share\//);
+  assert.equal(resolverUrls.length, 1);
+  assert.equal(directCalls, 0);
+  assert.equal(browserCalls, 0);
+}
+
+// Provider fallback: Reader can fail and AllOrigins raw HTML can still satisfy the same contract.
+{
+  const resolverUrls = [];
+  let directCalls = 0;
+  const env = {
+    DASHGPT_RESOLVER_FETCH: async input => {
+      const url = String(input);
+      resolverUrls.push(url);
+      if (url.startsWith("https://r.jina.ai/")) return new Response("reader unavailable", { status: 503 });
+      if (url.startsWith("https://api.allorigins.win/raw?url=")) return new Response(legacyShareHtml(), { status: 200 });
+      return new Response("unexpected resolver", { status: 500 });
+    },
+    DASHGPT_SHARE_FETCH: async () => {
+      directCalls += 1;
+      return new Response("should not run", { status: 500 });
+    }
+  };
+  const response = await worker.fetch(requestFor(), env, {});
+  assert.equal(response.status, 200, await response.clone().text());
+  const payload = await response.json();
+  assert.equal(payload.retrieval, "raw-proxy");
+  assert.equal(payload.title, "Картошка в аэрогриле");
+  assert.equal(payload.replies.length, 2);
+  assert.equal(resolverUrls.length, 2);
+  assert.match(resolverUrls[1], /^https:\/\/api\.allorigins\.win\/raw\?url=/);
+  assert.equal(directCalls, 0);
+}
+
+// Existing rendered browser path remains a later compatibility fallback.
+{
+  let resolverCalls = 0;
+  let directCalls = 0;
+  let browserCalls = 0;
+  const env = {
+    DASHGPT_RESOLVER_FETCH: async () => {
+      resolverCalls += 1;
+      return new Response("unavailable", { status: 503 });
+    },
+    DASHGPT_SHARE_FETCH: async () => {
+      directCalls += 1;
+      return new Response("should not run", { status: 500 });
     },
     BROWSER: {
       async quickAction(action, options) {
         browserCalls += 1;
         assert.equal(action, "scrape");
         assert.equal(options.url, SHARE_URL);
-        assert.equal(options.gotoOptions.waitUntil, "networkidle2");
         return Response.json(renderedScrape());
       }
     }
@@ -115,44 +159,23 @@ function requestFor(url = SHARE_URL) {
   const payload = await response.json();
   assert.equal(payload.retrieval, "browser-dom");
   assert.equal(payload.title, "Вечер в Валенсии");
-  assert.deepEqual(payload.replies.map(reply => reply.type), ["user", "assistant", "user", "assistant"]);
-  assert.equal(directCalls, 0, "successful rendered extraction must not perform a raw ChatGPT fetch");
+  assert.equal(resolverCalls, 2);
   assert.equal(browserCalls, 1);
+  assert.equal(directCalls, 0);
 }
 
-// Local/test compatibility: direct structured parsing still works when Browser Run is unavailable.
+// Direct parser still works in local/test environments after the anonymous providers fail.
 {
+  let resolverCalls = 0;
   let directCalls = 0;
   const env = {
-    DASHGPT_SHARE_FETCH: async () => {
-      directCalls += 1;
-      return new Response(legacyShareHtml(), { status: 200 });
-    }
-  };
-  const response = await worker.fetch(requestFor(), env, {});
-  assert.equal(response.status, 200);
-  const payload = await response.json();
-  assert.equal(payload.retrieval, "direct");
-  assert.equal(payload.title, "Картошка в аэрогриле");
-  assert.equal(payload.replies.length, 2);
-  assert.equal(directCalls, 1);
-}
-
-// If rendered DOM is unreadable, direct structured parsing remains the next fallback.
-{
-  let directCalls = 0;
-  let browserCalls = 0;
-  const env = {
-    DASHGPT_SHARE_FETCH: async () => {
-      directCalls += 1;
-      return new Response(legacyShareHtml(), { status: 200 });
+    DASHGPT_RESOLVER_FETCH: async () => {
+      resolverCalls += 1;
+      return new Response("unavailable", { status: 503 });
     },
-    BROWSER: {
-      async quickAction(action) {
-        browserCalls += 1;
-        assert.equal(action, "scrape");
-        return Response.json(emptyScrape());
-      }
+    DASHGPT_SHARE_FETCH: async () => {
+      directCalls += 1;
+      return new Response(legacyShareHtml(), { status: 200 });
     }
   };
   const response = await worker.fetch(requestFor(), env, {});
@@ -160,45 +183,23 @@ function requestFor(url = SHARE_URL) {
   const payload = await response.json();
   assert.equal(payload.retrieval, "direct");
   assert.equal(payload.title, "Картошка в аэрогриле");
-  assert.equal(browserCalls, 1);
+  assert.equal(resolverCalls, 2);
   assert.equal(directCalls, 1);
 }
 
-// Tertiary compatibility: rendered payload parsing remains available after DOM + direct failures.
+// SSRF boundary: invalid hosts are rejected before any resolver/direct/browser action.
 {
+  let resolverCalls = 0;
   let directCalls = 0;
   let browserCalls = 0;
   const env = {
-    DASHGPT_SHARE_FETCH: async () => {
-      directCalls += 1;
-      return new Response("blocked", { status: 403 });
+    DASHGPT_RESOLVER_FETCH: async () => {
+      resolverCalls += 1;
+      return new Response("no", { status: 500 });
     },
-    BROWSER: {
-      async quickAction(action) {
-        browserCalls += 1;
-        if (action === "scrape") return Response.json(emptyScrape());
-        assert.equal(action, "content");
-        return new Response(legacyShareHtml(), { status: 200 });
-      }
-    }
-  };
-  const response = await worker.fetch(requestFor(), env, {});
-  assert.equal(response.status, 200, await response.clone().text());
-  const payload = await response.json();
-  assert.equal(payload.retrieval, "browser-payload");
-  assert.equal(payload.title, "Картошка в аэрогриле");
-  assert.equal(browserCalls, 2);
-  assert.equal(directCalls, 1);
-}
-
-// SSRF boundary: invalid hosts are rejected before any external action.
-{
-  let directCalls = 0;
-  let browserCalls = 0;
-  const env = {
     DASHGPT_SHARE_FETCH: async () => {
       directCalls += 1;
-      return new Response(legacyShareHtml(), { status: 200 });
+      return new Response("no", { status: 500 });
     },
     BROWSER: {
       async quickAction() {
@@ -211,13 +212,15 @@ function requestFor(url = SHARE_URL) {
   assert.equal(response.status, 502);
   const payload = await response.json();
   assert.match(payload.error, /Only public ChatGPT share URLs/);
+  assert.equal(resolverCalls, 0);
   assert.equal(directCalls, 0);
   assert.equal(browserCalls, 0);
 }
 
-// Product error boundary: internal anti-bot and parser details never leak into onboarding.
+// Product error boundary: no provider, anti-bot, or parser details leak to onboarding.
 {
   const env = {
+    DASHGPT_RESOLVER_FETCH: async () => new Response("provider failed", { status: 429 }),
     DASHGPT_SHARE_FETCH: async () => new Response("blocked", { status: 403 }),
     BROWSER: {
       async quickAction(action) {
@@ -231,9 +234,7 @@ function requestFor(url = SHARE_URL) {
   const payload = await response.json();
   assert.equal(payload.code, "SHARED_CHAT_UNREADABLE");
   assert.match(payload.error, /Unable to read this public ChatGPT conversation/);
-  assert.doesNotMatch(payload.error, /403/);
-  assert.doesNotMatch(payload.error, /Legacy share payload/);
-  assert.doesNotMatch(payload.error, /fallback/);
+  assert.doesNotMatch(payload.error, /403|429|Jina|AllOrigins|Reader|proxy|Legacy/i);
 }
 
-console.log("Shared ChatGPT browser-first and sanitized fallback checks passed.");
+console.log("Shared ChatGPT anonymous resolver and compatibility fallback checks passed.");

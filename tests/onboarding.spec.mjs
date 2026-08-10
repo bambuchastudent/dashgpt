@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 const VAULT_KEY = "dashgpt.demo.vault.v1";
+const SHARE_URL = "https://chatgpt.com/share/6a7a445b-a420-83ea-9c36-3c10fd1ce85f";
 
 const RESULT_ENVELOPE = `\`\`\`json
 {
@@ -25,7 +26,7 @@ function watchSharedChatRequests(page) {
   return () => calls;
 }
 
-test("clean personal entry is chat-first and does not scrape ChatGPT", async ({ page }) => {
+test("clean personal entry is chat-first and offers anonymous Share fallback without scraping automatically", async ({ page }) => {
   const sharedChatCalls = watchSharedChatRequests(page);
   await page.goto("/demo/?personal=1");
 
@@ -33,6 +34,8 @@ test("clean personal entry is chat-first and does not scrape ChatGPT", async ({ 
   await expect(page.getByRole("heading", { name: "Сохрани разговор через ChatGPT" })).toBeVisible();
   await expect(page.locator("#copyDashGptCommand")).toBeVisible();
   await expect(page.locator("#publicHandoffPayload")).toBeVisible();
+  await expect(page.locator("#anonymousShareUrl")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Понять этот чат" })).toBeVisible();
   await expect(page.locator("#publicShareUrl")).toHaveCount(0);
   await expect(page.locator(".result-card")).toHaveCount(0);
   await expect(page.getByText("Ночёвка с палаткой для рыбалки", { exact: false })).toHaveCount(0);
@@ -79,6 +82,45 @@ test("pasted ChatGPT Result envelope creates only the visitor's first card", asy
   expect(stored[0].source).toEqual({ type: "chatgpt-handoff", title: "ChatGPT conversation" });
   expect(stored[0].source.url).toBeUndefined();
   expect(sharedChatCalls()).toBe(0);
+});
+
+test("anonymous ?share mobile handoff resolves, previews, and saves the visitor chat", async ({ page }) => {
+  let requestedUrl = "";
+  await page.route("**/api/shared-chat?**", async route => {
+    requestedUrl = new URL(route.request().url()).searchParams.get("url") || "";
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        sourceUrl: SHARE_URL,
+        retrieval: "reader",
+        title: "Картошка в аэрогриле",
+        replies: [
+          { type: "user", statement: "Как приготовить картошку в аэрогриле?" },
+          { type: "assistant", statement: "Нарежь картошку, добавь масло и специи и готовь до румяности." }
+        ]
+      })
+    });
+  });
+
+  await page.goto(`/demo/?personal=1&share=${encodeURIComponent(SHARE_URL)}`);
+
+  await expect(page.locator("#anonymousShareReview")).toBeVisible();
+  expect(requestedUrl).toBe(SHARE_URL);
+  await expect(page.locator("#anonymousShareTitle")).toHaveValue("Картошка в аэрогриле");
+  await expect(page.locator("#anonymousShareSummary")).toHaveValue(/Нарежь картошку/);
+  await expect(page.locator(".result-card")).toHaveCount(0);
+
+  await page.locator("#anonymousShareSave").click();
+  await page.waitForURL(/\/demo\/$/);
+  await expect(page.locator("#publicWelcome")).toHaveCount(0);
+  await expect(page.locator(".result-card")).toHaveCount(1);
+  await expect(page.locator(".result-card")).toContainText("Картошка в аэрогриле");
+  await expect(page.getByText("Ночёвка с палаткой для рыбалки", { exact: false })).toHaveCount(0);
+
+  const stored = await page.evaluate(key => JSON.parse(localStorage.getItem(key)).results, VAULT_KEY);
+  expect(stored).toHaveLength(1);
+  expect(stored[0].source).toEqual({ type: "chatgpt-share", url: SHARE_URL, title: "Картошка в аэрогриле" });
 });
 
 test("invalid handoff stays usable and does not create a card", async ({ page }) => {
