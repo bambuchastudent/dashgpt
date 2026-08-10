@@ -176,7 +176,7 @@ Cloudflare branch previews are deployment verification. Production tracks `devel
 
 ## Current development state
 
-Status: **Feature 7 Semantic Dashes is implemented under the validated `f7-semantic-dashes` OpenSpec change and is being published as a dedicated PR to `develop`.**
+Status: **Feature 7 Semantic Dashes is implemented under the validated `f7-semantic-dashes` OpenSpec change in dedicated PR #18 to `develop`.**
 
 The implementation shares one dependency-free semantic engine between browser and Worker, stores Dash revisions and user overrides separately from immutable Results, and filters eligibility before ranking or summarization. The dashboard owns private local/Vault interactions. The public MCP catalog remains an explicitly exposed, read-only surface and does not imply access to the user's private Vault.
 
