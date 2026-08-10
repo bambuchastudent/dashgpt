@@ -83,6 +83,8 @@ For a meaningful change:
 
 Feature 4 follows this explicitly under `openspec/changes/f4-plugin-directory-submission/` with separate proposal, spec and task state.
 
+Feature 9 follows the same gate under `openspec/changes/f9-living-product-board/`: proposal/spec/design/tasks were committed and `openspec validate f9-living-product-board --type change --strict --no-interactive` passed in CI before Product Board production-code changes were added.
+
 ## Documentation separation rule
 
 Keep these concerns separate:
@@ -92,7 +94,8 @@ Keep these concerns separate:
 - `docs/roadmap.md` = milestone ordering and current delivery intent.
 - OpenSpec changes/specs = detailed scoped work.
 - ADRs = durable architectural decisions and their rationale.
-- `DASH.md` = short operational NOW / DONE / NEXT / BLOCKERS state, mirrored to the phone UI.
+- DashGPT Product Board = user-facing/product-facing delivery state derived from Result cards and a saved Semantic Dash.
+- `DASH.md` = short developer operational NOW / DONE / NEXT / BLOCKERS handoff; it is not the product-status source of truth.
 
 ## Published page implementation
 
@@ -100,10 +103,12 @@ Standalone Result pages use one shared client-side renderer rather than copied p
 
 - Cloudflare Workers Static Assets serves the SPA shell for `/demo/result/<id>/` routes.
 - Dashboard and Result pages share the same `index.html`, JavaScript and CSS, so renderer/style updates apply to old pages automatically.
-- Published knowledge stays in `demo/data/results.json`, separate from presentation code.
+- Published knowledge is a logical Result catalog. The historical catalog remains `demo/data/results.json`; Feature 9 adds repository-backed product Result shards `demo/data/product-results-a.json` and `demo/data/product-results-b.json` without rewriting old immutable Results.
+- `demo/catalog-bootstrap.js` exposes those static shards to the browser as one logical published catalog before the normal dashboard app starts.
+- `src/worker.js` exposes the same logical catalog to Worker/MCP consumers while retaining 404-compatible fallback when optional product shards are absent.
 - Published Results carry `schemaVersion`, `immutable`, `contentVersion` and `contentHash`.
-- The hash covers stable Result identity plus durable knowledge fields. Optional structured continuation fields such as goal, current state, facts, constraints, preferences, questions, links, related material and language participate when present; presentation/local state and activity events are deliberately excluded.
-- `scripts/verify-results.mjs` deterministically canonicalizes those fields and rejects a catalog whose stored SHA-256 no longer matches its immutable content.
+- The hash covers stable Result identity plus durable knowledge fields. Optional structured continuation fields such as goal, current state, facts, constraints, preferences, questions, links, related material and language participate when present; presentation/local state, product-delivery metadata and activity events are deliberately excluded.
+- `scripts/verify-results.mjs` protects the historical catalog; `scripts/verify-product-board.mjs` applies the deterministic SHA-256 contract to Product Board Results and verifies stable Dash membership and status semantics.
 - The browser independently recomputes the same digest and shows verified, unverified or mismatch state.
 - Corrections should become explicit new revisions rather than edits to old immutable Results.
 
@@ -153,19 +158,27 @@ The Worker exposes `/.well-known/openai-apps-challenge`; it returns exactly the 
 
 The repository does not invent or require a `plugin_asdk_app...` id for the public submission path. Local/private connection mappings may still use `.app.json` when a real registered connection exists, but the public submission is based on the production MCP URL scanned by the platform.
 
-## Project status surface
+## Project status surfaces
 
-`DASH.md` is the short operational status source. `scripts/sync-dash.mjs` deterministically generates `demo/data/dash.json`, and CI rejects drift. The shared frontend renders that state at `/demo/dash/` so project progress is readable from a phone without opening GitHub.
+There are now two deliberately different status surfaces:
+
+- **Product delivery state:** `dashgpt-product` saved Semantic Dash, rendered canonically at `/demo/dash/dashgpt-product/`. `/demo/dash/` is a compatibility route for that same board. It reads repository-backed Dash/Result catalogs and computes summary/status from cards.
+- **Developer operational handoff:** `DASH.md`, mirrored deterministically to `demo/data/dash.json` by `scripts/sync-dash.mjs` so CI can reject drift. This mirror is not rendered as a second product-status dataset.
+
+The Product Board renderer must not fetch `demo/data/dash.json`. Product changes are represented as Result cards with explicit delivery status, sources, current state and next action. GitHub/deployment evidence produces Review-mode proposals only; it never silently rewrites decisions or grants product verification.
 
 ## Verification
 
-`.github/workflows/check.yml` runs the project checks on active feature branches and PRs.
+`.github/workflows/check.yml` runs the project checks on active feature branches and pull requests. `.github/workflows/openspec.yml` strictly validates only OpenSpec changes touched by the current PR, avoiding unrelated historical-change failures under newer CLI versions.
 
 `npm run check` currently covers:
 
 - JavaScript syntax
-- `DASH.md` ↔ mobile DASH synchronization
-- immutable Result catalog hashes
+- `DASH.md` ↔ developer mobile-mirror synchronization
+- immutable historical Result catalog hashes
+- immutable Product Board Result hashes, required product metadata and stable membership
+- Product Board status counts, route identity, reconciliation advancement/idempotence and manual-only product verification
+- Product Board structured continuation headings/sources and no legacy status-snapshot dependency
 - plugin manifest + repo marketplace identity
 - MCP initialization and tool discovery
 - tool annotations
@@ -184,21 +197,21 @@ The repository does not invent or require a `plugin_asdk_app...` id for the publ
 
 `npm run test:browser` runs the Playwright continuation flows against the real demo in desktop and narrow mobile projects. CI installs its pinned Chromium runtime before that browser-level gate.
 
-Cloudflare branch previews are deployment verification. Production tracks `develop`; the stable UI entry point is `/demo/`, the operational status page is `/demo/dash/`, and the plugin endpoint is `/mcp`.
+Cloudflare branch previews are deployment verification. Production tracks `develop`; the stable UI entry point is `/demo/`, the canonical product board is `/demo/dash/dashgpt-product/`, `/demo/dash/` is its compatibility route, and the plugin endpoint is `/mcp`.
 
 ## Current development state
 
-Status: **Structured Chat Continuation is implemented under the validated `structured-chat-continuation` OpenSpec change in draft PR #20 to `develop`; local quality and desktop/mobile Playwright CI are green.**
+Feature 7 Semantic Dashes is merged via PR #18. Feature 8 Semantic Gallery UX is merged via PR #19.
 
-Feature 7 Semantic Dashes is merged in PR #18 and Feature 8 Semantic Gallery in PR #19. Structured Chat Continuation is rebased on both; it reuses Gallery's content-free activity value and routes existing Continue controls through one controller without changing Gallery ordering, density, zoom, Semantic Navigator or card layout.
+Structured Chat Continuation is merged via PR #20 under the validated `structured-chat-continuation` OpenSpec change. Its provider-safe new-chat transport, Continuation Brief, privacy boundary, content-free activity and desktop/mobile browser coverage remain part of the combined quality gate.
 
-External/manual release gates after merge:
+PR #21 owns Living Product Board: the `dashgpt-product` saved board, product Result cards, deterministic Review reconciliation and stable board route. Feature 9 passed the mandatory strict OpenSpec gate before production-code edits and its implementation is integrated against current `develop`. Stable production deployment and explicit product acceptance remain separate from merge state.
 
-- OpenAI Platform submitter must have Apps Management write access
-- publisher developer/business identity must be verified
-- create the DashGPT public plugin draft in the platform submission portal
-- scan production `/mcp` and complete domain verification
-- fill listing, prompts, tests, availability and release notes; submit for review
-- after approval, publish the reviewed version
-- validate from a second ChatGPT account against a separate DashGPT deployment
-- only after that second-user proof mark the MVP complete and prepare the DashGPT v2 handoff
+External/manual release gates remain:
+
+- configure protected GitHub production-sync Worker secrets without putting them in chat/repository/Vault;
+- run one real disposable/private repository pair → sync → idempotent re-sync → disconnect smoke test before claiming GitHub production activation;
+- ensure the OpenAI Platform submitter has Apps Management write access and verified publisher identity;
+- create the public plugin draft, scan production `/mcp`, complete domain verification, fill the reviewed listing/tests/release notes and submit it when that track resumes;
+- after approval, publish the reviewed version and validate it from a second ChatGPT account against a separate DashGPT deployment;
+- perform physical/stable-production UX verification where a feature explicitly requires it rather than inferring `product_verified` from CI or merge state.
