@@ -3,11 +3,20 @@ import { PUBLISHED_RESULT_PATHS, mergePublishedResultCatalogs } from "./result-c
 const nativeFetch = globalThis.fetch.bind(globalThis);
 const primaryPath = PUBLISHED_RESULT_PATHS[0];
 
+function localVaultHasResults() {
+  try {
+    const vault = JSON.parse(globalThis.localStorage?.getItem?.("dashgpt.demo.vault.v1") || "null");
+    return Array.isArray(vault?.results) && vault.results.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 function publishedCatalogAllowed() {
   const params = new URLSearchParams(window.location.search);
   if (params.get("personal") === "1") return false;
   if (params.get("showcase") === "1") return true;
-  if (["localhost", "127.0.0.1", "::1"].includes(window.location.hostname)) return true;
+  if (["localhost", "127.0.0.1", "::1"].includes(window.location.hostname)) return !localVaultHasResults();
   return /^\/demo\/(?:result|dash)\//.test(window.location.pathname);
 }
 
