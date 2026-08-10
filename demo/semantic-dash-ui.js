@@ -57,6 +57,10 @@ export function createSemanticDashUi(options) {
   const saveVault = options.saveVault;
   const openResult = options.openResult;
   const continuationUrl = options.continuationUrl;
+  const recordActivity = options.recordActivity || (() => {});
+  const decorateResultCard = options.decorateResultCard || (() => {});
+  const renderMemberGallery = options.renderMemberGallery || null;
+  const releaseMemberGallery = options.releaseMemberGallery || (() => {});
   const dashboardView = document.querySelector("#dashboardView");
   const resultPage = document.querySelector("#resultPage");
   const addResultButton = document.querySelector("#addResultButton");
@@ -91,16 +95,24 @@ export function createSemanticDashUi(options) {
 
   function updateOverride(dashId, type, resultId, value) {
     setDashOverride(getVault(), dashId, type, resultId, value);
+    if ((type === "dash.pin" || type === "dash.accept" || type === "dash.manual") && value) recordActivity(resultId, "dash.add");
+    if (type === "dash.exclude") recordActivity(resultId, value ? "dash.remove" : "dash.add");
     persist();
     renderDashPage(dashId);
   }
 
   function resultActions(result, dashId, membership) {
     const actions = document.createElement("div");
-    actions.className = "dash-result-actions";
+    actions.className = "dash-result-actions card-actions";
     actions.append(button("Open", () => openResult(result.id)));
-    if (result.source?.url) actions.append(link("Original chat ↗", result.source.url));
-    actions.append(link("Continue ↗", continuationUrl(result)));
+    if (result.source?.url) {
+      const original = link("Original chat ↗", result.source.url);
+      original.addEventListener("click", () => recordActivity(result.id, "source.open"));
+      actions.append(original);
+    }
+    const continuation = link("Continue ↗", continuationUrl(result));
+    continuation.addEventListener("click", () => recordActivity(result.id, "continue.new-chat"));
+    actions.append(continuation);
     actions.append(button(membership === "pinned" ? "Unpin" : "Pin", () => updateOverride(dashId, "dash.pin", result.id, membership !== "pinned"), "button small ghost"));
     actions.append(button("Exclude", () => updateOverride(dashId, "dash.exclude", result.id, true), "button small ghost danger"));
     return actions;
@@ -108,13 +120,47 @@ export function createSemanticDashUi(options) {
 
   function memberNode(member, dashId) {
     const article = document.createElement("article");
-    article.className = "dash-result-row";
-    const heading = document.createElement("h4");
-    heading.textContent = member.result.title;
+    article.className = "result-card dash-result-card";
+    article.tabIndex = 0;
+    article.dataset.resultId = member.result.id;
+    article.setAttribute("aria-label", `Open ${member.result.title}`);
+    decorateResultCard(article, member.result);
+    const topline = document.createElement("div");
+    topline.className = "card-topline";
+    const category = document.createElement("span");
+    category.className = "category";
+    category.textContent = member.result.category || "Result";
     const badge = document.createElement("span");
-    badge.className = "dash-membership";
+    badge.className = "dash-membership card-status";
     badge.textContent = member.membership;
-    article.append(heading, badge, paragraph(member.result.summary, "muted"), resultActions(member.result, dashId, member.membership));
+    topline.append(category, badge);
+    const heading = document.createElement("h3");
+    heading.className = "title";
+    heading.textContent = member.result.title;
+    const summary = paragraph(member.result.summary, "summary");
+    const next = paragraph(member.result.next ? `Next: ${member.result.next}` : "", "card-next");
+    next.hidden = !member.result.next;
+    const relatedCount = [member.result.links, member.result.images, member.result.assets, member.result.relatedResults]
+      .reduce((count, items) => count + (Array.isArray(items) ? items.length : 0), 0);
+    const related = paragraph(relatedCount ? `${relatedCount} related ${relatedCount === 1 ? "material" : "materials"}` : "", "card-related");
+    related.hidden = relatedCount === 0;
+    const tags = document.createElement("div");
+    tags.className = "tags";
+    for (const value of member.result.tags || []) {
+      const tag = document.createElement("span");
+      tag.className = "tag";
+      tag.textContent = `#${value}`;
+      tags.append(tag);
+    }
+    article.append(topline, heading, summary, next, related, tags, resultActions(member.result, dashId, member.membership));
+    const openFromCard = (event) => {
+      if (event.target.closest?.("a,button,input,summary,details")) return;
+      if (event.type === "keydown" && !["Enter", " "].includes(event.key)) return;
+      if (event.type === "keydown") event.preventDefault();
+      openResult(member.result.id);
+    };
+    article.addEventListener("click", openFromCard);
+    article.addEventListener("keydown", openFromCard);
     return article;
   }
 
@@ -288,14 +334,17 @@ export function createSemanticDashUi(options) {
     if (!select.value) return;
     setDashOverride(getVault(), revision.dashId, "dash.exclude", select.value, false);
     setDashOverride(getVault(), revision.dashId, "dash.manual", select.value, true);
+    recordActivity(select.value, "dash.add");
     persist();
     renderDashPage(revision.dashId);
   }
 
   function renderDashPage(dashId) {
+    releaseMemberGallery();
     const revision = revisionById(dashId);
     dashboardView.hidden = true;
     resultPage.hidden = false;
+    resultPage.classList.add("dash-gallery-page");
     addResultButton.hidden = true;
     resultPage.replaceChildren();
     if (!revision) {
@@ -338,7 +387,16 @@ export function createSemanticDashUi(options) {
     membersTitle.textContent = "Results";
     members.append(membersTitle);
     if (!view.members.length) members.append(paragraph("No accessible accepted Results.", "muted"));
-    for (const member of view.members) members.append(memberNode(member, revision.dashId));
+    else if (renderMemberGallery) {
+      renderMemberGallery({
+        container: members,
+        dashId: revision.dashId,
+        members: view.members,
+        createMemberNode: (member) => memberNode(member, revision.dashId)
+      });
+    } else {
+      for (const member of view.members) members.append(memberNode(member, revision.dashId));
+    }
     article.append(members);
 
     if (view.proposals.length) {
@@ -402,8 +460,10 @@ export function createSemanticDashUi(options) {
   }
 
   function showDashboard() {
+    releaseMemberGallery();
     dashboardView.hidden = false;
     resultPage.hidden = true;
+    resultPage.classList.remove("dash-gallery-page");
     addResultButton.hidden = false;
     renderList();
   }

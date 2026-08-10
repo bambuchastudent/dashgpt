@@ -1,16 +1,18 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-const css = ["../demo/styles.css", "../demo/semantic.css", "../demo/semantic-dashes.css"]
+const css = ["../demo/styles.css", "../demo/semantic.css", "../demo/semantic-dashes.css", "../demo/gallery.css"]
   .map((path) => readFileSync(new URL(path, import.meta.url), "utf8"))
   .join("\n");
 const app = readFileSync(new URL("../demo/app.js", import.meta.url), "utf8");
+const gallery = readFileSync(new URL("../demo/semantic-gallery.js", import.meta.url), "utf8");
+const vault = readFileSync(new URL("../demo/vault.js", import.meta.url), "utf8");
 const githubSync = readFileSync(new URL("../demo/github-sync.js", import.meta.url), "utf8");
 const dashUi = readFileSync(new URL("../demo/semantic-dash-ui.js", import.meta.url), "utf8");
 const semanticDashes = readFileSync(new URL("../demo/semantic-dashes.js", import.meta.url), "utf8");
 const html = readFileSync(new URL("../demo/index.html", import.meta.url), "utf8");
 
-assert.match(app, /function semanticHue\(result\)/, "semanticHue(result) renderer is required");
+assert.match(gallery, /function semanticHue\(result\)/, "semanticHue(result) renderer is required");
 assert.match(app, /--semantic-hue/, "renderer must expose semantic hue to CSS");
 assert.match(app, /applySemanticVisual\(card,\s*result\)/, "dashboard cards must receive semantic visuals");
 
@@ -24,6 +26,7 @@ assert.match(css, /\.result-card\{[^}]*background:[^}]*hsla\(var\(--semantic-hue
 
 assert.match(html, /semantic\.css/, "semantic visual layer must be loaded by the dashboard");
 assert.match(html, /semantic-dashes\.css/, "Semantic Dash visual layer must be loaded by the dashboard");
+assert.match(html, /gallery\.css/, "semantic gallery layout layer must be loaded by the dashboard");
 assert.match(html, /vault\.css/, "vault storage status layer must be loaded by the dashboard");
 assert.match(html, /id="storageButton"/, "local vault status must be visible from the dashboard");
 assert.match(html, /id="githubStorageUrl"/, "GitHub pairing must accept a repository/folder URL");
@@ -62,4 +65,42 @@ assert.match(semanticDashes, /isResultEligible\(result, scope/, "eligibility fil
 assert.match(semanticDashes, /filter\(\(result\) => isResultEligible\(result, scope\)\)/, "inaccessible Results must be filtered before ranking");
 assert.doesNotMatch(semanticDashes, /summary:\s*(?:revision|dash)\./, "materialized aggregate summary must not reuse persisted card prose");
 
+// Gallery zoom is internal, selection-neutral, operable without gestures, and accessible.
+assert.match(html, /id="galleryZoom"[^>]*type="range"/, "gallery needs a visible native density range");
+assert.match(html, /id="galleryZoomOut"/, "gallery needs a non-touch zoom-out control");
+assert.match(html, /id="galleryZoomIn"/, "gallery needs a non-touch zoom-in control");
+assert.match(html, /id="galleryZoomValue"[^>]*aria-live="polite"/, "gallery density needs an announced value");
+assert.match(app, /orderGalleryResults\(visible/, "gallery ordering must run after the current selection");
+assert.match(app, /semanticTerms\(/, "gallery grouping must reuse the shared Semantic Dashes concept vocabulary");
+assert.match(app, /renderDashMemberGallery/, "Semantic Dash Results must render through the gallery integration");
+assert.match(app, /gallerySelectionKey\(\{ scope: `dash:\$\{dashId\}` \}\)/, "each Semantic Dash needs an independent stable order scope");
+assert.match(app, /dashUi\?\.routeDashId\?\.\(\) \? dashGalleryZoomController : galleryZoomController/, "Dash activity must persist the visible Dash density rather than the hidden dashboard controller");
+assert.match(dashUi, /renderMemberGallery\(\{/, "Semantic Dash detail must hand accepted members to the gallery renderer");
+assert.match(dashUi, /className = "result-card dash-result-card"/, "Semantic Dash members must use scale-aware Result cards");
+assert.match(dashUi, /recordActivity\(resultId, "dash\.add"\)/, "adding a Result to a Dash must be explicit activity");
+assert.match(dashUi, /recordActivity\(resultId, value \? "dash\.remove" : "dash\.add"\)/, "excluding or restoring a Result must be explicit activity");
+assert.match(css, /\.result-page\.dash-gallery-page\{max-width:1100px\}/, "Dash gallery must have enough width for adaptive columns");
+assert.match(app, /focusedCard\.focus\(\{ preventScroll: true \}\)/, "saved Result focus must be restored without forcing a page jump");
+assert.match(gallery, /root\.addEventListener\("pointerdown"/, "touch pinch must use pointer events");
+assert.match(gallery, /root\.addEventListener\("pointermove"/, "touch pinch must update continuously");
+assert.match(gallery, /root\.addEventListener\("wheel"/, "trackpad pinch must have a wheel handler");
+assert.match(gallery, /if \(!event\.ctrlKey\) return/, "ordinary mouse wheel scrolling must remain untouched");
+assert.match(gallery, /nearestDensityIndex\(visualScale\)/, "gesture completion must snap to a valid density");
+assert.match(css, /touch-action:pan-y/, "gallery must keep vertical touch scrolling while owning internal pinch");
+assert.match(css, /grid-template-columns:repeat\(auto-fit,minmax\(min\(100%,var\(--gallery-card-min\)\),1fr\)\)/,
+  "gallery must use a gap-free responsive auto-fit grid");
+assert.match(gallery, /Math\.min\(clampGalleryScale\(value\), 1\)/, "gallery font scale must cap at 100 percent");
+assert.match(css, /data-gallery-detail="compact"[^}]*\.result-card \.title\{[^}]*-webkit-line-clamp:2/s,
+  "compact cards must retain a clamped Result identity");
+assert.doesNotMatch(css, /data-gallery-detail="compact"[^}]*\.result-card \.title[^}]*display:none/s,
+  "compact mode must never hide the Result title");
+assert.match(css, /overflow-wrap:anywhere/, "long titles and content must remain inside cards");
+assert.match(css, /@media\(prefers-reduced-motion:reduce\)/, "gallery reflow must respect reduced motion");
+
+// Only explicit interactions become portable activity; visibility and zoom remain presentation-only.
+assert.match(vault, /type: RESULT_ACTIVITY_TYPE/, "explicit Result activity must use append-only Vault events");
+assert.match(app, /recordActivity\(id, "opened"\)/, "opening Result details must be activity");
+assert.match(app, /recordActivity\(id, "source\.open"\)/, "opening the original source must be continuation activity");
+assert.match(app, /recordActivity\(id, "continue\.new-chat"\)/, "starting a new continuation chat must be activity");
+assert.doesNotMatch(app, /IntersectionObserver/, "card viewport appearance must not be recorded as activity");
 console.log("DashGPT UI contract checks passed.");

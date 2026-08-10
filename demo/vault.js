@@ -1,6 +1,10 @@
 export const VAULT_SCHEMA_VERSION = 1;
 export const VAULT_STORAGE_KEY = "dashgpt.demo.vault.v1";
 export const LEGACY_RESULTS_KEYS = ["dashgpt.demo.results.v2", "dashgpt.demo.results.v1"];
+export const RESULT_ACTIVITY_TYPE = "result.activity";
+export const RESULT_ACTIVITY_KINDS = Object.freeze([
+  "opened", "continue.new-chat", "source.open", "updated", "created", "dash.add", "dash.remove"
+]);
 
 const RESULT_FIELDS = [
   "id", "schemaVersion", "title", "summary", "category", "tags", "decisions", "next", "source",
@@ -18,6 +22,7 @@ const DASH_SCOPE_FIELDS = [
   "providers", "sourceTypes", "includeArchived", "excludedResultIds", "excludedSourceIds", "excludedSourceUrls"
 ];
 const LEGACY_SEED_IDS = new Set(["dashgpt-product", "development-workflow", "deployment"]);
+const RESULT_ACTIVITY_DEBOUNCE_MS = 30_000;
 
 function clone(value) {
   return value == null ? value : structuredClone(value);
@@ -250,6 +255,31 @@ export function setFavorite(vault, resultId, value, options = {}) {
   });
   vault.updatedAt = createdAt;
   return vault;
+}
+
+export function recordResultActivity(vault, resultId, kind, options = {}) {
+  validateVault(vault);
+  if (typeof resultId !== "string" || !resultId) throw new Error("Result activity is missing resultId");
+  if (!RESULT_ACTIVITY_KINDS.includes(kind)) throw new Error(`Unsupported Result activity: ${kind}`);
+  const createdAt = options.createdAt || isoNow();
+  if (!Number.isFinite(Date.parse(createdAt))) throw new Error("Result activity has an invalid timestamp");
+  const latest = vault.events
+    .filter(event => event.type === RESULT_ACTIVITY_TYPE && event.resultId === resultId && event.value === kind)
+    .slice()
+    .sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.eventId.localeCompare(right.eventId))
+    .at(-1);
+  if (latest && Date.parse(createdAt) - Date.parse(latest.createdAt) < RESULT_ACTIVITY_DEBOUNCE_MS) return latest;
+  const event = {
+    schemaVersion: 1,
+    eventId: options.eventId || randomId("evt"),
+    type: RESULT_ACTIVITY_TYPE,
+    resultId,
+    value: kind,
+    createdAt
+  };
+  vault.events.push(event);
+  vault.updatedAt = createdAt;
+  return event;
 }
 
 export function materializeResults(vault) {
