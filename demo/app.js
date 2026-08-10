@@ -9,6 +9,8 @@ import {
   setFavorite,
   vaultStatus
 } from "./vault.js";
+import { rankResults } from "./semantic-dashes.js";
+import { createSemanticDashUi } from "./semantic-dash-ui.js";
 
 const DURABLE_FIELDS = ["id", "title", "summary", "category", "tags", "decisions", "next", "source"];
 const HASH_PATTERN = /^sha256:[0-9a-f]{64}$/;
@@ -19,6 +21,7 @@ let vault;
 let vaultLoadInfo;
 let activeCategory = "All";
 let favoritesOnly = false;
+let dashUi;
 
 const vaultAdapter = {
   type: "browser-local",
@@ -169,14 +172,10 @@ function renderCategoryFilters() {
 }
 
 function filteredResults() {
-  const query = searchInput.value.trim().toLowerCase();
-  return results.filter(result => {
-    const categoryMatch = activeCategory === "All" || result.category === activeCategory;
-    const favoriteMatch = !favoritesOnly || result.favorite;
-    const haystack = [result.title, result.summary, result.category, ...(result.tags || []), ...(result.decisions || []), result.next, result.source?.url]
-      .filter(Boolean).join(" ").toLowerCase();
-    return categoryMatch && favoriteMatch && (!query || haystack.includes(query));
-  });
+  return rankResults(results, searchInput.value.trim(), {
+    category: activeCategory === "All" ? "" : activeCategory,
+    favoritesOnly
+  }).map((item) => item.result);
 }
 
 function resultPagePath(result) {
@@ -516,7 +515,7 @@ function renderStorageStatus() {
   storageButton.dataset.state = status.remote;
   if (storageStatusText) storageStatusText.textContent = "This browser is the active local vault. No cloud provider is paired yet.";
   if (storageVaultId) storageVaultId.textContent = status.vaultId;
-  if (storageObjectCount) storageObjectCount.textContent = `${status.resultObjects} result revisions · ${status.events} state events`;
+  if (storageObjectCount) storageObjectCount.textContent = `${status.resultObjects} result revisions · ${status.dashes} dashes · ${status.events} state events`;
   if (storageMigrationNote) {
     storageMigrationNote.hidden = !vaultLoadInfo?.migratedFrom;
     if (vaultLoadInfo?.migratedFrom) storageMigrationNote.textContent = `Migrated safely from ${vaultLoadInfo.migratedFrom}. The legacy copy was left untouched.`;
@@ -541,6 +540,12 @@ async function reloadFromVault() {
   const local = materializeResults(vault);
   results = await attachIntegrity(mergePublishedAndLocal(published, local));
   persistRuntimeResults();
+  dashUi?.renderList();
+  const dashId = dashUi?.routeDashId();
+  if (dashId) {
+    dashUi.renderDashPage(dashId);
+    return;
+  }
   const id = routeResultId();
   if (id) renderStandaloneResult(results.find(item => item.id === id));
   else renderDashboard();
@@ -550,7 +555,7 @@ async function importVaultFile(file) {
   storageImportMessage.textContent = "";
   try {
     const incoming = importVaultBundle(await file.text());
-    const emptyCurrent = vault.results.length === 0 && vault.events.length === 0 && vault.profileRevisions.length === 0;
+    const emptyCurrent = vault.results.length === 0 && vault.events.length === 0 && vault.profileRevisions.length === 0 && (vault.dashRevisions || []).length === 0;
     vault = emptyCurrent ? incoming : mergeVaults(vault, incoming);
     vaultLoadInfo = { migratedFrom: null, created: false };
     vaultAdapter.save(vault);
@@ -564,8 +569,19 @@ async function importVaultFile(file) {
 async function init() {
   vaultLoadInfo = vaultAdapter.load();
   vault = vaultLoadInfo.vault;
+  dashUi = createSemanticDashUi({
+    getVault: () => vault,
+    getResults: () => results,
+    saveVault: currentVault => {
+      vaultAdapter.save(currentVault);
+      renderStorageStatus();
+    },
+    openResult,
+    continuationUrl
+  });
   renderStorageStatus();
   await reloadFromVault();
+  dashUi.importFromHash();
 }
 
 searchInput?.addEventListener("input", renderDashboard);

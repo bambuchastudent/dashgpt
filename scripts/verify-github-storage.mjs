@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { createVault, putResult, setFavorite } from "../demo/vault.js";
+import { createVault, putDashRevision, putResult, setDashOverride, setFavorite } from "../demo/vault.js";
+import { createDashRevision } from "../demo/semantic-dashes.js";
 import {
   handleGitHubPairStart,
   handleGitHubSetup,
@@ -187,6 +188,22 @@ setFavorite(vault, "github-sync-result", true, {
   eventId: "evt-github-favorite",
   createdAt: "2026-08-10T01:00:02.000Z"
 });
+putDashRevision(vault, createDashRevision({
+  dashId: "dash-github-test",
+  dashRevisionId: "dashrev-github-test-1",
+  title: "GitHub Dash",
+  description: "Reference-only Dash synced through Vault objects",
+  query: "github sync",
+  automaticResultIds: ["github-sync-result"]
+}, {
+  dashId: "dash-github-test",
+  dashRevisionId: "dashrev-github-test-1",
+  now: "2026-08-10T01:00:03.000Z"
+}), { updatedAt: "2026-08-10T01:00:03.000Z" });
+setDashOverride(vault, "dash-github-test", "dash.pin", "github-sync-result", true, {
+  eventId: "evt-github-dash-pin",
+  createdAt: "2026-08-10T01:00:04.000Z"
+});
 
 const syncRequest = () => request("https://dashgpt.example/api/storage/github/sync", {
   method: "POST",
@@ -201,17 +218,21 @@ const firstSync = await handleGitHubSync(syncRequest(), env);
 assert.equal(firstSync.status, 200, await firstSync.clone().text());
 const firstSyncBody = await firstSync.json();
 assert.equal(fake.initializedWithoutBranch(), true, "first sync must initialize an empty repository safely");
-assert.equal(firstSyncBody.sync.changedObjects, 2, "manifest initialization is followed by one atomic commit for remaining objects");
+assert.equal(firstSyncBody.sync.changedObjects, 4, "manifest initialization is followed by one atomic commit for remaining Result, event and Dash objects");
 assert.match(firstSyncBody.sync.commitSha, /^commit-/);
 
 const snapshot = fake.objectSnapshot();
 assert.ok(snapshot.some((object) => object.path === ".dashgpt/dashgpt-vault.json"));
 assert.ok(snapshot.some((object) => object.path.includes(".dashgpt/results/github-sync-result/1-")));
 assert.ok(snapshot.some((object) => object.path === ".dashgpt/events/2026-08/evt-github-favorite.json"));
+assert.ok(snapshot.some((object) => object.path === ".dashgpt/events/2026-08/evt-github-dash-pin.json"));
+assert.ok(snapshot.some((object) => object.path === ".dashgpt/dashes/dash-github-test/dashrev-github-test-1.json"));
 const remoteVault = vaultFromObjects(snapshot, ".dashgpt");
 assert.equal(remoteVault.vaultId, "vault-github-test");
 assert.equal(remoteVault.results.length, 1);
-assert.equal(remoteVault.events.length, 1);
+assert.equal(remoteVault.events.length, 2);
+assert.equal(remoteVault.dashRevisions.length, 1);
+assert.deepEqual(remoteVault.dashRevisions[0].automaticResultIds, ["github-sync-result"]);
 
 const secondSync = await handleGitHubSync(syncRequest(), env);
 assert.equal(secondSync.status, 200, await secondSync.clone().text());

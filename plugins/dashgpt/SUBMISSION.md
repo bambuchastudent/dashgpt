@@ -19,11 +19,11 @@ Do not submit the old private/custom connection id. The portal must scan the pro
 
 **Short description**
 
-Keep and reuse durable AI Results.
+Keep durable AI Results and reopen living topics.
 
 **Long description**
 
-DashGPT turns useful AI outcomes into durable Results that can be searched, reopened and continued later. Connect the plugin to a compatible DashGPT site to find published Results, inspect provenance, generate a portable Context Pack, and prepare a distilled conversation outcome for explicit import back into the DashGPT site you choose. DashGPT keeps the Result content separate from its presentation so old knowledge can remain immutable while the dashboard UI evolves.
+DashGPT turns useful AI outcomes into durable Results that can be searched, reopened and continued later. Semantic Dashes collect related Results from multiple conversations into living topic views without copying them. Connect the plugin to a compatible DashGPT site to open an intentionally exposed saved Dash by natural wording, build a temporary topic preview, inspect Result provenance, generate a portable Context Pack, and prepare an explicit import back into the DashGPT site you choose. Public tools do not imply access to an unexposed private Vault.
 
 **Category**
 
@@ -74,6 +74,15 @@ Set the Cloudflare Worker secret/environment variable `OPENAI_APPS_CHALLENGE` to
 - `destructiveHint: false`;
 - `openWorldHint: true` because it may read a user-selected public HTTPS DashGPT site.
 
+### `open_semantic_dash`
+
+- semantically resolves one intentionally exposed saved Dash, returns a short ambiguous choice, or builds a temporary Dash from exposed Results;
+- returns bounded member/proposal output and an explicit import URL only for a non-empty temporary Dash;
+- does **not** read a browser-local/private-provider Vault or write merely by being called;
+- `readOnlyHint: true`;
+- `destructiveHint: false`;
+- `openWorldHint: true`.
+
 ### `get_result`
 
 - reads one published Result from the selected instance;
@@ -99,9 +108,10 @@ Set the Cloudflare Worker secret/environment variable `OPENAI_APPS_CHALLENGE` to
 ## Starter prompts
 
 1. `Use DashGPT to find what I already decided about this topic on my DashGPT site.`
-2. `Use DashGPT to get the Context Pack for this Result and continue from it.`
-3. `Save the useful outcome of this conversation to my DashGPT site.`
-4. `Search my DashGPT site for Results related to this project and summarize the relevant decisions.`
+2. `Open my DashGPT Dash about food and show new related Results.`
+3. `Use DashGPT to get the Context Pack for this Result and continue from it.`
+4. `Save the useful outcome of this conversation to my DashGPT site.`
+5. `Search my DashGPT site for Results related to this project and summarize the relevant decisions.`
 
 ## Positive reviewer test cases
 
@@ -155,6 +165,26 @@ Set the Cloudflare Worker secret/environment variable `OPENAI_APPS_CHALLENGE` to
 
 **Fixture**: the same second public DashGPT deployment.
 
+### P6 — reopen one saved Semantic Dash
+
+**Prompt**: `Открой даш про DashGPT.`
+
+**Expected behavior**: call `open_semantic_dash` without `siteUrl`; resolve the single confident published `DashGPT` Dash and return its current Review-mode view without asking for its exact name.
+
+**Expected shape**: `status: saved`, bounded members/proposals, aggregate summary, update time, and Result/source links where present.
+
+**Fixture**: production DashGPT demo instance; no credentials.
+
+### P7 — build a temporary Dash without a silent write
+
+**Prompt**: `Даш про еду.`
+
+**Expected behavior**: call `open_semantic_dash`; because the production fixture has food Results but no saved food Dash, return a temporary view and clearly say it is not saved.
+
+**Expected shape**: `status: temporary`, multiple food Results from the exposed catalog, and an explicit `#dash-import=` URL that requires browser review/save.
+
+**Fixture**: production DashGPT demo instance; no credentials.
+
 ## Negative reviewer test cases
 
 ### N1 — insecure target
@@ -189,7 +219,7 @@ Do not select regions mechanically. For the initial submission, choose only coun
 
 ## Release notes — initial submission
 
-Initial public DashGPT submission. Provides a universal MCP gateway plus a DashGPT skill for finding durable published Results, reading a Result, generating portable Context Packs, and preparing an explicit immutable Result import. Version 0.3 adds user-selected DashGPT instance routing so the public plugin can operate against another person's compatible DashGPT site rather than hard-coded developer data.
+Version 0.4 adds Semantic Dashes: natural topic lookup, confident/ambiguous saved-Dash resolution, Review-mode proposals, bounded current-chat presentation, and explicit temporary-Dash import. Dashes reference Results rather than copying them, and the public MCP surface can read only catalogs intentionally exposed by the selected compatible instance. Version 0.3 introduced user-selected instance routing and explicit immutable Result import.
 
 ## Portal runbook
 
@@ -202,7 +232,7 @@ Initial public DashGPT submission. Provides a universal MCP gateway plus a DashG
 7. Scan Tools and verify names, schemas and annotations against this file.
 8. Upload the final `use-dashgpt` skill bundle (or import an equivalent reviewed skill snapshot if supported by the MCP submission flow).
 9. Add starter prompts.
-10. Add all five positive and three negative test cases.
+10. Add all seven positive and three negative test cases.
 11. Select the explicitly reviewed availability regions.
 12. Add the initial release notes, complete attestations and submit for review.
 13. After approval, manually publish the approved version.

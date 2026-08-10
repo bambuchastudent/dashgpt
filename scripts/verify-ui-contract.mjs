@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-const css = ["../demo/styles.css", "../demo/semantic.css"]
+const css = ["../demo/styles.css", "../demo/semantic.css", "../demo/semantic-dashes.css"]
   .map((path) => readFileSync(new URL(path, import.meta.url), "utf8"))
   .join("\n");
 const app = readFileSync(new URL("../demo/app.js", import.meta.url), "utf8");
 const githubSync = readFileSync(new URL("../demo/github-sync.js", import.meta.url), "utf8");
+const dashUi = readFileSync(new URL("../demo/semantic-dash-ui.js", import.meta.url), "utf8");
+const semanticDashes = readFileSync(new URL("../demo/semantic-dashes.js", import.meta.url), "utf8");
 const html = readFileSync(new URL("../demo/index.html", import.meta.url), "utf8");
 
 assert.match(app, /function semanticHue\(result\)/, "semanticHue(result) renderer is required");
@@ -21,6 +23,7 @@ assert.match(css, /\.result-card\{[^}]*background:[^}]*hsla\(var\(--semantic-hue
   "Result card background needs a perceptible semantic tint (alpha >= .3)");
 
 assert.match(html, /semantic\.css/, "semantic visual layer must be loaded by the dashboard");
+assert.match(html, /semantic-dashes\.css/, "Semantic Dash visual layer must be loaded by the dashboard");
 assert.match(html, /vault\.css/, "vault storage status layer must be loaded by the dashboard");
 assert.match(html, /id="storageButton"/, "local vault status must be visible from the dashboard");
 assert.match(html, /id="githubStorageUrl"/, "GitHub pairing must accept a repository/folder URL");
@@ -37,5 +40,26 @@ assert.match(app, /Continue in new chat ↗/, "Continuation must remain a promin
 // Explicit local user state must override catalog defaults, including false overriding a seeded true.
 assert.match(app, /typeof localResult\.favorite === "boolean"/, "published/local merge must honor explicit local favorite state");
 assert.doesNotMatch(app, /localResult\.favorite\s*\|\|\s*publishedResult\.favorite/, "favorite merge must not make published true impossible to unset");
+
+assert.match(html, /id="dashTopicInput"/, "dashboard must expose a natural-language Dash topic input");
+assert.match(html, /id="dashesGrid"/, "dashboard must list saved Semantic Dashes");
+assert.match(html, /id="dashPreview"[^>]*hidden/, "temporary Dash preview must begin hidden and require an explicit action");
+assert.match(app, /createSemanticDashUi/, "dashboard must initialize the Semantic Dash controller against the active Vault");
+assert.match(dashUi, /matchSavedDashes\(/, "Dash topic requests must check saved Dashes semantically");
+assert.match(dashUi, /createTemporaryDash\(/, "no saved match must build a temporary Dash");
+assert.match(dashUi, /Save Dash/, "temporary Dashes must expose an explicit Save action");
+assert.match(dashUi, /if \(hasMatches\) actions\.append\(button\("Save Dash"/, "an empty temporary Dash must not offer a durable Save action");
+assert.match(dashUi, /\/demo\/dashes\//, "saved Dash details must use the plural route and preserve /demo/dash/");
+assert.match(dashUi, /Original chat ↗/, "Dash Result rows must keep original chat as a primary action");
+assert.match(dashUi, /Continue ↗/, "Dash Result rows must keep continuation as a primary action");
+assert.match(dashUi, /Automatic is not enabled/, "MVP UI must expose Review mode without silently enabling Automatic");
+assert.match(dashUi, /dash\.pin/, "Dash UI must persist pin overrides as events");
+assert.match(dashUi, /dash\.exclude/, "Dash UI must persist exclusion/rejection overrides as events");
+assert.match(dashUi, /dash\.manual/, "Dash UI must persist manual membership as events");
+assert.match(dashUi, /dash\.delete/, "Dash deletion must use a Dash tombstone event");
+assert.match(dashUi, /isResultEligible\(item, revision\.scope \|\| \{\}\)/, "manual Dash selection must filter eligibility before displaying Result titles");
+assert.match(semanticDashes, /isResultEligible\(result, scope/, "eligibility filtering must be shared and explicit");
+assert.match(semanticDashes, /filter\(\(result\) => isResultEligible\(result, scope\)\)/, "inaccessible Results must be filtered before ranking");
+assert.doesNotMatch(semanticDashes, /summary:\s*(?:revision|dash)\./, "materialized aggregate summary must not reuse persisted card prose");
 
 console.log("DashGPT UI contract checks passed.");

@@ -235,7 +235,11 @@ function decodeBlob(blob) {
 }
 
 function underRoot(path, root) {
-  return path === `${root}/dashgpt-vault.json` || path.startsWith(`${root}/results/`) || path.startsWith(`${root}/events/`) || path.startsWith(`${root}/profile/`);
+  return path === `${root}/dashgpt-vault.json`
+    || path.startsWith(`${root}/results/`)
+    || path.startsWith(`${root}/events/`)
+    || path.startsWith(`${root}/profile/`)
+    || path.startsWith(`${root}/dashes/`);
 }
 
 async function readRemoteObjects(client, locator, branch) {

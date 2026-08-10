@@ -1,7 +1,7 @@
 {
   "name": "dashgpt",
-  "version": "0.3.0",
-  "description": "Keep useful AI outcomes as durable Results, read them from your DashGPT site, and carry portable context into the next chat or agent.",
+  "version": "0.4.0",
+  "description": "Keep useful AI outcomes as durable Results and reopen living Semantic Dashes by topic in the next chat or agent.",
   "author": {
     "name": "DashGPT",
     "url": "https://dashgpt.dimkashir.workers.dev/demo/"
@@ -9,12 +9,12 @@
   "homepage": "https://dashgpt.dimkashir.workers.dev/demo/",
   "repository": "https://github.com/bambuchastudent/dashgpt",
   "license": "BSD-3-Clause",
-  "keywords": ["knowledge", "context", "mcp", "chatgpt", "results", "handoff"],
+  "keywords": ["knowledge", "context", "mcp", "chatgpt", "results", "semantic-dashes", "handoff"],
   "skills": "./skills/",
   "interface": {
     "displayName": "DashGPT",
-    "shortDescription": "Keep and reuse durable AI Results",
-    "longDescription": "Connect ChatGPT or Codex to a DashGPT site, find durable Results, inspect provenance, continue with portable Context Packs, and explicitly prepare a useful conversation outcome for import into the DashGPT site you choose.",
+    "shortDescription": "Reopen Results as living topics",
+    "longDescription": "Connect ChatGPT or Codex to a DashGPT site, find durable Results, reopen living Semantic Dashes from natural topic requests, inspect provenance, continue work, and explicitly prepare useful outcomes or temporary Dashes for import.",
     "developerName": "DashGPT",
     "category": "Productivity",
     "capabilities": ["Read", "Write"],
@@ -23,6 +23,7 @@
     "termsOfServiceURL": "https://dashgpt.dimkashir.workers.dev/demo/terms.html",
     "defaultPrompt": [
       "Use DashGPT to find what I already decided about this topic on my DashGPT site.",
+      "Open my DashGPT Dash about food and show new related Results.",
       "Use DashGPT to get the Context Pack for this Result and continue from it.",
       "Save the useful outcome of this conversation to my DashGPT site."
     ],

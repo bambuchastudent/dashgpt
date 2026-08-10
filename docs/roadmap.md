@@ -121,7 +121,26 @@ Privacy constraints:
 - provider credentials never enter the portable vault
 - immutable Result conflicts are preserved rather than silently overwritten
 
-Status: **architecture/spec PR active; implementation follows in small slices after review/merge**.
+Status: **architecture, Vault v1 core and GitHub synchronization implementation are merged; production GitHub activation remains an external secret/configuration smoke-test gate**.
+
+## Tactical Feature 7 — Semantic Dashes
+
+Goal: let a user treat Results from multiple conversations as one living topic without copying or merging the underlying Results.
+
+MVP scope:
+
+- saved Dash entity with reference-only membership
+- semantic topic preview and explicit save
+- fuzzy reopening from natural chat commands
+- Review-mode refresh with proposals
+- pin, exclude and manual-add overrides
+- aggregate summary derived only from currently accessible Results
+- dashboard, current-chat/MCP and source-continuation surfaces
+- backward-compatible Vault v1 persistence and deterministic verification
+
+Automatic update mode remains architecturally possible but disabled in this first change. Private Vault access from a hosted ChatGPT tool remains behind the authenticated storage/runtime work; the public MCP surface can use only an instance's intentionally exposed catalog.
+
+Status: **implementation PR #18 active under `openspec/changes/f7-semantic-dashes/`**.
 
 ## M5 — Optional private quick deploy
 
@@ -155,6 +174,6 @@ Potential scope after the core loop is proven:
 
 ## Current delivery intent
 
-**Active: Tactical Feature 6 architecture — zero-install privacy, personalization and portable sync.**
+**Active: Tactical Feature 7 — Semantic Dashes.**
 
-The public plugin/release work remains an external product-distribution track, but the next internal architecture work should establish Vault v1 before adding more provider-specific persistence.
+Feature 6's production GitHub activation and the public plugin release remain external tracks. Semantic Dashes reuse the existing Result search and Vault abstractions without weakening those privacy boundaries.
