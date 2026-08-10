@@ -42,4 +42,4 @@
 ## 7. Project State and Pull Request
 
 - [x] 7.1 Update product/roadmap/operational documentation without mixing product requirements with development workflow, then synchronize `DASH.md` to its mobile JSON mirror.
-- [ ] 7.2 Review the exact diff for unrelated changes, publish a dedicated feature branch, and open a draft PR to `develop` linking `openspec/changes/f7-semantic-dashes/` and reporting validation results.
+- [x] 7.2 Review the exact diff for unrelated changes, publish a dedicated feature branch, and open draft PR #18 to `develop` linking `openspec/changes/f7-semantic-dashes/` and reporting validation results.
