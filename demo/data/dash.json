@@ -7,14 +7,15 @@
     {
       "title": "NOW",
       "lines": [
-        "**Active internal work:** Feature 6 Slice A — Vault v1 core + local migration.",
-        "- Architecture PR #11 is merged into `develop`.",
-        "- Implementation PR #12 is open from `feature/f6-vault-core`.",
-        "- Dashboard persistence now goes through Vault v1 instead of the old monolithic Result array.",
-        "- Existing `dashgpt.demo.results.v2` data migrates once into the local vault while the legacy copy is retained as a safety fallback.",
-        "- Favorites are append-only state events; immutable Result divergences are preserved.",
-        "- Storage UI exposes local/unpaired state plus Vault export/import+merge.",
-        "- Vault regression tests cover migration, round-trip portability, immutable conflicts, event conflicts and credential exclusion.",
+        "**Active internal work:** Feature 6 Slice B — GitHub Vault sync activation.",
+        "- Feature 6 architecture PR #11 and Vault core PR #12 are merged into `develop`.",
+        "- GitHub sync implementation PR #13 is open from `feature/f6-github-sync`.",
+        "- PR #13 implements GitHub repository/folder StorageLocators, GitHub App pairing, signed HttpOnly pairing state, server-side installation tokens and Vault v1 synchronization.",
+        "- GitHub sync writes provider-neutral Vault files and creates one atomic Git commit per logical sync.",
+        "- Deterministic tests cover pairing, Vault object layout, local/remote merge, idempotent sync and conflict behavior.",
+        "- Browser UI never asks for a PAT/token; local Vault remains usable when GitHub is unavailable or unconfigured.",
+        "- Production activation runbook: `docs/github-storage-setup.md`.",
+        "- Remaining Slice B external gate: register/configure the public GitHub App + Worker secrets, then run one real private-repository smoke test.",
         "- External release track remains Feature 4: the public DashGPT plugin implementation is merged and publisher verification is complete."
       ]
     },
@@ -28,26 +29,31 @@
         "- DashGPT MCP surface at `/mcp` with stable plugin identity `dashgpt` / **DashGPT**.",
         "- Universal MCP routing and DashGPT instance protocol v1.",
         "- Semantic Result card/continuation-first UX.",
-        "- Feature 6 zero-install/privacy/storage architecture in OpenSpec + ADR 0003, merged via PR #11."
+        "- Feature 6 zero-install/privacy/storage architecture in OpenSpec + ADR 0003, merged via PR #11.",
+        "- Feature 6 Slice A Vault v1 local core/migration, export/import and append-only state events, merged via PR #12.",
+        "- GitHub adapter security architecture recorded in ADR 0004."
       ]
     },
     {
       "title": "NEXT",
       "lines": [
-        "1. Make PR #12 fully green and merge Slice A.",
-        "2. Start Feature 6 Slice B in a separate PR: GitHub StorageLocator + explicit authorization + Vault adapter.",
-        "3. Add offline local write → later GitHub sync and deterministic adapter-contract tests.",
-        "4. Implement Google Drive against the same Vault contract in Slice C.",
-        "5. Add explicit inspectable DashGPT Profile / preference-promotion boundary in Slice D.",
-        "6. Refactor compatible DashGPT instance storage onto the same abstraction and add provider switch/mirror UX.",
-        "7. Separately resume the Feature 4 external submission flow in OpenAI Platform when desired."
+        "1. Make the final PR #13 revision green and merge the GitHub sync implementation.",
+        "2. Register the public DashGPT GitHub App using the pre-filled configuration in `docs/github-storage-setup.md`.",
+        "3. Configure `GITHUB_APP_ID`, `GITHUB_APP_SLUG`, `GITHUB_APP_PRIVATE_KEY` and `GITHUB_SESSION_SECRET` on the production Worker without putting secrets in chat/repository/Vault.",
+        "4. Install the app on one disposable/private test repository and prove real pair → sync → idempotent re-sync → disconnect while local Vault survives.",
+        "5. Mark Slice B fully activated only after that real smoke test.",
+        "6. Start Slice C in a new PR: Google Drive StorageLocator + authorization + adapter contract reuse.",
+        "7. Then implement explicit inspectable DashGPT Profile / preference-promotion boundary in Slice D.",
+        "8. Refactor compatible DashGPT instance storage onto the same abstraction and add provider switch/mirror UX in Slice E.",
+        "9. Separately resume the Feature 4 external OpenAI plugin submission flow when desired."
       ]
     },
     {
       "title": "BLOCKERS / EXTERNAL HINGES",
       "lines": [
-        "- Slice A has no external dependency; PR #12 CI is the current implementation gate.",
-        "- GitHub and Google Drive writes will require explicit provider authorization; long-lived secrets must never be pasted into chat or serialized into the Vault.",
+        "- GitHub sync code has no remaining architectural blocker; production activation requires one GitHub App registration and Worker secret configuration.",
+        "- GitHub App private key and session secret must never be pasted into chat, committed to Git or serialized into a Vault.",
+        "- Google Drive authorization remains future Slice C work.",
         "- ChatGPT Memory/Project context is not assumed to provide app-owned durable Result storage.",
         "- Public plugin review/approval and final publication remain external Feature 4 hinges.",
         "- When a concrete manual action becomes necessary, record it here before asking the user to do it."
