@@ -2,6 +2,7 @@ import { CHATGPT_SHARE_HEADERS, parseChatGptShareHtml } from "chatgpt-share-pars
 
 const ALLOWED_SHARE_HOSTS = new Set(["chatgpt.com", "chat.openai.com"]);
 const VISIBLE_MESSAGE_SELECTOR = "[data-message-author-role]";
+const UNREADABLE_SHARE_MESSAGE = "Unable to read this public ChatGPT conversation. Try again or use DashGPT from inside the original chat.";
 
 function json(data, init = {}) {
   const headers = new Headers(init.headers || {});
@@ -51,10 +52,12 @@ async function directHtml(sourceUrl, env) {
   return response.text();
 }
 
+function hasBrowserBinding(env) {
+  return Boolean(env?.BROWSER && typeof env.BROWSER.quickAction === "function");
+}
+
 function browserBinding(env) {
-  if (!env?.BROWSER || typeof env.BROWSER.quickAction !== "function") {
-    throw new Error("Browser fallback is not configured.");
-  }
+  if (!hasBrowserBinding(env)) throw new Error("Browser fallback is not configured.");
   return env.BROWSER;
 }
 
@@ -160,7 +163,26 @@ function parseReadableChat(html) {
   return chat;
 }
 
+function unreadableShareError(details) {
+  const error = new Error(UNREADABLE_SHARE_MESSAGE);
+  error.code = "SHARED_CHAT_UNREADABLE";
+  error.cause = details;
+  return error;
+}
+
 export async function readSharedChat(sourceUrl, env = {}) {
+  let domError;
+  if (hasBrowserBinding(env)) {
+    try {
+      return {
+        chat: await browserVisibleChat(sourceUrl, env),
+        retrieval: "browser-dom"
+      };
+    } catch (error) {
+      domError = error;
+    }
+  }
+
   let directError;
   try {
     return {
@@ -171,26 +193,19 @@ export async function readSharedChat(sourceUrl, env = {}) {
     directError = error;
   }
 
-  let domError;
-  try {
-    return {
-      chat: await browserVisibleChat(sourceUrl, env),
-      retrieval: "browser-dom"
-    };
-  } catch (error) {
-    domError = error;
+  let payloadError;
+  if (hasBrowserBinding(env)) {
+    try {
+      return {
+        chat: parseReadableChat(await browserHtml(sourceUrl, env)),
+        retrieval: "browser-payload"
+      };
+    } catch (error) {
+      payloadError = error;
+    }
   }
 
-  try {
-    return {
-      chat: parseReadableChat(await browserHtml(sourceUrl, env)),
-      retrieval: "browser-payload"
-    };
-  } catch {
-    const directMessage = directError instanceof Error ? directError.message : "Direct retrieval failed.";
-    const domMessage = domError instanceof Error ? domError.message : "Rendered DOM retrieval failed.";
-    throw new Error(`Unable to read the public ChatGPT share. ${directMessage} ${domMessage}`);
-  }
+  throw unreadableShareError({ domError, directError, payloadError });
 }
 
 export async function handleSharedChat(request, env = {}) {
@@ -211,7 +226,8 @@ export async function handleSharedChat(request, env = {}) {
       ...chat
     });
   } catch (error) {
+    const code = error?.code === "SHARED_CHAT_UNREADABLE" ? error.code : undefined;
     const message = error instanceof Error ? error.message : "Failed to read shared chat.";
-    return json({ error: message }, { status: 502 });
+    return json({ ...(code ? { code } : {}), error: message }, { status: 502 });
   }
 }
