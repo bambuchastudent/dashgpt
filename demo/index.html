@@ -1,9 +1,167 @@
 <!doctype html>
-<html lang="en">
-<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><meta name="theme-color" content="#111827" /><title>DashGPT Demo</title><link rel="stylesheet" href="/demo/styles.css" /><link rel="stylesheet" href="/demo/semantic.css" /><link rel="stylesheet" href="/demo/semantic-dashes.css" /><link rel="stylesheet" href="/demo/dash.css" /><link rel="stylesheet" href="/demo/vault.css" /><link rel="stylesheet" href="/demo/gallery.css" /></head>
-<body><main class="shell"><header class="topbar"><div><p class="eyebrow">PRIVATE • LOCAL-FIRST</p><a class="brand-link" href="/demo/"><h1>DashGPT</h1></a><p class="subtitle">Useful AI outcomes, not chat history.</p></div><div class="topbar-actions"><button id="storageButton" class="button storage-status" type="button">LOCAL · NOT SYNCED</button><a class="button ghost dash-nav-link" href="/demo/dash/">DASH</a><button id="addResultButton" class="button primary">+ Add Result</button></div></header>
-<div id="dashboardView"><section class="summary-card" aria-labelledby="summary-title"><div><p class="eyebrow">CURRENT STATE</p><h2 id="summary-title">Your working memory is ready to continue.</h2><p id="summaryText">Loading Results…</p></div><div class="summary-actions"><button id="showFavoritesButton" class="button">Favorites</button><button id="showAllButton" class="button ghost">All</button></div></section><section class="semantic-dashes" aria-labelledby="semantic-dashes-title"><div class="section-heading"><div><p class="eyebrow">LIVING TOPICS</p><h2 id="semantic-dashes-title">Semantic Dashes</h2></div><span id="dashCount" class="count">0</span></div><div class="dash-builder"><label class="search"><span>Open or build a Dash</span><input id="dashTopicInput" type="search" placeholder="Даш про еду · Продолжим про квас" autocomplete="off" /></label><button id="buildDashButton" class="button primary" type="button">Open topic</button></div><p id="dashBuilderMessage" class="muted" aria-live="polite">Use natural wording. DashGPT will open one confident saved Dash or build a temporary preview.</p><div id="dashChoices" class="dash-choices" hidden></div><article id="dashPreview" class="dash-preview" hidden></article><div id="dashesGrid" class="dashes-grid"></div><div id="dashesEmpty" class="empty-state"><h3>No saved Dashes yet</h3><p>Describe a topic above. A temporary Dash is saved only after you confirm.</p></div></section><section class="controls" aria-label="Result controls"><label class="search"><span>Search</span><input id="searchInput" type="search" placeholder="Search results, tags, decisions…" autocomplete="off" /></label><div id="categoryFilters" class="chips" aria-label="Category filters"></div></section><section id="galleryRegion" class="gallery-region" aria-labelledby="resultsTitle"><div class="section-heading gallery-heading"><div><p class="eyebrow">RESULTS</p><h2 id="resultsTitle">Everything worth keeping</h2></div><div class="gallery-heading-actions"><span id="resultCount" class="count"></span><div class="gallery-zoom" role="group" aria-label="Gallery density"><button id="galleryZoomOut" class="button small gallery-zoom-button" type="button" aria-label="Show more, smaller cards">−</button><label class="gallery-zoom-range"><span class="visually-hidden">Gallery density</span><input id="galleryZoom" type="range" min="0" max="4" step="1" value="2" aria-label="Gallery density" /></label><output id="galleryZoomValue" for="galleryZoom" aria-live="polite">Standard · 100%</output><button id="galleryZoomIn" class="button small gallery-zoom-button" type="button" aria-label="Show fewer, larger cards">+</button></div></div></div><div id="resultsGrid" class="results-grid"></div><div id="emptyState" class="empty-state" hidden><h3>No matching results</h3><p>Try another query or reset the filters.</p></div></section></div><section id="resultPage" class="result-page" hidden aria-live="polite"></section></main>
-<dialog id="resultDialog" class="dialog"><article id="resultDialogContent"></article><form method="dialog" class="dialog-footer"><button class="button">Close</button></form></dialog><dialog id="contextDialog" class="dialog context-dialog"><article><p class="eyebrow">PORTABLE CONTEXT</p><h2>Context Pack</h2><p class="muted">Copy this into a new chat or another agent.</p><textarea id="contextOutput" rows="18" readonly></textarea><div class="dialog-actions"><button id="copyContextButton" type="button" class="button primary">Copy Context</button></div></article><form method="dialog" class="dialog-footer"><button class="button">Close</button></form></dialog><dialog id="addDialog" class="dialog"><form id="addResultForm"><p class="eyebrow">NEW RESULT</p><h2>Save a useful outcome</h2><label>Title<input name="title" required maxlength="100" /></label><label>Summary<textarea name="summary" required rows="4"></textarea></label><label>Category<input name="category" required value="Ideas" /></label><label>Tags<input name="tags" placeholder="dashgpt, context, ai" /></label><label>Next step<input name="next" placeholder="What should happen next?" /></label><div class="dialog-actions"><button type="button" id="cancelAddButton" class="button ghost">Cancel</button><button type="submit" class="button primary">Save Result</button></div></form></dialog>
-<dialog id="storageDialog" class="dialog storage-dialog"><article><p class="eyebrow">DASHGPT VAULT</p><h2>Your data is local and portable</h2><p id="storageStatusText" class="muted">This browser is the active local vault.</p><div class="vault-meta"><div><strong>Vault ID</strong><code id="storageVaultId"></code></div><div><strong>Objects</strong><span id="storageObjectCount"></span></div></div><p id="storageMigrationNote" class="vault-note" hidden></p><div class="storage-provider"><span class="provider-dot" aria-hidden="true"></span><div><strong>Local browser</strong><p>Active · private on this device · always available offline</p></div></div><section class="storage-provider github-storage-provider" aria-labelledby="github-storage-title"><span class="provider-dot" aria-hidden="true"></span><div class="provider-content"><strong id="github-storage-title">GitHub sync</strong><p id="githubStatus">Checking GitHub storage…</p><div id="githubConnectControls" class="github-connect-controls"><label>Repository or folder URL<input id="githubStorageUrl" type="url" placeholder="https://github.com/you/private-repo" autocomplete="off" /></label><button id="connectGithubButton" class="button primary" type="button">Connect GitHub</button></div><div id="githubPairedControls" hidden><code id="githubLocation"></code><div class="dialog-actions compact-actions"><button id="syncGithubButton" type="button" class="button primary">Sync now</button><button id="disconnectGithubButton" type="button" class="button ghost">Disconnect</button></div></div></div></section><div class="dialog-actions"><button id="exportVaultButton" type="button" class="button primary">Export vault</button><button id="importVaultButton" type="button" class="button ghost">Import / merge</button><input id="storageImportInput" type="file" accept="application/json,.json" hidden /></div><p id="storageImportMessage" class="vault-note" aria-live="polite"></p><p class="muted vault-next">GitHub uses the same Vault v1 objects as local storage. Google Drive will use this same adapter contract next.</p></article><form method="dialog" class="dialog-footer"><button class="button">Close</button></form></dialog>
-<template id="resultCardTemplate"><article class="result-card" tabindex="0"><div class="card-topline"><span class="category"></span><span class="card-status"></span><button class="favorite-button" type="button" aria-label="Toggle favorite"></button></div><h3 class="title"></h3><p class="summary"></p><p class="card-next"></p><p class="card-related"></p><div class="tags"></div><div class="card-actions"><a class="button small page-link">Page</a><button class="button small open-button" type="button">Open</button><a class="button small original-link" target="_blank" rel="noopener noreferrer">Original ↗</a><a class="button small continue-link" target="_blank" rel="noopener noreferrer">Continue ↗</a></div></article></template>
-<script type="module" src="/demo/app.js"></script><script type="module" src="/demo/github-sync.js"></script><script src="/demo/dash.js" defer></script></body></html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#111827" />
+  <title>DashGPT Demo</title>
+  <link rel="stylesheet" href="/demo/styles.css" />
+  <link rel="stylesheet" href="/demo/semantic.css" />
+  <link rel="stylesheet" href="/demo/semantic-dashes.css" />
+  <link rel="stylesheet" href="/demo/dash.css" />
+  <link rel="stylesheet" href="/demo/vault.css" />
+  <link rel="stylesheet" href="/demo/gallery.css" />
+</head>
+<body>
+<main class="shell">
+  <header class="topbar compact-topbar">
+    <a class="brand-link" href="/demo/" aria-label="DashGPT — на главную"><strong class="brand-wordmark">DashGPT</strong></a>
+    <div class="topbar-actions">
+      <button id="storageButton" class="button ghost settings-button" type="button">Настройки</button>
+    </div>
+  </header>
+
+  <div id="dashboardView">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="eyebrow product-eyebrow">ПАМЯТЬ ДЛЯ РАЗГОВОРОВ С ИИ</p>
+        <h1 id="hero-title">Важное из разговоров с ИИ — всегда под рукой</h1>
+        <p class="hero-subtitle">DashGPT превращает полезные итоги, решения и планы в карточки, которые легко найти и продолжить.</p>
+      </div>
+      <div class="hero-actions">
+        <button id="showDemoButton" class="button primary hero-primary" type="button">Показать за 20 секунд</button>
+        <button id="addResultButton" class="button ghost" type="button">Сохранить разговор</button>
+      </div>
+    </section>
+
+    <section class="demo-dashes" aria-labelledby="demo-dashes-title">
+      <div class="compact-section-heading">
+        <div>
+          <p class="eyebrow">ТЕМЫ</p>
+          <h2 id="demo-dashes-title">Сохранённые Dashes</h2>
+        </div>
+        <button id="resetDemoDashButton" class="text-button" type="button" hidden>Показать всё</button>
+      </div>
+      <div id="demoDashesGrid" class="demo-dashes-grid" aria-label="Демонстрационные Dashes"></div>
+    </section>
+
+    <section id="galleryRegion" class="gallery-region primary-gallery" aria-labelledby="resultsTitle">
+      <div class="section-heading gallery-heading">
+        <div>
+          <p class="eyebrow">КАРТОЧКИ</p>
+          <h2 id="resultsTitle">Полезное, к которому можно вернуться</h2>
+        </div>
+        <div class="gallery-heading-actions">
+          <span id="resultCount" class="count" aria-live="polite"></span>
+          <div class="gallery-zoom" role="group" aria-label="Размер карточек">
+            <button id="galleryZoomOut" class="button small gallery-zoom-button" type="button" aria-label="Показать больше небольших карточек">−</button>
+            <label class="gallery-zoom-range"><span class="visually-hidden">Размер карточек</span><input id="galleryZoom" type="range" min="0" max="4" step="1" value="2" aria-label="Размер карточек" /></label>
+            <output id="galleryZoomValue" for="galleryZoom" aria-live="polite">Standard · 100%</output>
+            <button id="galleryZoomIn" class="button small gallery-zoom-button" type="button" aria-label="Показать меньше крупных карточек">+</button>
+          </div>
+        </div>
+      </div>
+      <div id="resultsGrid" class="results-grid"></div>
+      <div id="emptyState" class="empty-state" hidden><h3>Ничего не найдено</h3><p>Попробуй другую тему или сбрось фильтры.</p></div>
+    </section>
+
+    <details class="dashboard-tools">
+      <summary>Поиск и мои темы</summary>
+      <div class="dashboard-tools-body">
+        <section class="controls" aria-label="Поиск карточек">
+          <label class="search"><span>Поиск</span><input id="searchInput" type="search" placeholder="Поиск по карточкам, решениям и темам…" autocomplete="off" /></label>
+          <div id="categoryFilters" class="chips" aria-label="Фильтры по темам"></div>
+          <div class="summary-actions compact-filter-actions"><button id="showFavoritesButton" class="button">Избранное</button><button id="showAllButton" class="button ghost">Все карточки</button></div>
+        </section>
+
+        <section class="semantic-dashes" aria-labelledby="semantic-dashes-title">
+          <div class="section-heading"><div><p class="eyebrow">МОИ ТЕМЫ</p><h2 id="semantic-dashes-title">Semantic Dashes</h2></div><span id="dashCount" class="count">0</span></div>
+          <div class="dash-builder"><label class="search"><span>Открыть или собрать тему</span><input id="dashTopicInput" type="search" placeholder="Даш про еду · Продолжим про квас" autocomplete="off" /></label><button id="buildDashButton" class="button primary" type="button">Открыть тему</button></div>
+          <p id="dashBuilderMessage" class="muted" aria-live="polite">Опиши тему обычными словами.</p>
+          <div id="dashChoices" class="dash-choices" hidden></div>
+          <article id="dashPreview" class="dash-preview" hidden></article>
+          <div id="dashesGrid" class="dashes-grid"></div>
+          <div id="dashesEmpty" class="empty-state" hidden><h3>Пока нет своих Dashes</h3><p>Новая тема сохранится только после подтверждения.</p></div>
+        </section>
+      </div>
+    </details>
+  </div>
+
+  <section id="resultPage" class="result-page" hidden aria-live="polite"></section>
+</main>
+
+<dialog id="resultDialog" class="dialog result-dialog">
+  <article id="resultDialogContent"></article>
+  <form method="dialog" class="dialog-footer"><button class="button ghost">← К борде</button></form>
+</dialog>
+
+<dialog id="demoStoryDialog" class="dialog demo-story-dialog" aria-labelledby="demo-story-title">
+  <div class="story-topline"><span id="demoStoryProgress" class="story-progress">1 / 5</span><button id="closeDemoStoryButton" class="icon-button" type="button" aria-label="Закрыть демонстрацию">×</button></div>
+  <article id="demoStoryContent" class="demo-story-content">
+    <p class="eyebrow">20-СЕКУНДНАЯ ДЕМОНСТРАЦИЯ</p>
+    <h2 id="demo-story-title">Обычный разговор с ИИ</h2>
+    <div id="demoStoryStage" class="story-stage" aria-live="polite"></div>
+    <div id="demoStoryFinalActions" class="story-final-actions" hidden>
+      <button id="openDemoStoryCardButton" class="button primary" type="button">Открыть карточку</button>
+      <button id="tryOwnConversationButton" class="button ghost" type="button">Попробовать со своим разговором</button>
+    </div>
+  </article>
+  <div class="dialog-footer story-footer"><button id="demoStoryNextButton" class="button primary" type="button">Дальше</button></div>
+</dialog>
+
+<dialog id="contextDialog" class="dialog context-dialog"><article><p class="eyebrow">ДОПОЛНИТЕЛЬНО</p><h2>Context Pack</h2><p class="muted">Контекст для переноса в другой чат или агент.</p><textarea id="contextOutput" rows="18" readonly></textarea><div class="dialog-actions"><button id="copyContextButton" type="button" class="button primary">Скопировать</button></div></article><form method="dialog" class="dialog-footer"><button class="button">Закрыть</button></form></dialog>
+
+<dialog id="addDialog" class="dialog save-dialog" aria-labelledby="save-dialog-title">
+  <form id="addResultForm">
+    <section id="captureStep">
+      <p class="eyebrow">СОХРАНИТЬ РАЗГОВОР</p>
+      <h2 id="save-dialog-title">Что полезного осталось после разговора?</h2>
+      <p class="muted">Пока можно вставить итог вручную — DashGPT сначала покажет карточку и ничего не сохранит без подтверждения.</p>
+      <label>Название<input name="captureTitle" required maxlength="100" placeholder="Например: Маршрут по Марокко" /></label>
+      <label>Короткий итог<textarea name="captureSummary" required rows="4" placeholder="Что важно не потерять?" /></label>
+      <label>Тема<input name="captureCategory" value="Идеи" placeholder="Еда, Поездки, Дом…" /></label>
+      <div class="dialog-actions"><button type="button" id="cancelAddButton" class="button ghost">Отмена</button><button type="button" id="prepareReviewButton" class="button primary">Подготовить карточку</button></div>
+    </section>
+
+    <section id="reviewStep" hidden>
+      <p class="eyebrow">ПРОВЕРКА ПЕРЕД СОХРАНЕНИЕМ</p>
+      <h2>Вот что DashGPT сохранит</h2>
+      <div class="review-card-preview">
+        <label>Название<input name="title" maxlength="100" /></label>
+        <label>Короткий итог<textarea name="summary" rows="4"></textarea></label>
+        <label>Тема<input name="category" /></label>
+        <div id="reviewOptionalFields">
+          <label>Важные детали / теги<input name="tags" placeholder="маршрут, билеты" /></label>
+          <label>Что дальше<input name="next" placeholder="Следующий шаг" /></label>
+        </div>
+      </div>
+      <div class="review-secondary-actions"><button id="stripOptionalButton" type="button" class="text-button">Убрать лишнее</button><button id="backToCaptureButton" type="button" class="text-button">← Назад</button></div>
+      <div class="dialog-actions"><button type="button" id="cancelReviewButton" class="button ghost">Отмена</button><button type="submit" class="button primary">Сохранить карточку</button></div>
+    </section>
+  </form>
+</dialog>
+
+<dialog id="persistenceDialog" class="dialog persistence-sheet" aria-labelledby="persistence-title">
+  <article>
+    <p class="eyebrow">КОГДА УЖЕ ЕСТЬ ЧТО СОХРАНЯТЬ</p>
+    <h2 id="persistence-title">Сохранить свою память?</h2>
+    <p id="persistenceCopy">У тебя уже три полезные карточки. Можно сохранить их надолго и открывать на других устройствах.</p>
+    <div class="dialog-actions persistence-actions"><button id="openPersistenceButton" class="button primary" type="button">Сохранить мои карточки</button><button id="dismissPersistenceButton" class="button ghost" type="button">Не сейчас</button></div>
+  </article>
+</dialog>
+
+<dialog id="storageDialog" class="dialog storage-dialog"><article><p class="eyebrow">НАСТРОЙКИ ПАМЯТИ</p><h2>Сохранение и перенос</h2><p id="storageStatusText" class="muted">Здесь можно экспортировать карточки или подключить работающую синхронизацию.</p><div class="vault-meta"><div><strong>ID хранилища</strong><code id="storageVaultId"></code></div><div><strong>Объекты</strong><span id="storageObjectCount"></span></div></div><p id="storageMigrationNote" class="vault-note" hidden></p><div class="storage-provider"><span class="provider-dot" aria-hidden="true"></span><div><strong>На этом устройстве</strong><p>Доступно без настройки</p></div></div><section class="storage-provider github-storage-provider" aria-labelledby="github-storage-title"><span class="provider-dot" aria-hidden="true"></span><div class="provider-content"><strong id="github-storage-title">GitHub sync</strong><p id="githubStatus">Проверяем подключение…</p><div id="githubConnectControls" class="github-connect-controls"><label>Репозиторий или папка<input id="githubStorageUrl" type="url" placeholder="https://github.com/you/private-repo" autocomplete="off" /></label><button id="connectGithubButton" class="button primary" type="button">Подключить GitHub</button></div><div id="githubPairedControls" hidden><code id="githubLocation"></code><div class="dialog-actions compact-actions"><button id="syncGithubButton" type="button" class="button primary">Синхронизировать</button><button id="disconnectGithubButton" type="button" class="button ghost">Отключить</button></div></div></div></section><div class="dialog-actions"><button id="exportVaultButton" type="button" class="button primary">Экспортировать карточки</button><button id="importVaultButton" type="button" class="button ghost">Импортировать</button><input id="storageImportInput" type="file" accept="application/json,.json" hidden /></div><p id="storageImportMessage" class="vault-note" aria-live="polite"></p></article><form method="dialog" class="dialog-footer"><button class="button">Закрыть</button></form></dialog>
+
+<template id="resultCardTemplate">
+  <article class="result-card" tabindex="0">
+    <div class="card-topline"><span class="category"></span><span class="card-status"></span></div>
+    <h3 class="title"></h3>
+    <p class="summary"></p>
+  </article>
+</template>
+
+<script type="module" src="/demo/app.js"></script>
+<script type="module" src="/demo/github-sync.js"></script>
+<script src="/demo/dash.js" defer></script>
+</body>
+</html>
