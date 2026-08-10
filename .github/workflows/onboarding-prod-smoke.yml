@@ -1,0 +1,34 @@
+name: Production onboarding smoke
+on:
+  push:
+    branches:
+      - smoke/onboarding-prod-check
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: npm install --ignore-scripts
+      - run: npx playwright install --with-deps chromium
+      - name: Check fresh production session
+        run: |
+          node --input-type=module <<'NODE'
+          import { chromium } from '@playwright/test';
+          const browser = await chromium.launch({ headless: true });
+          const context = await browser.newContext();
+          const page = await context.newPage();
+          await page.goto('https://dashgpt.dimkashir.workers.dev/demo/', { waitUntil: 'networkidle', timeout: 60000 });
+          const welcome = await page.locator('#publicWelcome').isVisible();
+          const heading = await page.getByRole('heading', { name: 'Сохрани разговор через ChatGPT' }).isVisible().catch(() => false);
+          const shareInput = await page.locator('#anonymousShareUrl').isVisible().catch(() => false);
+          const cards = await page.locator('.result-card').count();
+          const publisher = await page.getByText('Ночёвка с палаткой для рыбалки', { exact: false }).count();
+          console.log(JSON.stringify({ welcome, heading, shareInput, cards, publisher, url: page.url() }));
+          if (!welcome || !heading || !shareInput || cards !== 0 || publisher !== 0) process.exit(1);
+          await browser.close();
+          NODE
