@@ -53,6 +53,19 @@ It should support multiple sizes, for example quick/human, medium, large and age
 
 A collection of Results, decisions, specs and state that can produce a current human summary and an agent continuation context.
 
+### Semantic Dash
+
+A saved, living semantic view of Results from one or more source conversations. A Dash stores its title, topic definition, update policy and Result references; it does not copy Result knowledge into a second store.
+
+Dash membership combines semantic selection with explicit user overrides:
+
+- pinned and manually added Results remain present;
+- excluded Results do not return during refresh;
+- new matches appear for review by default;
+- deleting a Dash never deletes its Results.
+
+Every build and refresh must apply the user's current Result access, source, archive and deletion constraints before ranking or summarization. If a referenced Result becomes unavailable, the Dash may show that state but must not retain or reveal its content through the aggregate summary.
+
 ### Source
 
 Provenance for a Result, such as a ChatGPT conversation, another AI chat, repository, URL, file or image.
@@ -67,7 +80,7 @@ A small, inspectable set of explicit user-approved preferences that should trave
 
 ### DashGPT Vault
 
-A portable user-owned durable storage unit for Results, revisions, assets, user-state events and explicit Profile revisions. The same vault should be usable through local storage or replaceable synchronization adapters such as GitHub, Google Drive and a compatible DashGPT instance.
+A portable user-owned durable storage unit for Results, Dash definitions/revisions, assets, user-state events and explicit Profile revisions. The same vault should be usable through local storage or replaceable synchronization adapters such as GitHub, Google Drive and a compatible DashGPT instance.
 
 ## Core user experience
 
@@ -84,6 +97,7 @@ The dashboard should provide:
 - image previews
 - automatically generated topic/category summaries
 - active and completed topics/projects
+- saved Semantic Dashes and temporary topic previews
 
 ### Continue actions
 
@@ -172,6 +186,7 @@ DashGPT should expose its useful knowledge through a provider-neutral interface.
 Expected capabilities include concepts equivalent to:
 
 - search Results
+- open or preview a Semantic Dash from a natural topic request
 - get Result
 - create/update Result
 - get project state
@@ -189,6 +204,8 @@ ChatGPT conversation history, Projects and Memory may improve continuity and per
 If a vault is already paired, save/read/search operations should target that vault. If no vault is paired, DashGPT may prepare a pending Result and guide the user through one minimal storage-pairing action before claiming durable save.
 
 The same plugin must be able to search the paired vault, open durable Results and obtain Context Packs for continuation.
+
+Natural requests such as “open my food Dash” or “what did we discuss about Morocco?” should reopen one confident saved Dash, ask the user to choose between materially ambiguous saved Dashes, or show a temporary topic preview that requires explicit confirmation before it is saved. Public plugin surfaces may only use Results and Dashes intentionally exposed by the selected DashGPT instance; access to a private paired Vault requires an authenticated storage surface.
 
 The product must prove more than a connection to the developer's own test site: another person should be able to use the same recognizable DashGPT experience against storage they control, without hard-coded developer data.
 
@@ -237,7 +254,7 @@ Requirements:
 
 DashGPT durable personal state should converge on a provider-neutral portable Vault format rather than direct coupling to browser `localStorage`, GitHub, Google Drive or Cloudflare storage APIs.
 
-The Vault should use inspectable open formats such as JSON plus ordinary assets. Immutable Result knowledge remains revisioned; mutable user state should be represented in a synchronization-friendly way that does not silently rewrite immutable Result content.
+The Vault should use inspectable open formats such as JSON plus ordinary assets. Immutable Result knowledge remains revisioned; Dash membership is reference-only; mutable user state should be represented in a synchronization-friendly way that does not silently rewrite immutable Result content.
 
 Initial storage/sync adapters should cover local/browser storage, local filesystem/local Git, GitHub, Google Drive and compatible DashGPT instances. Cloud storage implementations must not redefine the domain model around one provider.
 
