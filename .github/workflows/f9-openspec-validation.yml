@@ -1,4 +1,4 @@
-name: F9 OpenSpec and fast verification
+name: F9 OpenSpec, fast and browser verification
 
 on:
   push:
@@ -19,3 +19,85 @@ jobs:
       - run: npm install -g @fission-ai/openspec@latest
       - run: openspec validate f9-zero-friction-mobile-demo --strict
       - run: npm run verify:fast
+
+  browser-viewport:
+    needs: f9-fast
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: npm install --ignore-scripts --no-save playwright@1.55.0
+      - run: npx playwright install --with-deps chromium webkit
+      - name: Run local demo server
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/dashgpt-http.log 2>&1 &
+          for i in {1..20}; do
+            curl -fsS http://127.0.0.1:4173/demo/ >/dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/dashgpt-http.log
+          exit 1
+      - name: Verify 360px, WebKit mobile and desktop flows
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { chromium, webkit } from 'playwright';
+
+          async function verify(engine, label, viewport, mobile = false) {
+            const browser = await engine.launch();
+            const context = await browser.newContext({ viewport, isMobile: mobile, hasTouch: mobile });
+            const page = await context.newPage();
+            const pageErrors = [];
+            page.on('pageerror', error => pageErrors.push(error.message));
+            await page.goto('http://127.0.0.1:4173/demo/?showcase=1', { waitUntil: 'networkidle' });
+
+            await page.getByRole('heading', { name: 'Важное из разговоров с ИИ — всегда под рукой' }).waitFor();
+            assert.equal(await page.locator('#demoDashesGrid .demo-dash-card').count(), 3, `${label}: demo Dashes`);
+            assert.equal(await page.locator('#demoResultsGrid .f9-demo-card').count(), 5, `${label}: demo Results`);
+            const metrics = await page.evaluate(() => ({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth }));
+            assert.ok(metrics.scrollWidth <= metrics.width + 1, `${label}: horizontal overflow ${metrics.scrollWidth} > ${metrics.width}`);
+
+            const firstCard = await page.locator('#demoResultsGrid .f9-demo-card').first().boundingBox();
+            assert.ok(firstCard && firstCard.y < viewport.height, `${label}: first card must start inside the initial viewport`);
+            for (const selector of ['#showDemoButton', '#addResultButton', '#storageButton']) {
+              const box = await page.locator(selector).boundingBox();
+              assert.ok(box && box.height >= 44, `${label}: ${selector} touch target is ${box?.height}px`);
+            }
+
+            await page.locator('#showDemoButton').click();
+            await page.locator('#demoStoryDialog[open]').waitFor();
+            for (let i = 0; i < 4; i += 1) await page.locator('#demoStoryNextButton').click();
+            await page.getByRole('heading', { name: 'Теперь это можно найти и продолжить в любой момент.' }).waitFor();
+            await page.locator('#openDemoStoryCardButton').click();
+            await page.locator('#resultDialog[open]').waitFor();
+            for (const text of ['Главное', 'Что решили', 'Сейчас', 'Дальше', 'Продолжить разговор']) {
+              assert.ok(await page.getByText(text, { exact: true }).first().isVisible(), `${label}: opened demo card missing ${text}`);
+            }
+            await page.locator('#resultDialog .dialog-footer button').click();
+
+            const realCard = page.locator('#resultsGrid .result-card').first();
+            await realCard.waitFor({ state: 'visible' });
+            await realCard.click();
+            await page.locator('#resultDialog[open]').waitFor();
+            assert.ok(await page.getByText('Главное', { exact: true }).first().isVisible(), `${label}: existing card not humanized`);
+            assert.equal(await page.locator('#resultDialogContent .immutability-badge').count(), 0, `${label}: technical integrity badge leaked into primary detail`);
+            await page.locator('#resultDialog .dialog-footer button').click();
+
+            await page.locator('#addResultButton').click();
+            await page.locator('[name="captureTitle"]').fill('Тестовая поездка');
+            await page.locator('[name="captureSummary"]').fill('Короткий итог для проверки review-before-save.');
+            await page.locator('#prepareReviewButton').click();
+            assert.ok(await page.getByRole('heading', { name: 'Вот что DashGPT сохранит' }).isVisible(), `${label}: review step missing`);
+            await page.locator('#cancelReviewButton').click();
+
+            assert.deepEqual(pageErrors, [], `${label}: page errors: ${pageErrors.join(' | ')}`);
+            await browser.close();
+          }
+
+          await verify(chromium, '360px Chromium', { width: 360, height: 800 }, true);
+          await verify(webkit, 'mobile WebKit', { width: 390, height: 844 }, true);
+          await verify(chromium, 'desktop Chromium', { width: 1280, height: 900 }, false);
+          console.log('DashGPT F9 browser viewport checks passed.');
+          NODE
