@@ -1,0 +1,3 @@
+schema: spec-driven
+created: 2026-08-10
+goal: Make public ChatGPT share import succeed when direct fetch is blocked and embedded payload parsing no longer matches the rendered page.
