@@ -56,7 +56,7 @@ export function createSemanticDashUi(options) {
   const getResults = options.getResults;
   const saveVault = options.saveVault;
   const openResult = options.openResult;
-  const continuationUrl = options.continuationUrl;
+  const continueResult = options.continueResult;
   const recordActivity = options.recordActivity || (() => {});
   const decorateResultCard = options.decorateResultCard || (() => {});
   const renderMemberGallery = options.renderMemberGallery || null;
@@ -110,9 +110,7 @@ export function createSemanticDashUi(options) {
       original.addEventListener("click", () => recordActivity(result.id, "source.open"));
       actions.append(original);
     }
-    const continuation = link("Continue ↗", continuationUrl(result));
-    continuation.addEventListener("click", () => recordActivity(result.id, "continue.new-chat"));
-    actions.append(continuation);
+    actions.append(button("Continue ↗", () => continueResult(result.id), "button small"));
     actions.append(button(membership === "pinned" ? "Unpin" : "Pin", () => updateOverride(dashId, "dash.pin", result.id, membership !== "pinned"), "button small ghost"));
     actions.append(button("Exclude", () => updateOverride(dashId, "dash.exclude", result.id, true), "button small ghost danger"));
     return actions;

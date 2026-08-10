@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node --check src/index.js && node --check src/worker.js && node --check src/storage-locator.js && node --check src/vault-layout.js && node --check src/github-storage.js && node --check demo/vault.js && node --check demo/semantic-gallery.js && node --check demo/app.js && node --check demo/semantic-dashes.js && node --check demo/semantic-dash-ui.js && node --check demo/github-sync.js && node --check demo/dash.js && node scripts/sync-dash.mjs --check && node scripts/verify-results.mjs && node scripts/verify-semantic-dashes.mjs && node scripts/verify-vault.mjs && node scripts/verify-semantic-gallery.mjs && node scripts/verify-github-storage.mjs && node scripts/verify-worker-entry.mjs && node scripts/verify-ui-contract.mjs && node scripts/smoke.mjs"
+    "check": "node --check src/index.js && node --check src/worker.js && node --check src/storage-locator.js && node --check src/vault-layout.js && node --check src/github-storage.js && node --check demo/vault.js && node --check demo/semantic-gallery.js && node --check demo/app.js && node --check demo/continuation.js && node --check demo/semantic-dashes.js && node --check demo/semantic-dash-ui.js && node --check demo/github-sync.js && node --check demo/dash.js && node scripts/sync-dash.mjs --check && node scripts/verify-results.mjs && node scripts/verify-continuation.mjs && node scripts/verify-continuation-integration.mjs && node scripts/verify-semantic-dashes.mjs && node scripts/verify-vault.mjs && node scripts/verify-semantic-gallery.mjs && node scripts/verify-github-storage.mjs && node scripts/verify-worker-entry.mjs && node scripts/verify-ui-contract.mjs && node scripts/smoke.mjs",
+    "test:browser": "playwright test"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "2.0.0",
@@ -13,6 +14,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "1.62.1",
     "wrangler": "^4.71.0"
   }
 }

@@ -43,11 +43,21 @@ Expected fields include:
 
 A published Result may be marked **immutable**. Once published as immutable, its knowledge content must not be silently rewritten. Corrections or materially changed knowledge become a new revision while the old Result remains addressable.
 
+### Continuation Brief
+
+A compact Markdown representation derived from the current version of one Result for the primary **Continue in new chat** action. It starts the receiving assistant from the point where prior work stopped rather than from the Result title alone.
+
+The stable brief may include the topic, goal, summary, current state, confirmed decisions and facts, constraints, relevant preferences, open questions, related resources, a suggested next step and DashGPT-authored continuation instructions. Empty sections are omitted and absent decisions, facts or constraints are never invented.
+
+Continuation Briefs are transient derived views, not an independent source of truth. Every action rebuilds from the current Result, limits input to allowlisted fields from that Result and explicitly related material, excludes credentials and unrelated memory, and keeps imported or prompt-like source text in data sections rather than trusted instructions. The user can preview, edit for one continuation and copy the exact Markdown without silently changing the saved Result.
+
+When a target cannot safely receive the complete prompt through its deeplink, DashGPT uses a visibly shortened brief that preserves the continuation-critical sections or an explicit clipboard fallback. It never silently degrades to the title or records a successful continuation before the transport succeeds.
+
 ### Context Pack
 
 A portable representation of the current useful context for continuation by another chat or agent.
 
-It should support multiple sizes, for example quick/human, medium, large and agent-oriented variants, so callers do not have to send the whole history every time.
+It should support multiple sizes, for example quick/human, medium, large and agent-oriented variants, so callers do not have to send the whole history every time. A Full Context Pack is the richer optional export; it remains separate from the compact primary Continuation Brief.
 
 ### Project
 
@@ -104,7 +114,8 @@ The dashboard should provide:
 A Result should support actions equivalent to:
 
 - continue the original chat when a source conversation link is available
-- start a new chat with generated context
+- start a new chat with a freshly generated structured Continuation Brief
+- preview, transiently edit or copy the exact Continuation Brief without rewriting the Result
 - send/export context to another agent
 - inspect/copy the Context Pack
 - share a deliberately selected item when supported
