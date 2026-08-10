@@ -16,7 +16,11 @@ import { sanitizeDashRevision } from "../demo/vault.js";
 const ALLOWED_SHARE_HOSTS = new Set(["chatgpt.com", "chat.openai.com"]);
 const MCP_VERSION = "0.4.0";
 const INSTANCE_PROTOCOL_VERSION = 1;
-const DURABLE_FIELDS = ["id", "title", "summary", "category", "tags", "decisions", "next", "source"];
+const DURABLE_FIELDS = [
+  "id", "title", "goal", "summary", "currentState", "category", "tags", "decisions", "facts",
+  "constraints", "userPreferences", "openQuestions", "next", "suggestedNextStep", "links",
+  "relatedMaterials", "language", "continuationContext", "source"
+];
 const OPEN_READ_ANNOTATIONS = {
   readOnlyHint: true,
   destructiveHint: false,

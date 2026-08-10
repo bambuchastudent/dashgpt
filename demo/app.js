@@ -12,6 +12,7 @@ import {
 } from "./vault.js";
 import { rankResults, semanticTerms } from "./semantic-dashes.js";
 import { createSemanticDashUi } from "./semantic-dash-ui.js";
+import { appendContinuationActivity, createContinuationController } from "./continuation.js";
 import {
   createGalleryZoomController,
   gallerySelectionKey,
@@ -23,7 +24,11 @@ import {
   semanticHue
 } from "./semantic-gallery.js";
 
-const DURABLE_FIELDS = ["id", "title", "summary", "category", "tags", "decisions", "next", "source"];
+const DURABLE_FIELDS = [
+  "id", "title", "goal", "summary", "currentState", "category", "tags", "decisions", "facts",
+  "constraints", "userPreferences", "openQuestions", "next", "suggestedNextStep", "links",
+  "relatedMaterials", "language", "continuationContext", "source"
+];
 const HASH_PATTERN = /^sha256:[0-9a-f]{64}$/;
 const LEGACY_SEED_IDS = new Set(["dashgpt-product", "development-workflow", "deployment"]);
 
@@ -38,6 +43,7 @@ let favoritesOnly = galleryState.favoritesOnly;
 let routeOpenRecorded = false;
 let galleryFocusRestored = false;
 let dashUi;
+let continuationController;
 
 const vaultAdapter = {
   type: "browser-local",
@@ -210,6 +216,22 @@ function recordActivity(resultId, kind) {
   const previousCount = vault.events.length;
   recordResultActivity(vault, resultId, kind);
   if (vault.events.length === previousCount) return;
+  vaultAdapter.save(vault);
+  renderStorageStatus();
+  if (dashboardView && !dashboardView.hidden) queueMicrotask(() => {
+    if (!dashboardView.hidden) renderDashboard();
+  });
+  else {
+    const dashId = dashUi?.routeDashId?.();
+    if (dashId) queueMicrotask(() => dashUi?.renderDashPage?.(dashId));
+  }
+}
+
+function recordContinuationSuccess(resultId) {
+  if (!vault || !resultId) return;
+  galleryState.focusedResultId = resultId;
+  persistGalleryView();
+  appendContinuationActivity(vault, resultId);
   vaultAdapter.save(vault);
   renderStorageStatus();
   if (dashboardView && !dashboardView.hidden) queueMicrotask(() => {
@@ -426,8 +448,7 @@ function createCard(result) {
     original.hidden = true;
   }
   const continuation = node.querySelector(".continue-link");
-  continuation.href = continuationUrl(result);
-  continuation.addEventListener("click", () => recordActivity(result.id, "continue.new-chat"));
+  continuation.addEventListener("click", () => continuationController.continue(result.id));
   const openFromCard = (event) => {
     if (event.target.closest?.("a,button,input,summary,details")) return;
     if (event.type === "keydown" && !["Enter", " "].includes(event.key)) return;
@@ -499,14 +520,6 @@ function detailBlock(label, value) {
   return block;
 }
 
-function continuationText(result) {
-  return `Continue this work from the saved DashGPT Result.\n\nTitle: ${result.title}\nSummary: ${result.summary}\n\nDecisions:\n${(result.decisions || []).map(item => `- ${item}`).join("\n") || "- None captured"}\n\nNext intended action: ${result.next || "Continue from the summary."}`;
-}
-
-function continuationUrl(result) {
-  return `https://chatgpt.com/?q=${encodeURIComponent(continuationText(result))}`;
-}
-
 function actionBar(result, id) {
   const actions = document.createElement("div");
   actions.className = "dialog-actions primary-result-actions";
@@ -520,13 +533,14 @@ function actionBar(result, id) {
     source.addEventListener("click", () => recordActivity(id, "source.open"));
     actions.appendChild(source);
   }
-  const continuation = document.createElement("a");
+  const continuation = document.createElement("button");
+  continuation.type = "button";
   continuation.className = "button primary";
-  continuation.href = continuationUrl(result);
-  continuation.target = "_blank";
-  continuation.rel = "noopener noreferrer";
   continuation.textContent = "Continue in new chat ↗";
-  continuation.addEventListener("click", () => recordActivity(id, "continue.new-chat"));
+  continuation.addEventListener("click", () => {
+    resultDialog.close();
+    continuationController.continue(id);
+  });
   actions.appendChild(continuation);
   const more = document.createElement("details");
   more.className = "more-actions";
@@ -541,7 +555,20 @@ function actionBar(result, id) {
     resultDialog.close();
     openContext(id);
   });
-  more.append(summary, context);
+  const preview = document.createElement("button");
+  preview.type = "button";
+  preview.className = "button ghost";
+  preview.textContent = "Preview context";
+  preview.addEventListener("click", () => {
+    resultDialog.close();
+    continuationController.preview(id);
+  });
+  const copy = document.createElement("button");
+  copy.type = "button";
+  copy.className = "button ghost";
+  copy.textContent = "Copy continuation brief";
+  copy.addEventListener("click", () => continuationController.copy(id));
+  more.append(summary, preview, copy, context);
   actions.appendChild(more);
   return actions;
 }
@@ -687,14 +714,24 @@ function renderStandaloneResult(result) {
     source.addEventListener("click", () => recordActivity(result.id, "source.open"));
     actions.append(source);
   }
-  const continuation = document.createElement("a");
+  const continuation = document.createElement("button");
+  continuation.type = "button";
   continuation.className = "button primary";
-  continuation.href = continuationUrl(result);
-  continuation.target = "_blank";
-  continuation.rel = "noopener noreferrer";
   continuation.textContent = "Continue in new chat ↗";
-  continuation.addEventListener("click", () => recordActivity(result.id, "continue.new-chat"));
+  continuation.addEventListener("click", () => continuationController.continue(result.id));
   actions.append(continuation);
+  const preview = document.createElement("button");
+  preview.className = "button ghost";
+  preview.type = "button";
+  preview.textContent = "Preview context";
+  preview.addEventListener("click", () => continuationController.preview(result.id));
+  actions.append(preview);
+  const copy = document.createElement("button");
+  copy.className = "button ghost";
+  copy.type = "button";
+  copy.textContent = "Copy continuation brief";
+  copy.addEventListener("click", () => continuationController.copy(result.id));
+  actions.append(copy);
   const context = document.createElement("button");
   context.className = "button ghost";
   context.type = "button";
@@ -784,6 +821,10 @@ async function init() {
   });
   vaultLoadInfo = vaultAdapter.load();
   vault = vaultLoadInfo.vault;
+  continuationController = createContinuationController({
+    getResult: id => results.find(item => item.id === id),
+    onSuccess: ({ resultId }) => recordContinuationSuccess(resultId)
+  });
   dashUi = createSemanticDashUi({
     getVault: () => vault,
     getResults: () => results,
@@ -792,7 +833,7 @@ async function init() {
       renderStorageStatus();
     },
     openResult,
-    continuationUrl,
+    continueResult: id => continuationController.continue(id),
     recordActivity,
     decorateResultCard: applySemanticVisual,
     renderMemberGallery: renderDashMemberGallery,

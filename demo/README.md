@@ -23,7 +23,8 @@ Open http://localhost:8080.
 - five-level touch/trackpad/keyboard gallery density
 - favorites
 - Result details
-- portable Context Pack generation and copy
+- structured RU/EN Continuation Brief generation, exact preview/edit/copy and safe ChatGPT transport fallback
+- separate portable Full Context Pack generation and copy
 - responsive laptop/mobile UI
 
 No Cloudflare, GitHub API, backend, database, paid LLM API or build step is required.

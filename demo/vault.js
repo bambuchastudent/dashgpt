@@ -7,11 +7,12 @@ export const RESULT_ACTIVITY_KINDS = Object.freeze([
 ]);
 
 const RESULT_FIELDS = [
-  "id", "schemaVersion", "title", "summary", "category", "tags", "decisions", "next", "source",
+  "id", "schemaVersion", "title", "goal", "summary", "currentState", "category", "tags", "decisions",
+  "facts", "constraints", "userPreferences", "openQuestions", "next", "suggestedNextStep", "source",
   "publishedAt", "immutable", "contentVersion", "contentHash", "status", "result", "body", "instructions",
-  "code", "links", "images", "assets", "openQuestions", "relatedResults", "continuationContext"
+  "code", "links", "relatedMaterials", "language", "images", "assets", "relatedResults", "continuationContext"
 ];
-const SOURCE_FIELDS = ["type", "url", "title", "provider", "sourceId"];
+const SOURCE_FIELDS = ["type", "url", "title", "provider", "sourceId", "language"];
 const EVENT_FIELDS = ["schemaVersion", "eventId", "type", "resultId", "dashId", "value", "createdAt"];
 const DASH_REVISION_FIELDS = [
   "schemaVersion", "dashId", "dashRevisionId", "baseRevisionId", "title", "description",
@@ -61,6 +62,9 @@ export function sanitizeResult(result) {
   clean.schemaVersion = Number(clean.schemaVersion || 1);
   clean.tags = Array.isArray(clean.tags) ? clean.tags : [];
   clean.decisions = Array.isArray(clean.decisions) ? clean.decisions : [];
+  for (const field of ["facts", "constraints", "userPreferences", "openQuestions", "links", "relatedMaterials"]) {
+    if (clean[field] !== undefined && !Array.isArray(clean[field])) clean[field] = [];
+  }
   clean.contentVersion = Number(clean.contentVersion || 1);
   clean.immutable = Boolean(clean.immutable);
   return clean;

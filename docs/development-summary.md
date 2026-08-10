@@ -102,12 +102,20 @@ Standalone Result pages use one shared client-side renderer rather than copied p
 - Dashboard and Result pages share the same `index.html`, JavaScript and CSS, so renderer/style updates apply to old pages automatically.
 - Published knowledge stays in `demo/data/results.json`, separate from presentation code.
 - Published Results carry `schemaVersion`, `immutable`, `contentVersion` and `contentHash`.
-- The hash covers stable Result identity plus durable knowledge fields (`id`, title, summary, category, tags, decisions, next and source); presentation/local state is deliberately excluded.
+- The hash covers stable Result identity plus durable knowledge fields. Optional structured continuation fields such as goal, current state, facts, constraints, preferences, questions, links, related material and language participate when present; presentation/local state and activity events are deliberately excluded.
 - `scripts/verify-results.mjs` deterministically canonicalizes those fields and rejects a catalog whose stored SHA-256 no longer matches its immutable content.
 - The browser independently recomputes the same digest and shows verified, unverified or mismatch state.
 - Corrections should become explicit new revisions rather than edits to old immutable Results.
 
 The durable architecture rationale is recorded in `docs/adr/0001-shared-renderer-immutable-results.md`.
+
+## Structured chat continuation implementation
+
+`demo/continuation.js` owns the dependency-free Continuation Brief domain, RU/EN templates and the current target transport adapter. It projects only allowlisted Result fields, filters credential-shaped values and unsafe URLs, renders source content only as data, and appends trusted assistant instructions solely from DashGPT-owned templates.
+
+Every continuation action resolves the Result by id again before generation. The prepared transport explicitly selects full deeplink, priority-preserving compact deeplink or clipboard mode from encoded URL bytes; no path truncates the Markdown or falls back to the title. Preview edits are transient and transport success writes only a content-free `result.activity` event through the existing Vault boundary.
+
+The target adapter owns the deeplink, byte budget, encoding and fallback policy so future providers do not leak transport assumptions into the brief renderer. Browser code opens a blank target synchronously, isolates `opener`, and then either navigates it with the prepared payload or copies the exact brief with a truthful manual-paste message.
 
 ## ChatGPT / Codex plugin implementation
 
@@ -151,7 +159,7 @@ The repository does not invent or require a `plugin_asdk_app...` id for the publ
 
 ## Verification
 
-`.github/workflows/quality.yml` runs the project checks on active feature branches and PRs.
+`.github/workflows/check.yml` runs the project checks on active feature branches and PRs.
 
 `npm run check` currently covers:
 
@@ -171,14 +179,18 @@ The repository does not invent or require a `plugin_asdk_app...` id for the publ
 - public support/privacy/terms assets
 - Result deep-link routing
 - OpenAI domain-verification challenge behavior
+- Continuation Brief structure, localization, privacy filtering and encoded-size boundaries
+- current-Result rebuild, preview/edit/copy, transport fallback and content-free activity behavior
+
+`npm run test:browser` runs the Playwright continuation flows against the real demo in desktop and narrow mobile projects. CI installs its pinned Chromium runtime before that browser-level gate.
 
 Cloudflare branch previews are deployment verification. Production tracks `develop`; the stable UI entry point is `/demo/`, the operational status page is `/demo/dash/`, and the plugin endpoint is `/mcp`.
 
 ## Current development state
 
-Status: **Feature 7 Semantic Dashes is implemented under the validated `f7-semantic-dashes` OpenSpec change in dedicated PR #18 to `develop`.**
+Status: **Structured Chat Continuation is implemented under the validated `structured-chat-continuation` OpenSpec change in draft PR #20 to `develop`; local quality and desktop/mobile Playwright CI are green.**
 
-The implementation shares one dependency-free semantic engine between browser and Worker, stores Dash revisions and user overrides separately from immutable Results, and filters eligibility before ranking or summarization. The dashboard owns private local/Vault interactions. The public MCP catalog remains an explicitly exposed, read-only surface and does not imply access to the user's private Vault.
+Feature 7 Semantic Dashes is merged in PR #18 and Feature 8 Semantic Gallery in PR #19. Structured Chat Continuation is rebased on both; it reuses Gallery's content-free activity value and routes existing Continue controls through one controller without changing Gallery ordering, density, zoom, Semantic Navigator or card layout.
 
 External/manual release gates after merge:
 

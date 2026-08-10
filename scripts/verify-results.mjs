@@ -1,7 +1,11 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
-const DURABLE_FIELDS = ["id", "title", "summary", "category", "tags", "decisions", "next", "source"];
+const DURABLE_FIELDS = [
+  "id", "title", "goal", "summary", "currentState", "category", "tags", "decisions", "facts",
+  "constraints", "userPreferences", "openQuestions", "next", "suggestedNextStep", "links",
+  "relatedMaterials", "language", "continuationContext", "source"
+];
 const REQUIRED_FIELDS = [
   "id",
   "schemaVersion",
@@ -41,6 +45,46 @@ export function hashResult(result) {
   return `sha256:${createHash("sha256")
     .update(canonicalize(durablePayload(result)), "utf8")
     .digest("hex")}`;
+}
+
+const CONTINUATION_FIELDS = [
+  "goal", "currentState", "facts", "constraints", "userPreferences", "openQuestions",
+  "suggestedNextStep", "links", "relatedMaterials", "language", "continuationContext"
+];
+
+const continuationProbe = {
+  id: "continuation-integrity-probe",
+  title: "Continuation integrity probe",
+  summary: "Structured continuation fields must remain durable.",
+  category: "Verification",
+  tags: ["continuation"],
+  decisions: ["Keep the brief derived from the current Result."],
+  next: "Verify the projected fields.",
+  goal: "Prove additive continuation data participates in integrity checks.",
+  currentState: "The projection is under test.",
+  facts: ["This is a deterministic in-memory fixture."],
+  constraints: ["Do not alter published fixture hashes."],
+  userPreferences: ["English"],
+  openQuestions: ["Does every additive field survive projection?"],
+  suggestedNextStep: "Compare the durable projections.",
+  links: [{ title: "DashGPT", url: "https://example.com/dashgpt" }],
+  relatedMaterials: ["OpenSpec change"],
+  language: "en",
+  continuationContext: { summary: "Allowlisted structured context." },
+  source: { type: "verification" }
+};
+
+const projectedContinuation = durablePayload(continuationProbe);
+for (const field of CONTINUATION_FIELDS) {
+  if (!(field in projectedContinuation)) {
+    throw new Error(`Continuation integrity regression: ${field} was dropped from the durable projection.`);
+  }
+}
+
+const changedContinuationProbe = structuredClone(continuationProbe);
+changedContinuationProbe.openQuestions = ["This field changed and must change the digest."];
+if (hashResult(continuationProbe) === hashResult(changedContinuationProbe)) {
+  throw new Error("Continuation integrity regression: additive continuation content did not change the digest.");
 }
 
 const results = JSON.parse(

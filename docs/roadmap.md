@@ -140,7 +140,25 @@ MVP scope:
 
 Automatic update mode remains architecturally possible but disabled in this first change. Private Vault access from a hosted ChatGPT tool remains behind the authenticated storage/runtime work; the public MCP surface can use only an instance's intentionally exposed catalog.
 
-Status: **implementation PR #18 active under `openspec/changes/f7-semantic-dashes/`**.
+Status: **merged into `develop` via PR #18 under `openspec/changes/f7-semantic-dashes/`**.
+
+## Tactical Change — Structured Chat Continuation
+
+Goal: make **Continue in new chat** hand off the current working state instead of only the Result title.
+
+MVP scope:
+
+- stable RU/EN Markdown Continuation Brief derived from the latest Result
+- trusted DashGPT assistant instructions separated from untrusted source content
+- exact preview, transient editing and direct copy
+- current ChatGPT adapter with encoded-size validation, priority-preserving compact mode and clipboard fallback
+- no silent truncation or title-only success path
+- content-free successful-continuation activity
+- unit, integration and desktop/mobile browser verification
+
+Full Context Pack remains the richer optional export. Transcript synchronization, automatic translation, every provider, Semantic Gallery, Semantic Navigator and card redesign stay outside this change.
+
+Status: **implemented under the strictly validated `openspec/changes/structured-chat-continuation/` change in draft PR #20; automated and desktop/mobile browser gates are green**.
 
 ## M5 — Optional private quick deploy
 
@@ -174,6 +192,6 @@ Potential scope after the core loop is proven:
 
 ## Current delivery intent
 
-**Active: Tactical Feature 7 — Semantic Dashes.**
+**Active: Structured Chat Continuation in its own validated OpenSpec change and PR.**
 
-Feature 6's production GitHub activation and the public plugin release remain external tracks. Semantic Dashes reuse the existing Result search and Vault abstractions without weakening those privacy boundaries.
+Feature 6's production GitHub activation and the public plugin release remain external tracks. Semantic Gallery is already merged via PR #19 and remains a separate presentation capability rather than continuation scope.

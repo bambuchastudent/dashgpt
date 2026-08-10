@@ -4,13 +4,14 @@ A living project status board. Keep this file short, current, and operational.
 
 ## NOW
 
-**Active internal work:** Feature 7 — Semantic Dashes implementation PR #18.
+**Active internal work:** Structured Chat Continuation in draft PR #20.
 
-- OpenSpec change `f7-semantic-dashes` covers the reference-only Dash model, semantic lookup, Review refresh, overrides, dashboard/chat presentation and privacy behavior.
-- The change passed strict OpenSpec validation before production-code edits.
-- Implementation adds shared deterministic Result/Dash ranking, backward-compatible Vault revisions/events, dashboard Dash routes and `open_semantic_dash` MCP behavior.
-- Private Vault data remains private: public MCP lookup sees only an instance's intentionally exposed catalog; authenticated private-Vault chat access stays outside this change.
-- Automatic update is represented but disabled; MVP default and only active mode is `Review`.
+- `openspec/changes/structured-chat-continuation/` passed strict validation before production-code edits.
+- `Continue in new chat` now derives an RU/EN Markdown brief from the current Result instead of sending only its title.
+- Preview/edit/copy, encoded-size validation, priority-preserving compact mode, clipboard recovery and content-free activity tracking share one controller across Result and Semantic Dash surfaces.
+- Trusted DashGPT instructions are template-owned; imported prompt-like text remains data and credential-shaped/unrelated fields are excluded.
+- Feature 8 Semantic Gallery is merged via PR #19 and remains unchanged except for routing its existing Continue control through this capability; Semantic Navigator and card redesign are outside this change.
+- PR #20 is rebased on current `develop`; local quality, immutable Results and desktop/mobile Playwright CI are green.
 - Feature 6 Slice B production activation remains an external gate: configure Worker secrets and run one real private-repository smoke test.
 
 ## DONE
@@ -22,6 +23,7 @@ A living project status board. Keep this file short, current, and operational.
 - DashGPT MCP surface at `/mcp` with stable plugin identity `dashgpt` / **DashGPT**.
 - Universal MCP routing and DashGPT instance protocol v1.
 - Semantic Result card/continuation-first UX.
+- Feature 7 Semantic Dashes, merged via PR #18.
 - Feature 6 zero-install/privacy/storage architecture in OpenSpec + ADR 0003, merged via PR #11.
 - Feature 6 Slice A Vault v1 local core/migration, export/import and append-only state events, merged via PR #12.
 - Feature 6 Slice B GitHub storage adapter implementation, privacy guards and deterministic adapter tests, merged via PR #13.
@@ -29,8 +31,8 @@ A living project status board. Keep this file short, current, and operational.
 
 ## NEXT
 
-1. Configure `GITHUB_APP_PRIVATE_KEY` and `GITHUB_SESSION_SECRET` on the production Worker without putting secrets in chat/repository/Vault.
-2. Review and merge Semantic Dashes PR #18 after CI/preview verification.
+1. Review and merge Structured Chat Continuation PR #20 after product review.
+2. Configure `GITHUB_APP_PRIVATE_KEY` and `GITHUB_SESSION_SECRET` on the production Worker without putting secrets in chat/repository/Vault.
 3. Install `dashgpt-storage` on one disposable/private test repository and prove real pair → sync → idempotent re-sync → disconnect while local Vault survives.
 4. Mark Slice B fully activated only after that real smoke test.
 5. Start Slice C in a new PR: Google Drive StorageLocator + authorization + adapter contract reuse.
@@ -45,7 +47,7 @@ A living project status board. Keep this file short, current, and operational.
 - Google Drive authorization remains future Slice C work.
 - ChatGPT Memory/Project context is not assumed to provide app-owned durable Result storage.
 - Public plugin review/approval and final publication remain external Feature 4 hinges.
-- Semantic Dashes have no implementation blocker; authenticated access to a private Vault from hosted chat remains future Feature 6 Slice E work.
+- Structured Chat Continuation has no implementation blocker; browser transport is verified by the repository's Playwright CI rather than assumed from unit contracts.
 - When a concrete manual action becomes necessary, record it here before asking the user to do it.
 
 ## RULES FOR THIS DASH
