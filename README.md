@@ -4,6 +4,8 @@ DashGPT is a private, local-first dashboard for useful AI conversation outcomes 
 
 DashGPT is **result-first, not chat-first**: it stores useful outcomes, decisions, artifacts, summaries, sources and continuation context rather than treating raw chat history as the primary object.
 
+Semantic Dashes turn related Results from multiple conversations into saved, refreshable topic views. They keep references and user overrides rather than copying Result content.
+
 ## Start here
 
 For humans and agents:
