@@ -20,12 +20,13 @@ function cookieValue(response, name) {
 }
 
 function createFakeGitHubRepo() {
-  let headSha = "commit-0";
-  let currentTreeSha = "tree-0";
+  let headSha = null;
+  let currentTreeSha = null;
   let counter = 0;
   const blobs = new Map();
-  const trees = new Map([[currentTreeSha, new Map()]]);
-  const commits = new Map([[headSha, { sha: headSha, tree: { sha: currentTreeSha } }]]);
+  const trees = new Map();
+  const commits = new Map();
+  let initializedWithoutBranch = false;
 
   const client = {
     async getRepo() {
@@ -33,6 +34,11 @@ function createFakeGitHubRepo() {
     },
     async getRef(branch) {
       assert.equal(branch, "main");
+      if (!headSha) {
+        const error = new Error("404 empty repository");
+        error.status = 404;
+        throw error;
+      }
       return { object: { sha: headSha } };
     },
     async getCommit(sha) {
@@ -74,13 +80,27 @@ function createFakeGitHubRepo() {
       currentTreeSha = commits.get(sha).tree.sha;
       return { object: { sha } };
     },
-    async initializeFile() {
-      throw new Error("fixture already has a branch");
+    async initializeFile(path, content, branch) {
+      assert.equal(headSha, null, "initializeFile is only for an empty repository");
+      assert.equal(branch, null, "empty repositories must initialize the default branch without an explicit branch parameter");
+      initializedWithoutBranch = true;
+      const blobSha = `blob-${++counter}`;
+      blobs.set(blobSha, content);
+      const treeSha = `tree-${++counter}`;
+      trees.set(treeSha, new Map([[path, blobSha]]));
+      const commitSha = `commit-${++counter}`;
+      commits.set(commitSha, { sha: commitSha, tree: { sha: treeSha }, parents: [] });
+      headSha = commitSha;
+      currentTreeSha = treeSha;
+      return { commit: { sha: commitSha } };
     }
   };
 
   return {
     client,
+    initializedWithoutBranch() {
+      return initializedWithoutBranch;
+    },
     objectSnapshot() {
       const tree = trees.get(currentTreeSha) || new Map();
       return [...tree.entries()].map(([path, sha]) => ({ path, content: blobs.get(sha) }));
@@ -180,7 +200,8 @@ const syncRequest = () => request("https://dashgpt.example/api/storage/github/sy
 const firstSync = await handleGitHubSync(syncRequest(), env);
 assert.equal(firstSync.status, 200, await firstSync.clone().text());
 const firstSyncBody = await firstSync.json();
-assert.ok(firstSyncBody.sync.changedObjects >= 3);
+assert.equal(fake.initializedWithoutBranch(), true, "first sync must initialize an empty repository safely");
+assert.equal(firstSyncBody.sync.changedObjects, 2, "manifest initialization is followed by one atomic commit for remaining objects");
 assert.match(firstSyncBody.sync.commitSha, /^commit-/);
 
 const snapshot = fake.objectSnapshot();
@@ -197,4 +218,4 @@ assert.equal(secondSync.status, 200, await secondSync.clone().text());
 const secondSyncBody = await secondSync.json();
 assert.equal(secondSyncBody.sync.changedObjects, 0, "idempotent sync must not create another Git commit");
 
-console.log("GitHub StorageLocator, pairing, Vault layout and sync contract tests passed.");
+console.log("GitHub StorageLocator, empty-repository pairing, Vault layout and idempotent sync tests passed.");
