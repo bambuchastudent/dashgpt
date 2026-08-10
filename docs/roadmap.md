@@ -54,9 +54,7 @@ Scope:
 - ChatGPT developer-mode connection
 - second-person / second-instance demo proving the integration is not hard-coded to the developer site
 
-MVP completion gate:
-
-**DashGPT is not considered MVP-complete until another person can connect ChatGPT to their own DashGPT site and demonstrate both reading their Results and saving a useful current conversation outcome into their own site.**
+This tactical MVP proved the integration shape; later storage work removes the assumption that a personal deployed site is required before first use.
 
 ## M2 — Project state and human summaries
 
@@ -96,15 +94,44 @@ Scope candidates:
 - continue/new-chat/export UX
 - validate Claude/Codex/OpenCode interoperability
 
-Tactical Feature 3 proves the first bidirectional ChatGPT flow early; later M4 work replaces tactical MVP transport/storage with the full integration architecture.
+## Tactical Feature 6 — Zero-install privacy, personalization and portable sync
 
-## M5 — Private quick deploy
+Goal: make first use begin in chat while durable DashGPT data remains private, portable and user-owned.
 
-Goal: a non-DevOps user can deploy a private instance with minimal setup.
+Target experience:
+
+`start chat -> use DashGPT immediately -> paste a storage link or choose local vault -> authorize only that provider -> sync`
+
+Scope is split into implementation slices:
+
+- Vault v1 core and migration away from direct browser `localStorage` coupling
+- local/browser + local filesystem/local Git storage boundary
+- GitHub synchronization adapter
+- Google Drive synchronization adapter
+- explicit DashGPT Profile separate from inferred ChatGPT context
+- storage-link discovery and minimal pairing UX
+- local-first offline queue and conflict-preserving synchronization
+- refactor compatible DashGPT instances onto the same storage/vault model
+
+Privacy constraints:
+
+- ChatGPT Memory/Project context may personalize the interaction but is not the DashGPT Result database
+- raw chats are not synchronized by default
+- cloud sync is opt-in
+- provider credentials never enter the portable vault
+- immutable Result conflicts are preserved rather than silently overwritten
+
+Status: **architecture/spec PR active; implementation follows in small slices after review/merge**.
+
+## M5 — Optional private quick deploy
+
+Goal: a non-DevOps user who wants a hosted personal instance can deploy one with minimal setup.
 
 Target experience:
 
 GitHub + Cloudflare accounts → guided setup → protected DashGPT instance.
+
+This is an optional advanced/self-hosted path, not the standard first-use requirement.
 
 Constraints:
 
@@ -128,6 +155,6 @@ Potential scope after the core loop is proven:
 
 ## Current delivery intent
 
-**Active: Tactical Feature 3 — Immutable Result pages + DashGPT ChatGPT plugin MVP.**
+**Active: Tactical Feature 6 architecture — zero-install privacy, personalization and portable sync.**
 
-Do not move on to polish or broader project-state work until the standalone page and real bidirectional ChatGPT connection are demonstrated against a second DashGPT instance.
+The public plugin/release work remains an external product-distribution track, but the next internal architecture work should establish Vault v1 before adding more provider-specific persistence.
