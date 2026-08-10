@@ -17,6 +17,7 @@ DashGPT is a private personal dashboard for useful outcomes of AI conversations 
 5. **Local-first, cloud-optional.** Core functionality must work locally without Cloudflare, GitHub APIs or paid LLM APIs.
 6. **Provider-independent.** ChatGPT is an important client, but not the system of record.
 7. **Different views for different devices.** Laptop = detailed inspection; phone = concise human summaries and continuation actions.
+8. **Zero-install entry.** A person can begin from a normal AI chat without first deploying infrastructure; durable storage is paired only when needed.
 
 ## Primary entities
 
@@ -60,6 +61,14 @@ Provenance for a Result, such as a ChatGPT conversation, another AI chat, reposi
 
 Images and other attached files used by Results.
 
+### DashGPT Profile
+
+A small, inspectable set of explicit user-approved preferences that should travel with DashGPT independently of any one AI provider. It may include preferred languages, answer density and stable working preferences. Provider-native memories or inferred conversational facts are context hints, not automatically persisted Profile data.
+
+### DashGPT Vault
+
+A portable user-owned durable storage unit for Results, revisions, assets, user-state events and explicit Profile revisions. The same vault should be usable through local storage or replaceable synchronization adapters such as GitHub, Google Drive and a compatible DashGPT instance.
+
 ## Core user experience
 
 ### Dashboard
@@ -85,6 +94,18 @@ A Result should support actions equivalent to:
 - send/export context to another agent
 - inspect/copy the Context Pack
 - share a deliberately selected item when supported
+
+### Zero-install onboarding
+
+The normal first-run experience should begin in chat, not with deployment instructions.
+
+A user can start using DashGPT immediately to distill and preview useful Results. Before durable storage is paired, DashGPT must clearly distinguish pending/conversational state from durably saved state.
+
+For durable storage, the target interaction is roughly:
+
+`start chat -> give DashGPT a supported storage link or choose local storage -> authorize that provider if needed -> sync`
+
+A storage link may identify a compatible DashGPT instance, GitHub location or Google Drive location. Provider authorization remains explicit. The user should not need to understand MCP, Cloudflare deployment or API-key configuration for the standard path.
 
 ### Shared-chat publishing MVP
 
@@ -161,30 +182,44 @@ Expected capabilities include concepts equivalent to:
 
 DashGPT should be usable from ChatGPT through the current supported app/plugin mechanism backed by the same provider-neutral core/MCP interface. It should not require a separate ChatGPT-specific data model.
 
-The product plugin identity is **DashGPT** (`dashgpt`). From a normal ChatGPT conversation, the user should be able to say the equivalent of **“save the useful result of this conversation to DashGPT”**. ChatGPT should distill the conversation rather than dump raw history, show what is about to be saved, and give the user an explicit action that places the Result into their connected DashGPT instance.
+The product plugin identity is **DashGPT** (`dashgpt`). From a normal ChatGPT conversation, the user should be able to say the equivalent of **“save the useful result of this conversation to DashGPT”**. ChatGPT should distill the conversation rather than dump raw history and show what is about to be saved.
 
-The same plugin must also be able to search that instance, open durable Results and obtain Context Packs for continuation.
+ChatGPT conversation history, Projects and Memory may improve continuity and personalization when available, but they are not the authoritative DashGPT Result store. DashGPT must remain reconstructable from its own user-owned vault without relying on hidden host memory.
 
-The MVP must prove more than a connection to the developer's own test site: another person should be able to connect ChatGPT to **their own DashGPT instance** and use the same recognizable DashGPT experience for both directions:
+If a vault is already paired, save/read/search operations should target that vault. If no vault is paired, DashGPT may prepare a pending Result and guide the user through one minimal storage-pairing action before claiming durable save.
 
-- their DashGPT → ChatGPT: find/use their Results;
-- ChatGPT → their DashGPT: save a useful current outcome as a new Result.
+The same plugin must be able to search the paired vault, open durable Results and obtain Context Packs for continuation.
 
-The MVP acceptance test is therefore a friend/demo-user flow: deploy or use a separate DashGPT site, connect it to ChatGPT as DashGPT, create/use a Result through ChatGPT, and demonstrate that the data belongs to that person's site rather than being hard-coded developer data.
+The product must prove more than a connection to the developer's own test site: another person should be able to use the same recognizable DashGPT experience against storage they control, without hard-coded developer data.
 
 ### Other agents
 
 Context should be portable to tools such as Codex, Claude, OpenCode, Copilot and local agents without changing the underlying Result.
 
+## Personalization and privacy
+
+DashGPT should use personalization without becoming a shadow copy of a provider's memory system.
+
+- provider-native context may influence the current interaction;
+- durable DashGPT Profile data is explicit, inspectable and user-approved;
+- raw chat transcripts are not stored or synchronized by default;
+- credentials and provider tokens are never Result/Profile/vault content;
+- cloud synchronization is opt-in and identifies the provider receiving the data;
+- the user can export or move their vault without an active cloud provider.
+
 ## Deployment and privacy
 
-### Fast private deployment
+### Zero-install standard path
 
-There should be a low-friction hosted path roughly equivalent to:
+A user should not need a personal deployment in order to begin using DashGPT. The standard path starts in chat and adds durable storage through a local vault or a supported storage link plus explicit provider authorization.
 
-GitHub account + Cloudflare account + permissions/configuration → private personal DashGPT instance.
+### Optional private deployment
 
-The user should not need to perform substantial DevOps work for the standard path.
+A hosted personal DashGPT instance remains useful for advanced/self-hosted scenarios, but is one storage/runtime option rather than the onboarding prerequisite.
+
+There should still be a low-friction hosted path for people who want one, roughly equivalent to:
+
+GitHub account + Cloudflare account + permissions/configuration -> private personal DashGPT instance.
 
 ### Local/self-hosted deployment
 
@@ -200,9 +235,11 @@ Requirements:
 
 ## Storage direction
 
-The product should preserve portable exports such as Markdown/YAML/JSON even if the runtime uses a database/index for metadata, relationships and search.
+DashGPT durable personal state should converge on a provider-neutral portable Vault format rather than direct coupling to browser `localStorage`, GitHub, Google Drive or Cloudflare storage APIs.
 
-Cloud storage implementations must not make the domain model Cloudflare-specific.
+The Vault should use inspectable open formats such as JSON plus ordinary assets. Immutable Result knowledge remains revisioned; mutable user state should be represented in a synchronization-friendly way that does not silently rewrite immutable Result content.
+
+Initial storage/sync adapters should cover local/browser storage, local filesystem/local Git, GitHub, Google Drive and compatible DashGPT instances. Cloud storage implementations must not redefine the domain model around one provider.
 
 ## Initial product scope
 
@@ -217,6 +254,6 @@ The first useful vertical slice should prove the central loop:
 
 The next practical ingestion slice proves that a real shared AI chat can be distilled and published as a Result without requiring a built-in paid LLM API.
 
-The current MVP completion gate adds stable immutable Result pages plus a working DashGPT ChatGPT plugin/MCP connection that can be demonstrated bidirectionally against a second person's DashGPT site.
+The public plugin MVP established provider-neutral ChatGPT/MCP access and compatible-instance routing. Feature 6 moves onboarding and persistence toward zero-install chat-first use plus user-owned portable storage, so a personal deployed `siteUrl` is no longer the required first-use model.
 
-Later milestones add richer project-state summaries, quick hosted deployment, images/assets and advanced relationships.
+Later milestones add richer project-state summaries, images/assets, advanced relationships and richer synchronization/personalization behavior.
