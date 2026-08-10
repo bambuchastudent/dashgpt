@@ -1,7 +1,8 @@
 export const PUBLISHED_RESULT_PATHS = Object.freeze([
   "/demo/data/results.json",
   "/demo/data/product-results-a.json",
-  "/demo/data/product-results-b.json"
+  "/demo/data/product-results-b.json",
+  "/demo/data/product-results-c.json"
 ]);
 
 function comparableResult(result) {
@@ -52,4 +53,3 @@ export async function loadPublishedResultCatalog(fetcher, options = {}) {
 
   return mergePublishedResultCatalogs(catalogs);
 }
-
