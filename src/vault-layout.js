@@ -1,4 +1,4 @@
-import { createVault, mergeVaults, portableVault, putResult } from "../demo/vault.js";
+import { createVault, mergeVaults, portableVault, putDashRevision, putResult } from "../demo/vault.js";
 
 const RESULT_HASH = /^sha256:([0-9a-f]{64})$/;
 
@@ -32,6 +32,10 @@ function profilePath(revision, index) {
   return `profile/${segment(id)}.json`;
 }
 
+function dashPath(revision) {
+  return `dashes/${segment(revision.dashId)}/${segment(revision.dashRevisionId)}.json`;
+}
+
 export function vaultToObjects(vault, root = "") {
   const clean = portableVault(vault);
   const objects = [{
@@ -53,6 +57,9 @@ export function vaultToObjects(vault, root = "") {
   clean.profileRevisions.forEach((revision, index) => {
     objects.push({ path: joinRoot(root, profilePath(revision, index)), content: prettyJson(revision) });
   });
+  for (const revision of clean.dashRevisions) {
+    objects.push({ path: joinRoot(root, dashPath(revision)), content: prettyJson(revision) });
+  }
 
   return objects.sort((a, b) => a.path.localeCompare(b.path));
 }
@@ -79,6 +86,8 @@ export function vaultFromObjects(objects, root = "") {
       vault.events.push(JSON.parse(content));
     } else if (path.startsWith("profile/") && path.endsWith(".json")) {
       vault.profileRevisions.push(JSON.parse(content));
+    } else if (path.startsWith("dashes/") && path.endsWith(".json")) {
+      putDashRevision(vault, JSON.parse(content), { updatedAt: vault.updatedAt });
     }
   }
 
