@@ -181,7 +181,11 @@ assert.equal(tools.result.tools[4].annotations?.openWorldHint, false);
 
 const list = await rpc(3, "tools/call", { name: "list_results", arguments: { limit: 10 } });
 assert.ok(list.result.structuredContent.results.length >= 4);
-const semanticList = await rpc(31, "tools/call", { name: "list_results", arguments: { query: "еда", limit: 10 } });
+const semanticList = await rpc(31, "tools/call", {
+  name: "list_results",
+  arguments: { query: "еда", category: "Еда", limit: 10 }
+});
+assert.ok(semanticList.result.structuredContent.results.length >= 2);
 assert.ok(semanticList.result.structuredContent.results.every((result) => result.category === "Еда"));
 
 const savedDash = await rpc(32, "tools/call", {
