@@ -1,5 +1,47 @@
 [
   {
+    "id": "dashgpt-zero-friction-mobile-demo",
+    "schemaVersion": 1,
+    "title": "DashGPT — Zero-Friction Mobile Demo",
+    "goal": "Новый пользователь должен открыть DashGPT на телефоне и за 10 секунд понять, что сервис сохраняет полезное из разговоров с ИИ в карточки и позволяет продолжить работу позже.",
+    "summary": "Мобильная демка DashGPT должна объяснять ценность продукта сразу, без знакомства пользователя с архитектурой хранения. На первом экране — компактный hero и уже наполненная Semantic Gallery с понятными темами; технические понятия вроде Vault, MCP, local-first и browser storage убираются из первичного onboarding и остаются для момента, когда пользователь сам захочет сохранять или переносить память.",
+    "currentState": "Shared chat фиксирует продуктовый scope и обязательный OpenSpec workflow для отдельного mobile-demo PR; фактический статус реализации нужно сверять с репозиторием.",
+    "category": "DashGPT",
+    "tags": [
+      "dashgpt",
+      "mobile-demo",
+      "onboarding",
+      "semantic-gallery",
+      "ux",
+      "openspec"
+    ],
+    "favorite": false,
+    "decisions": [
+      "Первый экран должен за 10–20 секунд показывать ценность DashGPT, а не устройство хранения.",
+      "Не показывать новым пользователям на основном экране PRIVATE • LOCAL-FIRST, LOCAL · NOT SYNCED, immutable/verified counts, Vault, MCP, storage terminology, browser-storage warnings, пустой No saved Dashes yet, обязательный onboarding modal и длинные инструкции.",
+      "Hero: «Важное из разговоров с ИИ — всегда под рукой»; основной CTA — «Показать за 20 секунд», вторичный — «Сохранить разговор».",
+      "Сразу показывать наполненную живую Semantic Gallery с понятными темами: DashGPT, Еда, Поездки, Дом, Здоровье.",
+      "Технические детали хранения и переноса памяти показывать только по намерению пользователя сохранить или синхронизировать данные.",
+      "Изменение вести отдельным PR через существующий OpenSpec workflow и проверить реальный мобильный production preview."
+    ],
+    "constraints": [
+      "Не расширять scope без обновления OpenSpec change.",
+      "До production-кода изучить существующие specs/changes и подготовить proposal, UX design, spec delta, tasks и Impact Manifest.",
+      "Перед PR выполнить fast verification, один npm run verify:full и реальную mobile viewport проверку."
+    ],
+    "next": "Проверить текущий OpenSpec и активные изменения, оформить отдельный change для Zero-Friction Mobile Demo, реализовать только описанный demo scope и подтвердить результат на production preview с мобильным viewport.",
+    "suggestedNextStep": "Сверить этот mobile-demo scope с текущим develop и статусом соответствующего PR, затем продолжить только незавершённые пункты.",
+    "source": {
+      "type": "chatgpt-share",
+      "url": "https://chatgpt.com/s/t_6a7a00a7bcac819182ddc5d355428dde",
+      "title": "Мобильный демо PR"
+    },
+    "publishedAt": "2026-08-10T16:51:00Z",
+    "immutable": true,
+    "contentVersion": 1,
+    "contentHash": "sha256:1133f0b35a7b34628783877ad71ff527c144020fec3773adf7317bbf112f0460"
+  },
+  {
     "id": "goiter-grade-2-meaning-and-checkup",
     "schemaVersion": 1,
     "title": "Зоб 2 степени: что это означает",
