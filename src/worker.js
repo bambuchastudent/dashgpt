@@ -6,6 +6,7 @@ import {
   handleGitHubStatus,
   handleGitHubSync
 } from "./github-storage.js";
+import { handleSharedChat } from "./shared-chat.js";
 
 const PRODUCT_RESULT_SHARDS = Object.freeze([
   "/data/product-results-a.json",
@@ -68,6 +69,7 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
+    if (url.pathname === "/api/shared-chat") return handleSharedChat(request, env);
     if (url.pathname === "/api/storage/github/pair") return handleGitHubPairStart(request, env);
     if (url.pathname === "/api/storage/github/setup") return handleGitHubSetup(request, env);
     if (url.pathname === "/api/storage/github/status") return handleGitHubStatus(request, env);
@@ -77,4 +79,3 @@ export default {
     return coreWorker.fetch(request, withUnifiedResultAssets(env), ctx);
   }
 };
-
