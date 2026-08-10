@@ -1,0 +1,40 @@
+name: OpenSpec validation
+
+on:
+  pull_request:
+    paths:
+      - "openspec/**"
+      - ".github/workflows/openspec.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: npm install --global @fission-ai/openspec@latest
+      - name: Strictly validate changed OpenSpec changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t changes < <(
+            git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}" \
+              | sed -n 's#^openspec/changes/\([^/]*\)/.*#\1#p' \
+              | sort -u
+          )
+          if [ "${#changes[@]}" -eq 0 ]; then
+            echo "No OpenSpec changes modified by this PR."
+            exit 0
+          fi
+          for change in "${changes[@]}"; do
+            echo "Validating ${change}"
+            openspec validate "${change}" --type change --strict --no-interactive
+          done
+
