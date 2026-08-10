@@ -8,7 +8,15 @@ const RESULT_FIELDS = [
   "code", "links", "images", "assets", "openQuestions", "relatedResults", "continuationContext"
 ];
 const SOURCE_FIELDS = ["type", "url", "title", "provider", "sourceId"];
-const EVENT_FIELDS = ["schemaVersion", "eventId", "type", "resultId", "value", "createdAt"];
+const EVENT_FIELDS = ["schemaVersion", "eventId", "type", "resultId", "dashId", "value", "createdAt"];
+const DASH_REVISION_FIELDS = [
+  "schemaVersion", "dashId", "dashRevisionId", "baseRevisionId", "title", "description",
+  "semanticDefinition", "scope", "updateMode", "automaticResultIds", "suggestedResultIds", "createdAt", "lastUpdatedAt"
+];
+const SEMANTIC_DEFINITION_FIELDS = ["query", "normalizedTerms", "engineVersion"];
+const DASH_SCOPE_FIELDS = [
+  "providers", "sourceTypes", "includeArchived", "excludedResultIds", "excludedSourceIds", "excludedSourceUrls"
+];
 const LEGACY_SEED_IDS = new Set(["dashgpt-product", "development-workflow", "deployment"]);
 
 function clone(value) {
@@ -63,6 +71,54 @@ function sanitizeEvent(event) {
   return clean;
 }
 
+function sanitizeSemanticDefinition(definition) {
+  if (!isObject(definition) || typeof definition.query !== "string") throw new Error("Invalid Dash semantic definition");
+  const clean = {};
+  for (const field of SEMANTIC_DEFINITION_FIELDS) if (definition[field] !== undefined) clean[field] = clone(definition[field]);
+  clean.normalizedTerms = Array.isArray(clean.normalizedTerms) ? clean.normalizedTerms.map(String) : [];
+  clean.engineVersion = Number(clean.engineVersion || 1);
+  return clean;
+}
+
+function sanitizeDashScope(scope) {
+  const clean = {};
+  const source = isObject(scope) ? scope : {};
+  for (const field of DASH_SCOPE_FIELDS) if (source[field] !== undefined) clean[field] = clone(source[field]);
+  clean.providers = Array.isArray(clean.providers) && clean.providers.length ? clean.providers.map(String) : ["*"];
+  clean.sourceTypes = Array.isArray(clean.sourceTypes) && clean.sourceTypes.length ? clean.sourceTypes.map(String) : ["*"];
+  clean.includeArchived = Boolean(clean.includeArchived);
+  clean.excludedResultIds = Array.isArray(clean.excludedResultIds) ? clean.excludedResultIds.map(String) : [];
+  clean.excludedSourceIds = Array.isArray(clean.excludedSourceIds) ? clean.excludedSourceIds.map(String) : [];
+  clean.excludedSourceUrls = Array.isArray(clean.excludedSourceUrls) ? clean.excludedSourceUrls.map(String) : [];
+  return clean;
+}
+
+export function sanitizeDashRevision(revision) {
+  if (!isObject(revision) || typeof revision.dashId !== "string" || typeof revision.dashRevisionId !== "string") {
+    throw new Error("Invalid Dash revision");
+  }
+  if (typeof revision.title !== "string" || !revision.title.trim() || typeof revision.description !== "string") throw new Error("Dash title and description are required");
+  if (!isObject(revision.semanticDefinition)) throw new Error("Dash semantic definition is required");
+  const clean = {};
+  for (const field of DASH_REVISION_FIELDS) {
+    if (revision[field] === undefined) continue;
+    if (field === "semanticDefinition") clean[field] = sanitizeSemanticDefinition(revision[field]);
+    else if (field === "scope") clean[field] = sanitizeDashScope(revision[field]);
+    else clean[field] = clone(revision[field]);
+  }
+  clean.schemaVersion = Number(clean.schemaVersion || 1);
+  clean.baseRevisionId = clean.baseRevisionId || null;
+  clean.updateMode = String(clean.updateMode || "review");
+  if (!["review", "automatic"].includes(clean.updateMode)) throw new Error(`Unsupported Dash update mode: ${clean.updateMode}`);
+  clean.scope = sanitizeDashScope(clean.scope);
+  clean.automaticResultIds = Array.isArray(clean.automaticResultIds) ? [...new Set(clean.automaticResultIds.map(String))] : [];
+  clean.suggestedResultIds = Array.isArray(clean.suggestedResultIds) ? [...new Set(clean.suggestedResultIds.map(String))] : [];
+  clean.createdAt = String(clean.createdAt || clean.lastUpdatedAt || "");
+  clean.lastUpdatedAt = String(clean.lastUpdatedAt || clean.createdAt || "");
+  if (!clean.createdAt || !clean.lastUpdatedAt) throw new Error("Dash revision timestamps are required");
+  return clean;
+}
+
 function immutableIdentity(result) {
   const hash = typeof result.contentHash === "string" ? result.contentHash : `unverified:${JSON.stringify(result)}`;
   return `${result.id}@${result.contentVersion || 1}:${hash}`;
@@ -81,7 +137,8 @@ export function createVault(options = {}) {
     updatedAt: createdAt,
     results: [],
     events: [],
-    profileRevisions: []
+    profileRevisions: [],
+    dashRevisions: []
   };
 }
 
@@ -94,6 +151,7 @@ export function validateVault(input) {
   }
   for (const result of input.results) sanitizeResult(result);
   for (const event of input.events) sanitizeEvent(event);
+  for (const revision of input.dashRevisions || []) sanitizeDashRevision(revision);
   return true;
 }
 
@@ -106,7 +164,8 @@ export function portableVault(vault) {
     updatedAt: String(vault.updatedAt || vault.createdAt || ""),
     results: vault.results.map(sanitizeResult),
     events: vault.events.map(sanitizeEvent),
-    profileRevisions: clone(vault.profileRevisions)
+    profileRevisions: clone(vault.profileRevisions),
+    dashRevisions: (vault.dashRevisions || []).map(sanitizeDashRevision)
   };
 }
 
@@ -125,6 +184,46 @@ export function putResult(vault, result, options = {}) {
   }
 
   vault.updatedAt = options.updatedAt || isoNow();
+  return vault;
+}
+
+export function putDashRevision(vault, revision, options = {}) {
+  validateVault(vault);
+  const clean = sanitizeDashRevision(revision);
+  if (!Array.isArray(vault.dashRevisions)) vault.dashRevisions = [];
+  const existing = vault.dashRevisions.find((item) => item.dashRevisionId === clean.dashRevisionId);
+  if (existing && JSON.stringify(sanitizeDashRevision(existing)) !== JSON.stringify(clean)) {
+    throw new Error(`Dash revision integrity conflict: ${clean.dashRevisionId}`);
+  }
+  if (!existing) vault.dashRevisions.push(clean);
+  vault.updatedAt = options.updatedAt || clean.lastUpdatedAt || isoNow();
+  return vault;
+}
+
+export function setDashOverride(vault, dashId, type, resultId, value, options = {}) {
+  validateVault(vault);
+  const supported = new Set(["dash.pin", "dash.exclude", "dash.manual", "dash.accept", "dash.delete"]);
+  if (!supported.has(type)) throw new Error(`Unsupported Dash event: ${type}`);
+  if (typeof dashId !== "string" || !dashId) throw new Error("Dash event is missing dashId");
+  if (type !== "dash.delete" && (typeof resultId !== "string" || !resultId)) throw new Error("Dash membership event is missing resultId");
+  const desired = Boolean(value);
+  const latest = vault.events
+    .filter((event) => event.type === type && event.dashId === dashId && (type === "dash.delete" || event.resultId === resultId))
+    .slice()
+    .sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.eventId.localeCompare(right.eventId))
+    .at(-1);
+  if (Boolean(latest?.value) === desired && latest) return vault;
+  const createdAt = options.createdAt || isoNow();
+  vault.events.push({
+    schemaVersion: 1,
+    eventId: options.eventId || randomId("evt"),
+    type,
+    dashId,
+    ...(type === "dash.delete" ? {} : { resultId }),
+    value: desired,
+    createdAt
+  });
+  vault.updatedAt = createdAt;
   return vault;
 }
 
@@ -234,6 +333,8 @@ export function mergeVaults(baseVault, incomingVault, options = {}) {
 
   for (const result of incoming.results) putResult(merged, result, { updatedAt: merged.updatedAt });
 
+  for (const revision of incoming.dashRevisions || []) putDashRevision(merged, revision, { updatedAt: merged.updatedAt });
+
   const knownEvents = new Set(merged.events.map(eventIdentity));
   const knownIds = new Map(merged.events.map(event => [event.eventId, JSON.stringify(sanitizeEvent(event))]));
   for (const event of incoming.events) {
@@ -282,6 +383,15 @@ export function importVaultBundle(text) {
 
 export function vaultStatus(vault) {
   const portable = portableVault(vault);
+  const activeDashIds = new Set(portable.dashRevisions.map((revision) => revision.dashId));
+  for (const dashId of activeDashIds) {
+    const deleted = portable.events
+      .filter((event) => event.type === "dash.delete" && event.dashId === dashId)
+      .slice()
+      .sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.eventId.localeCompare(right.eventId))
+      .at(-1);
+    if (deleted?.value) activeDashIds.delete(dashId);
+  }
   return {
     mode: "local",
     remote: "unpaired",
@@ -289,6 +399,8 @@ export function vaultStatus(vault) {
     label: "LOCAL · NOT SYNCED",
     vaultId: portable.vaultId,
     resultObjects: portable.results.length,
-    events: portable.events.length
+    events: portable.events.length,
+    dashes: activeDashIds.size,
+    dashRevisions: portable.dashRevisions.length
   };
 }
