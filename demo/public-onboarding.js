@@ -9,6 +9,22 @@ import {
 const params = new URLSearchParams(window.location.search);
 const isPersonalRoot = /^\/demo\/?$/.test(window.location.pathname) && params.get("showcase") !== "1";
 
+const DASHGPT_CAPTURE_COMMAND = `DashGPT. Подготовь полезный итог ЭТОГО текущего разговора для сохранения.
+Верни только один JSON-объект без markdown, пояснений и code fence:
+{
+  "title": "Короткое понятное название",
+  "summary": "Кратко: что полезного выяснили, решили или подготовили",
+  "category": "Короткая тема",
+  "tags": ["2-5 коротких тегов"],
+  "decisions": ["принятые решения, если есть"],
+  "facts": ["важные факты, которые стоит сохранить"],
+  "constraints": ["важные ограничения, если есть"],
+  "userPreferences": ["выраженные предпочтения пользователя, если есть"],
+  "openQuestions": ["что осталось неясным, если есть"],
+  "next": "Следующий полезный шаг, если он есть"
+}
+Не пересказывай чат по сообщениям. Сохрани только долговременный полезный результат. Не включай пароли, API-ключи, платёжные данные и другие секреты.`;
+
 if (isPersonalRoot) {
   const dashboard = document.querySelector("#dashboardView");
   const resultPage = document.querySelector("#resultPage");
@@ -35,75 +51,91 @@ if (isPersonalRoot) {
     return node;
   }
 
-  function firstString(value, paths) {
-    for (const path of paths) {
-      let current = value;
-      for (const part of path.split(".")) current = current?.[part];
-      if (typeof current === "string" && current.trim()) return current.trim();
-    }
-    return "";
+  function cleanText(value, maxLength) {
+    const text = typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
+    if (!text) return "";
+    return text.length > maxLength ? `${text.slice(0, Math.max(0, maxLength - 1))}…` : text;
   }
 
-  function collectReadableStrings(value, output = [], depth = 0) {
-    if (depth > 8 || output.length > 300) return output;
-    if (typeof value === "string") {
-      const text = value.replace(/\s+/g, " ").trim();
-      if (text.length >= 35 && text.length <= 5000 && !/^https?:\/\//i.test(text)) output.push(text);
-      return output;
-    }
-    if (Array.isArray(value)) {
-      for (const item of value) collectReadableStrings(item, output, depth + 1);
-      return output;
-    }
-    if (!value || typeof value !== "object") return output;
-    const priority = ["messages", "message", "content", "parts", "text", "body", "conversation", "mapping"];
+  function cleanList(value, { maxItems = 12, maxLength = 500 } = {}) {
+    const input = Array.isArray(value)
+      ? value
+      : typeof value === "string" && value.trim()
+        ? value.split(/[,\n]/)
+        : [];
+    const output = [];
     const seen = new Set();
-    for (const key of priority) {
-      if (key in value) {
-        seen.add(key);
-        collectReadableStrings(value[key], output, depth + 1);
-      }
-    }
-    for (const [key, child] of Object.entries(value)) {
-      if (seen.has(key) || ["id", "uuid", "url", "sourceUrl", "fetchedAt", "createdAt", "updatedAt"].includes(key)) continue;
-      collectReadableStrings(child, output, depth + 1);
+    for (const item of input) {
+      const text = cleanText(item, maxLength);
+      if (!text) continue;
+      const key = text.toLocaleLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      output.push(text);
+      if (output.length >= maxItems) break;
     }
     return output;
   }
 
-  function summarizeSharedChat(payload, sourceUrl) {
-    const title = firstString(payload, ["title", "chat.title", "conversation.title", "data.title"])
-      || "Сохранённый разговор";
-    const candidates = collectReadableStrings(payload)
-      .filter(text => text !== title && !text.includes(sourceUrl))
-      .map(text => text.length > 1200 ? `${text.slice(0, 1197)}…` : text);
-    const summary = candidates.at(-1)
-      || "Разговор сохранён. Открой карточку, чтобы вернуться к нему и продолжить позже.";
-    return { title: title.slice(0, 120), summary };
+  function jsonCandidate(raw) {
+    let text = String(raw || "").trim();
+    const fenced = text.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+    if (fenced) text = fenced[1].trim();
+    const start = text.indexOf("{");
+    const end = text.lastIndexOf("}");
+    if (start >= 0 && end > start) text = text.slice(start, end + 1);
+    return text;
   }
 
-  function normalizeShareUrl(raw) {
-    const url = new URL(raw);
-    if (url.protocol !== "https:" || !["chatgpt.com", "chat.openai.com"].includes(url.hostname)) {
-      throw new Error("Сейчас нужен публичный share-link из ChatGPT.");
+  function parseResultEnvelope(raw) {
+    let parsed;
+    try {
+      parsed = JSON.parse(jsonCandidate(raw));
+    } catch {
+      throw new Error("Не вижу карточку. Скопируй ответ ChatGPT целиком и вставь сюда.");
     }
-    if (!url.pathname.startsWith("/share/")) throw new Error("Открой Share в ChatGPT и вставь публичную ссылку на разговор.");
-    return url.toString();
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error("Не вижу карточку. Скопируй ответ ChatGPT целиком и вставь сюда.");
+    }
+
+    const title = cleanText(parsed.title, 120);
+    const summary = cleanText(parsed.summary, 5000);
+    if (!title || !summary) {
+      throw new Error("В ответе не хватает названия или итога. Попроси ChatGPT выполнить DashGPT-команду ещё раз.");
+    }
+
+    return {
+      title,
+      summary,
+      category: cleanText(parsed.category, 60) || "Мои чаты",
+      tags: cleanList(parsed.tags, { maxItems: 8, maxLength: 40 }),
+      decisions: cleanList(parsed.decisions),
+      facts: cleanList(parsed.facts),
+      constraints: cleanList(parsed.constraints),
+      userPreferences: cleanList(parsed.userPreferences),
+      openQuestions: cleanList(parsed.openQuestions),
+      next: cleanText(parsed.next || parsed.suggestedNextStep, 1000)
+    };
   }
 
-  function persistFirstResult({ title, summary, sourceUrl }) {
+  function persistFirstResult(prepared) {
     const loaded = load();
+    const tags = [...new Set(["chatgpt", ...prepared.tags])];
     const result = {
       id: `result-${crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`,
       schemaVersion: 1,
-      title: title.trim() || "Сохранённый разговор",
-      summary: summary.trim() || "Полезный разговор сохранён для продолжения.",
-      category: "Мои чаты",
-      tags: ["chatgpt"],
+      title: prepared.title,
+      summary: prepared.summary,
+      category: prepared.category,
+      tags,
       favorite: false,
-      decisions: [],
-      next: "Вернуться к этому разговору и продолжить с сохранённого контекста.",
-      source: { type: "chatgpt-share", url: sourceUrl, title: title.trim() || "ChatGPT conversation" },
+      decisions: prepared.decisions,
+      facts: prepared.facts,
+      constraints: prepared.constraints,
+      userPreferences: prepared.userPreferences,
+      openQuestions: prepared.openQuestions,
+      next: prepared.next || "Вернуться к сохранённому итогу, когда он снова понадобится.",
+      source: { type: "chatgpt-handoff", title: "ChatGPT conversation" },
       immutable: false,
       contentVersion: 1,
       status: "Сохранено"
@@ -112,6 +144,22 @@ if (isPersonalRoot) {
     recordResultActivity(loaded.vault, result.id, "created");
     saveBrowserVault(globalThis.localStorage, loaded.vault);
     return result;
+  }
+
+  async function copyCaptureCommand() {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(DASHGPT_CAPTURE_COMMAND);
+      return;
+    }
+    const textarea = document.createElement("textarea");
+    textarea.value = DASHGPT_CAPTURE_COMMAND;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.append(textarea);
+    textarea.select();
+    document.execCommand("copy");
+    textarea.remove();
   }
 
   function humanizeDashboard() {
@@ -145,31 +193,41 @@ if (isPersonalRoot) {
     welcome = make("section", { className: "public-welcome" });
     welcome.id = "publicWelcome";
 
-    const badge = make("p", { className: "public-welcome-badge", text: "НАЧНИ СО СВОЕГО ЧАТА" });
-    const title = make("h2", { text: "Сохрани полезное из первого разговора" });
+    const badge = make("p", { className: "public-welcome-badge", text: "НАЧНИ В СВОЁМ ЧАТЕ" });
+    const title = make("h2", { text: "Сохрани разговор через ChatGPT" });
     const copy = make("p", {
       className: "public-welcome-copy",
-      text: "Поделись своим публичным ChatGPT-чатом. DashGPT превратит его в твою первую карточку — без чужих дашей и чужой истории."
+      text: "Открой разговор, который хочешь оставить на потом. ChatGPT сам выделит итог, решения и следующий шаг — DashGPT сохранит готовую карточку."
     });
 
-    const form = make("form", { className: "public-share-form" });
-    form.id = "publicShareForm";
-    const label = make("label", { text: "Ссылка на твой чат" });
-    const input = document.createElement("input");
-    input.id = "publicShareUrl";
-    input.type = "url";
-    input.required = true;
-    input.autocomplete = "off";
-    input.inputMode = "url";
-    input.placeholder = "https://chatgpt.com/share/...";
-    label.append(input);
-    const submit = make("button", { className: "button primary public-share-submit", text: "Добавить мой чат" });
+    const commandPanel = make("section", { className: "public-command-panel" });
+    const commandLabel = make("p", { className: "public-step-label", text: "1 · В своём ChatGPT-чате" });
+    const command = make("code", { className: "public-command", text: "DashGPT, сохрани этот разговор" });
+    const copyButton = make("button", { className: "button primary public-copy-command", text: "Скопировать DashGPT-команду" });
+    copyButton.id = "copyDashGptCommand";
+    copyButton.type = "button";
+    const commandHint = make("p", { className: "public-welcome-hint", text: "Отправь скопированную команду в конце нужного разговора." });
+    const copyStatus = make("p", { className: "public-share-status" });
+    copyStatus.id = "publicCommandStatus";
+    copyStatus.setAttribute("aria-live", "polite");
+    commandPanel.append(commandLabel, command, copyButton, commandHint, copyStatus);
+
+    const form = make("form", { className: "public-handoff-form" });
+    form.id = "publicHandoffForm";
+    const handoffLabel = make("label", { text: "2 · Вставь ответ ChatGPT" });
+    const handoff = document.createElement("textarea");
+    handoff.id = "publicHandoffPayload";
+    handoff.required = true;
+    handoff.rows = 7;
+    handoff.autocomplete = "off";
+    handoff.placeholder = '{"title":"…","summary":"…"}';
+    handoffLabel.append(handoff);
+    const submit = make("button", { className: "button primary public-handoff-submit", text: "Проверить карточку" });
     submit.type = "submit";
-    const hint = make("p", { className: "public-welcome-hint", text: "В ChatGPT: Share → Copy link → вставь сюда." });
     const status = make("p", { className: "public-share-status" });
-    status.id = "publicShareStatus";
+    status.id = "publicHandoffStatus";
     status.setAttribute("aria-live", "polite");
-    form.append(label, submit, hint, status);
+    form.append(handoffLabel, submit, status);
 
     const review = make("section", { className: "public-share-review" });
     review.id = "publicShareReview";
@@ -189,22 +247,28 @@ if (isPersonalRoot) {
     save.type = "button";
     review.append(reviewTitle, titleLabel, summaryLabel, save);
 
-    welcome.append(badge, title, copy, form, review);
+    welcome.append(badge, title, copy, commandPanel, form, review);
     dashboard.before(welcome);
 
     let prepared = null;
-    form.addEventListener("submit", async event => {
+
+    copyButton.addEventListener("click", async () => {
+      copyStatus.classList.remove("error");
+      try {
+        await copyCaptureCommand();
+        copyStatus.textContent = "Скопировано. Вернись в нужный чат и отправь команду.";
+      } catch {
+        copyStatus.classList.add("error");
+        copyStatus.textContent = "Не получилось скопировать автоматически. Выдели команду выше и скопируй её.";
+      }
+    });
+
+    form.addEventListener("submit", event => {
       event.preventDefault();
       review.hidden = true;
       status.classList.remove("error");
-      status.textContent = "Читаю разговор…";
-      submit.disabled = true;
       try {
-        const sourceUrl = normalizeShareUrl(input.value.trim());
-        const response = await fetch(`/api/shared-chat?url=${encodeURIComponent(sourceUrl)}`, { cache: "no-store" });
-        const payload = await response.json();
-        if (!response.ok || payload?.error) throw new Error(payload?.error || `Не удалось прочитать чат (${response.status}).`);
-        prepared = { sourceUrl, ...summarizeSharedChat(payload, sourceUrl) };
+        prepared = parseResultEnvelope(handoff.value);
         titleInput.value = prepared.title;
         summaryInput.value = prepared.summary;
         review.hidden = false;
@@ -213,9 +277,7 @@ if (isPersonalRoot) {
       } catch (error) {
         prepared = null;
         status.classList.add("error");
-        status.textContent = error instanceof Error ? error.message : "Не удалось прочитать этот чат.";
-      } finally {
-        submit.disabled = false;
+        status.textContent = error instanceof Error ? error.message : "Не удалось подготовить карточку.";
       }
     });
 
@@ -223,9 +285,9 @@ if (isPersonalRoot) {
       if (!prepared) return;
       save.disabled = true;
       persistFirstResult({
-        sourceUrl: prepared.sourceUrl,
-        title: titleInput.value,
-        summary: summaryInput.value
+        ...prepared,
+        title: cleanText(titleInput.value, 120) || prepared.title,
+        summary: cleanText(summaryInput.value, 5000) || prepared.summary
       });
       window.location.replace("/demo/");
     });
