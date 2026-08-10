@@ -1,6 +1,6 @@
 # ADR 0004 — GitHub App adapter for private Vault synchronization
 
-Status: proposed
+Status: accepted
 
 ## Context
 
