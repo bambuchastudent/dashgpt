@@ -140,7 +140,7 @@ MVP scope:
 
 Automatic update mode remains architecturally possible but disabled in this first change. Private Vault access from a hosted ChatGPT tool remains behind the authenticated storage/runtime work; the public MCP surface can use only an instance's intentionally exposed catalog.
 
-Status: **implementation PR active under `openspec/changes/f7-semantic-dashes/`**.
+Status: **implementation PR #18 active under `openspec/changes/f7-semantic-dashes/`**.
 
 ## M5 — Optional private quick deploy
 
