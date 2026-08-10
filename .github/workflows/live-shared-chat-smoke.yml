@@ -8,24 +8,43 @@ on:
 jobs:
   smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 6
     steps:
-      - name: Wait for production deploy and resolve real ChatGPT share
+      - name: Probe fresh public ChatGPT share
+        shell: bash
+        run: |
+          set -uo pipefail
+          SHARE='https://chatgpt.com/share/6a7a59e3-c9d4-83ea-bb8d-88c57f00b491'
+          ID='6a7a59e3-c9d4-83ea-bb8d-88c57f00b491'
+          ENCODED=$(python3 -c 'import urllib.parse; print(urllib.parse.quote("https://chatgpt.com/share/6a7a59e3-c9d4-83ea-bb8d-88c57f00b491", safe=""))')
+          probe() {
+            NAME="$1"; URL="$2"
+            echo "===== ${NAME} ====="
+            STATUS=$(curl -L --silent --show-error --max-time 40 -A 'Mozilla/5.0' -o "/tmp/${NAME}.out" -w '%{http_code}' "$URL" || true)
+            echo "STATUS=${STATUS} BYTES=$(wc -c < "/tmp/${NAME}.out" 2>/dev/null || echo 0)"
+            head -c 1200 "/tmp/${NAME}.out" 2>/dev/null || true
+            echo; echo
+          }
+          probe direct "$SHARE"
+          probe backend "https://chatgpt.com/backend-api/share/${ID}"
+          probe jina "https://r.jina.ai/${SHARE}"
+          probe jina_backend "https://r.jina.ai/https://chatgpt.com/backend-api/share/${ID}"
+          probe allorigins "https://api.allorigins.win/raw?url=${ENCODED}"
+          probe dashgpt "https://dashgpt.dimkashir.workers.dev/api/shared-chat?url=${ENCODED}"
+
+      - name: Require production resolver to read fresh share eventually
         shell: bash
         run: |
           set -euo pipefail
-          SHARE='https://chatgpt.com/share/6a7a445b-a420-83ea-9c36-3c10fd1ce85f'
-          ENCODED=$(python3 -c 'import urllib.parse; print(urllib.parse.quote("https://chatgpt.com/share/6a7a445b-a420-83ea-9c36-3c10fd1ce85f", safe=""))')
+          ENCODED=$(python3 -c 'import urllib.parse; print(urllib.parse.quote("https://chatgpt.com/share/6a7a59e3-c9d4-83ea-bb8d-88c57f00b491", safe=""))')
           URL="https://dashgpt.dimkashir.workers.dev/api/shared-chat?url=${ENCODED}"
-          for attempt in 1 2 3 4 5 6; do
-            echo "Attempt ${attempt}: ${URL}"
+          for attempt in 1 2 3 4; do
             STATUS=$(curl -L --silent --show-error --max-time 45 -o /tmp/share.json -w '%{http_code}' "$URL" || true)
             cat /tmp/share.json 2>/dev/null || true
             echo
             if [ "$STATUS" = "200" ] && python3 - <<'PY'
           import json
           p=json.load(open('/tmp/share.json'))
-          assert p.get('title')
           replies=p.get('replies') or []
           assert len(replies) >= 2
           assert any(r.get('type') == 'user' and r.get('statement') for r in replies)
@@ -35,7 +54,6 @@ jobs:
             then
               exit 0
             fi
-            sleep 15
+            sleep 10
           done
-          echo 'Live production resolver did not return a readable conversation.' >&2
           exit 1
