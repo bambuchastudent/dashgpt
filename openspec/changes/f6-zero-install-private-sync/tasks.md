@@ -38,7 +38,8 @@ Implementation PR: `#12` (`feature/f6-vault-core`), merged into `develop`.
 - [x] Add browser pairing/sync/disconnect UX without PAT/token input.
 - [x] Add privacy disclosure, accepted ADR 0004 and activation runbook.
 - [x] Merge implementation PR `#13` into `develop`.
-- [ ] Register/configure the production public GitHub App and Worker secrets.
+- [x] Register the public GitHub App (`4544269`, `dashgpt-storage`) and configure its non-secret identity in Worker vars.
+- [ ] Configure `GITHUB_APP_PRIVATE_KEY` and `GITHUB_SESSION_SECRET` as production Worker secrets.
 - [ ] Run the real private-repository acceptance smoke test from `docs/github-storage-setup.md`.
 
 Implementation PR: `#13` (`feature/f6-github-sync`), merged into `develop`.
