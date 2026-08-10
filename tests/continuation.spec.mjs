@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 const RESULT_ID = "camping-fishing-el-regajo-fuente-munoz";
 const RESULT_PATH = `/demo/result/${RESULT_ID}/`;
+const SHOWCASE_PATH = "/demo/?showcase=1";
 const VAULT_KEY = "dashgpt.demo.vault.v1";
 
 async function installSuccessfulBrowserTransport(page) {
@@ -36,7 +37,7 @@ async function continuationEvents(page) {
 
 test("dashboard detail and standalone page use the same current-Result continuation controller", async ({ page }) => {
   await installSuccessfulBrowserTransport(page);
-  await page.goto("/demo/");
+  await page.goto(SHOWCASE_PATH);
   const card = page.locator(".result-card", { hasText: "Ночёвка с палаткой для рыбалки" });
   await card.getByRole("button", { name: "Open" }).click();
   await expect(page.locator("#resultDialog")).toBeVisible();
@@ -54,7 +55,7 @@ test("dashboard detail and standalone page use the same current-Result continuat
 
 test("expanded Gallery card Continue sends a structured brief and records only confirmed transport", async ({ page }) => {
   await installSuccessfulBrowserTransport(page);
-  await page.goto("/demo/");
+  await page.goto(SHOWCASE_PATH);
   await page.locator("#galleryZoomIn").click();
   await page.locator("#galleryZoomIn").click();
   const card = page.locator(".result-card", { hasText: "Ночёвка с палаткой для рыбалки" });
