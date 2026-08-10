@@ -9,7 +9,7 @@ const html = readFileSync(new URL("../demo/index.html", import.meta.url), "utf8"
 
 assert.match(app, /function semanticHue\(result\)/, "semanticHue(result) renderer is required");
 assert.match(app, /--semantic-hue/, "renderer must expose semantic hue to CSS");
-assert.match(app, /applySemanticVisual\(card,result\)/, "dashboard cards must receive semantic visuals");
+assert.match(app, /applySemanticVisual\(card,\s*result\)/, "dashboard cards must receive semantic visuals");
 
 // Require three independent, clearly visible semantic cues so a hairline-only regression fails CI.
 assert.match(css, /\.result-card::before\{[^}]*height:(?:5|6|7|8)px[^}]*background:linear-gradient\([^}]*--semantic-hue/s,
@@ -20,6 +20,8 @@ assert.match(css, /\.result-card\{[^}]*background:[^}]*hsla\(var\(--semantic-hue
   "Result card background needs a perceptible semantic tint (alpha >= .3)");
 
 assert.match(html, /semantic\.css/, "semantic visual layer must be loaded by the dashboard");
+assert.match(html, /vault\.css/, "vault storage status layer must be loaded by the dashboard");
+assert.match(html, /id="storageButton"/, "local vault status must be visible from the dashboard");
 assert.doesNotMatch(html, /class="[^"]*context-button[^"]*"/, "Context Pack must not return as a primary card action");
 assert.match(app, /More ···/, "Result details must keep secondary actions behind More");
 assert.match(app, /Original chat ↗/, "Original chat must remain a prominent action when source exists");
