@@ -36,6 +36,14 @@ export function canonicalSharedChatUrl(input) {
   return new URL(`/share/${shareId}`, "https://chatgpt.com");
 }
 
+function shareIdFromUrl(sourceUrl) {
+  return sourceUrl.pathname.split("/").filter(Boolean).at(-1) || "";
+}
+
+function backendShareUrl(sourceUrl) {
+  return new URL(`/backend-api/share/${shareIdFromUrl(sourceUrl)}`, "https://chatgpt.com");
+}
+
 function upstreamFetch(env, input, init) {
   if (typeof env?.DASHGPT_SHARE_FETCH === "function") return env.DASHGPT_SHARE_FETCH(input, init);
   return fetch(input, init);
@@ -59,12 +67,12 @@ async function directHtml(sourceUrl, env) {
   return response.text();
 }
 
-async function readerText(sourceUrl, env) {
-  const resolverUrl = `${JINA_READER_PREFIX}${sourceUrl.toString()}`;
+async function readerResolvedText(targetUrl, env) {
+  const resolverUrl = `${JINA_READER_PREFIX}${targetUrl.toString()}`;
   const response = await resolverFetch(env, resolverUrl, {
     method: "GET",
     headers: {
-      accept: "text/plain, text/markdown;q=0.9, */*;q=0.1",
+      accept: "text/plain, text/markdown;q=0.9, application/json;q=0.8, */*;q=0.1",
       "x-timeout": "12"
     },
     redirect: "follow"
@@ -75,6 +83,14 @@ async function readerText(sourceUrl, env) {
     throw error;
   }
   return response.text();
+}
+
+async function readerText(sourceUrl, env) {
+  return readerResolvedText(sourceUrl, env);
+}
+
+async function readerBackendText(sourceUrl, env) {
+  return readerResolvedText(backendShareUrl(sourceUrl), env);
 }
 
 async function allOriginsHtml(sourceUrl, env) {
@@ -133,12 +149,19 @@ function fallbackTitle(replies) {
   return firstLine.length > 96 ? `${firstLine.slice(0, 93)}…` : firstLine;
 }
 
-function makeReply(role, statement) {
+function usefulTitle(value) {
+  const title = cleanVisibleText(value);
+  if (!title) return "";
+  if (/^(?:chatgpt|new chat|check out this chat|shared chatgpt conversation)$/i.test(title)) return "";
+  return title;
+}
+
+function makeReply(role, statement, createdAt = null) {
   return {
     authorName: role === "user" ? "You" : "ChatGPT",
     type: role,
     statement: cleanVisibleText(statement),
-    createdAt: null,
+    createdAt,
     assets: []
   };
 }
@@ -148,6 +171,122 @@ function readerRoleLabel(value) {
   if (/^(?:you(?: said)?|user(?: \d+)?(?: said)?)$/.test(label)) return "user";
   if (/^(?:chatgpt(?: said)?|assistant(?: \d+)?(?: said)?)$/.test(label)) return "assistant";
   return null;
+}
+
+function jsonCandidate(raw) {
+  const text = String(raw || "").trim();
+  if (!text) throw new Error("Resolver returned no content.");
+  if (text.startsWith("{") && text.endsWith("}")) return text;
+
+  const marker = text.search(/Markdown Content:\s*/i);
+  const searchFrom = marker >= 0 ? text.slice(marker).search(/\{/) + marker : text.search(/\{/);
+  const start = searchFrom >= marker && searchFrom >= 0 ? searchFrom : text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start < 0 || end <= start) throw new Error("Resolver did not contain a JSON object.");
+  return text.slice(start, end + 1);
+}
+
+function textFromPart(part) {
+  if (typeof part === "string") return part;
+  if (Array.isArray(part)) return part.map(textFromPart).filter(Boolean).join("\n");
+  if (!part || typeof part !== "object") return "";
+  if (typeof part.text === "string") return part.text;
+  if (typeof part.content === "string") return part.content;
+  if (typeof part.value === "string") return part.value;
+  if (Array.isArray(part.parts)) return part.parts.map(textFromPart).filter(Boolean).join("\n");
+  return "";
+}
+
+function messageStatement(message) {
+  const content = message?.content;
+  if (!content || typeof content !== "object") return "";
+  if (Array.isArray(content.parts)) return cleanVisibleText(content.parts.map(textFromPart).filter(Boolean).join("\n"));
+  if (typeof content.text === "string") return cleanVisibleText(content.text);
+  if (typeof content.result === "string") return cleanVisibleText(content.result);
+  return "";
+}
+
+function nodeTimestamp(node) {
+  const value = Number(node?.message?.create_time ?? node?.message?.update_time ?? 0);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function parentPath(mapping, leafId) {
+  const path = [];
+  const seen = new Set();
+  let currentId = leafId;
+
+  while (currentId && mapping[currentId] && !seen.has(currentId)) {
+    seen.add(currentId);
+    path.unshift(currentId);
+    currentId = mapping[currentId]?.parent || null;
+  }
+  return path;
+}
+
+function fallbackTreePath(mapping) {
+  const ids = Object.keys(mapping);
+  const leaves = ids.filter(id => !Array.isArray(mapping[id]?.children) || mapping[id].children.length === 0);
+  const candidates = leaves.length ? leaves : ids;
+  let best = [];
+  let bestTime = -Infinity;
+
+  for (const id of candidates) {
+    const path = parentPath(mapping, id);
+    const time = Math.max(...path.map(pathId => nodeTimestamp(mapping[pathId])), 0);
+    if (path.length > best.length || (path.length === best.length && time > bestTime)) {
+      best = path;
+      bestTime = time;
+    }
+  }
+  return best;
+}
+
+function visibleBackendReplies(payload) {
+  const mapping = payload?.mapping && typeof payload.mapping === "object" ? payload.mapping : {};
+  let path = payload?.current_node && mapping[payload.current_node]
+    ? parentPath(mapping, payload.current_node)
+    : [];
+  if (!path.length) path = fallbackTreePath(mapping);
+
+  const replies = [];
+  for (const id of path) {
+    const node = mapping[id];
+    const message = node?.message;
+    const role = message?.author?.role;
+    if (!message || !["user", "assistant"].includes(role)) continue;
+    if (message?.metadata?.is_visually_hidden_from_conversation === true) continue;
+    if (message?.metadata?.is_visually_hidden_from_conversation === "true") continue;
+
+    const statement = messageStatement(message);
+    if (!statement) continue;
+    const previous = replies.at(-1);
+    if (previous?.type === role && previous.statement === statement) continue;
+    const createTime = Number(message.create_time);
+    replies.push(makeReply(role, statement, Number.isFinite(createTime) && createTime > 0 ? new Date(createTime * 1000).toISOString() : null));
+  }
+  return replies;
+}
+
+export function parseBackendShareJsonText(raw, sourceUrl) {
+  let payload;
+  try {
+    payload = JSON.parse(jsonCandidate(raw));
+  } catch (error) {
+    throw new Error(`Public share JSON was unreadable: ${error instanceof Error ? error.message : "invalid JSON"}`);
+  }
+
+  const replies = visibleBackendReplies(payload);
+  if (!replies.length) throw new Error("Public share JSON contained no readable conversation turns.");
+
+  const shareId = payload?.conversation_id || shareIdFromUrl(sourceUrl);
+  return {
+    shareId,
+    aiModel: cleanVisibleText(payload?.default_model_slug || payload?.model?.slug || "unknown") || "unknown",
+    title: usefulTitle(payload?.title) || fallbackTitle(replies),
+    updatedAt: null,
+    replies
+  };
 }
 
 export function parseReaderShareText(raw, sourceUrl) {
@@ -176,13 +315,14 @@ export function parseReaderShareText(raw, sourceUrl) {
     const line = rawLine.trimEnd();
     if (!title) {
       const metadataTitle = line.match(/^Title:\s*(.+)$/i)?.[1]?.trim();
-      if (metadataTitle && !/^chatgpt$/i.test(metadataTitle)) title = metadataTitle;
+      const candidate = usefulTitle(metadataTitle);
+      if (candidate) title = candidate;
     }
 
     const withoutHeading = line.replace(/^#{1,6}\s+/, "").trim();
     if (!title && /^#\s+/.test(line)) {
-      const heading = line.replace(/^#\s+/, "").trim();
-      if (heading && !/^chatgpt$/i.test(heading) && !/^markdown content$/i.test(heading)) title = heading;
+      const heading = usefulTitle(line.replace(/^#\s+/, "").trim());
+      if (heading && !/^markdown content$/i.test(heading)) title = heading;
     }
 
     const roleMatch = withoutHeading.match(/^(You(?: said)?|User(?: \d+)?(?: said)?|ChatGPT(?: said)?|Assistant(?: \d+)?(?: said)?):?\s*(.*)$/i);
@@ -199,7 +339,7 @@ export function parseReaderShareText(raw, sourceUrl) {
   flush();
 
   if (!replies.length) throw new Error("Reader resolver contained no recognizable conversation turns.");
-  const shareId = sourceUrl.pathname.split("/").filter(Boolean).at(-1) || "";
+  const shareId = shareIdFromUrl(sourceUrl);
 
   return {
     shareId,
@@ -243,13 +383,13 @@ export function parseRenderedShareScrape(payload, sourceUrl) {
   }
 
   const headingGroup = groups.find(group => group?.selector === "h1");
-  const heading = cleanVisibleText(headingGroup?.results?.find(item => cleanVisibleText(item?.text))?.text);
-  const shareId = sourceUrl.pathname.split("/").filter(Boolean).at(-1) || "";
+  const heading = usefulTitle(headingGroup?.results?.find(item => cleanVisibleText(item?.text))?.text);
+  const shareId = shareIdFromUrl(sourceUrl);
 
   return {
     shareId,
     aiModel: "unknown",
-    title: heading && !/^chatgpt$/i.test(heading) ? heading : fallbackTitle(replies),
+    title: heading || fallbackTitle(replies),
     updatedAt: null,
     replies
   };
@@ -288,6 +428,16 @@ function unreadableShareError(details) {
 }
 
 export async function readSharedChat(sourceUrl, env = {}) {
+  let backendReaderError;
+  try {
+    return {
+      chat: parseBackendShareJsonText(await readerBackendText(sourceUrl, env), sourceUrl),
+      retrieval: "reader-backend"
+    };
+  } catch (error) {
+    backendReaderError = error;
+  }
+
   let readerError;
   try {
     return {
@@ -342,7 +492,7 @@ export async function readSharedChat(sourceUrl, env = {}) {
     }
   }
 
-  throw unreadableShareError({ readerError, proxyError, domError, directError, payloadError });
+  throw unreadableShareError({ backendReaderError, readerError, proxyError, domError, directError, payloadError });
 }
 
 export async function handleSharedChat(request, env = {}) {
