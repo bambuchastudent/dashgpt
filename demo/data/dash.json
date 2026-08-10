@@ -7,16 +7,13 @@
     {
       "title": "NOW",
       "lines": [
-        "**Active:** Feature 4 — release/submission phase for the public **DashGPT** plugin.",
-        "- PR #9 implementation is merged into `develop`.",
-        "- Production GitHub checks: **green**.",
-        "- Production Cloudflare Workers deploy: **green**.",
-        "- OpenSpec implementation tasks: **complete**.",
-        "- OpenAI Platform submitter role: **Organization Owner** — Apps Management write access satisfied.",
-        "- OpenAI Platform individual publisher verification: **Verified**.",
-        "- Current Platform issue: Project Settings → People shows `organization.read` unavailable. This project-level page is not required for plugin submission; the submitting account is already an Organization Owner.",
-        "- Interim next-chat/agent handoff: `docs/handoff-dashgpt-v2.md`.",
-        "- User action required now: **return to OpenAI Platform → Plugins and retry Create plugin → With MCP**."
+        "**Active internal work:** Feature 6 — zero-install privacy, personalization and portable sync.",
+        "- PR #11 is open from `feature/f6-zero-install-private-sync` into `develop`.",
+        "- PR #11 is architecture/spec only; no runtime implementation is included yet.",
+        "- OpenSpec proposal/spec/tasks define chat-first unpaired mode, Vault v1, storage-link discovery, privacy boundaries and phased adapters.",
+        "- ADR 0003 records that ChatGPT-native context is optional personalization context, not the authoritative DashGPT Result database.",
+        "- Product Summary and roadmap are aligned with zero-install onboarding and user-owned storage.",
+        "- External release track remains Feature 4: the public DashGPT plugin implementation is already merged and publisher verification is complete."
       ]
     },
     {
@@ -25,50 +22,35 @@
         "- M0 repository/bootstrap and durable product/development summaries.",
         "- M1 local-first Result → dashboard → Context Pack vertical slice.",
         "- Feature 2 shared ChatGPT link → published Result.",
-        "- Production deployment at `/demo/` from `develop` through Cloudflare Workers.",
-        "- Stable standalone Result pages: `/demo/result/<id>/`.",
-        "- Shared renderer: presentation updates can improve old Result pages without changing their knowledge content.",
-        "- Published Results support explicit immutability metadata and SHA-256 integrity verification.",
-        "- CI guard rejects silent mutation/removal of immutable published Results.",
-        "- DashGPT MCP surface exists at `/mcp`.",
-        "- Stable plugin identity reserved: `dashgpt` / **DashGPT**.",
-        "- Mobile project-status view is live at `/demo/dash/`.",
-        "- Feature 4 OpenSpec has proposal + full spec + tracked tasks.",
-        "- Public plugin path uses the OpenAI Platform plugin submission flow rather than a developer-only ChatGPT connection.",
-        "- One Universal MCP endpoint can target a compatible user-selected DashGPT `siteUrl`.",
-        "- DashGPT instance protocol v1 provides public discovery, Result reads and Context Packs.",
-        "- Public support/privacy/terms surfaces and a submission packet with reviewer tests are prepared.",
-        "- Plugin package metadata is version 0.3.0 with an MVP brand asset.",
-        "- Deterministic second-instance smoke tests pass.",
-        "- PR #9 merged; production checks and Cloudflare deployment succeeded.",
-        "- OpenAI Platform publisher access confirmed: submitting account is Organization Owner.",
-        "- OpenAI Platform Individual publisher identity verified.",
-        "- Interim `DashGPT v2` continuity handoff created at `docs/handoff-dashgpt-v2.md`."
+        "- Stable standalone Result pages at `/demo/result/<id>/` with shared renderer and immutable-content verification.",
+        "- DashGPT MCP surface exists at `/mcp` with stable plugin identity `dashgpt` / **DashGPT**.",
+        "- Universal MCP routing and DashGPT instance protocol v1 are implemented.",
+        "- Public support/privacy/terms surfaces and plugin submission packet are prepared.",
+        "- PR #9 merged; production GitHub checks and Cloudflare deployment succeeded.",
+        "- OpenAI Platform publisher access and Individual publisher identity are verified.",
+        "- Semantic Result card/continuation-first work is present in the current code/spec state.",
+        "- Feature 6 architecture captured in OpenSpec + ADR + Product Summary + roadmap on PR #11."
       ]
     },
     {
       "title": "NEXT",
       "lines": [
-        "1. Open OpenAI Platform → Plugins and retry Create plugin → **With MCP** now that publisher identity is verified.",
-        "2. Create **DashGPT** using **Universal** MCP URL: `https://dashgpt.dimkashir.workers.dev/mcp`.",
-        "3. Authentication: None.",
-        "4. Complete domain verification when the portal provides the challenge token, then Scan Tools.",
-        "5. Select the verified Individual identity as Developer Identity.",
-        "6. Fill listing, starter prompts, reviewer tests, availability and release notes from `plugins/dashgpt/SUBMISSION.md`.",
-        "7. Submit for OpenAI review.",
-        "8. After approval, publish DashGPT to the universal Plugins Directory.",
-        "9. Install/connect it from a second ChatGPT account against a separate DashGPT instance.",
-        "10. Prove list/read + Context Pack + explicit import/save on that person's data.",
-        "11. Only after that call the MVP complete, archive/sync Feature 4 as appropriate, and produce the final completion handoff/release summary."
+        "1. Review and merge PR #11 architecture before runtime storage changes.",
+        "2. Implement Feature 6 Slice A: Vault v1 core, local/browser adapter, migration from current browser storage, export/import and sync status.",
+        "3. Implement GitHub sync against the same vault/adapter contract.",
+        "4. Implement Google Drive sync against the same contract.",
+        "5. Add explicit inspectable DashGPT Profile and preference-promotion boundary.",
+        "6. Refactor compatible DashGPT instance storage onto the same vault abstraction and add provider switch/mirror UX.",
+        "7. Separately resume the Feature 4 external submission flow in OpenAI Platform when desired."
       ]
     },
     {
       "title": "BLOCKERS / EXTERNAL HINGES",
       "lines": [
-        "- Publisher identity verification is complete.",
-        "- If Create plugin still fails, diagnose the exact OpenAI Platform error; do not change organization/project roles blindly.",
-        "- OpenAI review/approval and final publication are external steps.",
-        "- A second public DashGPT instance/person is required for the final MVP acceptance test.",
+        "- Feature 6 architecture has no external blocker; implementation should not begin by making a provider-specific database canonical.",
+        "- Writable GitHub and Google Drive adapters will require explicit provider authorization flows; users must not paste long-lived secrets into chat.",
+        "- ChatGPT Memory/Project context is intentionally not assumed to provide app-owned durable Result storage.",
+        "- Public plugin review/approval and final publication remain external Feature 4 hinges.",
         "- When a concrete manual action becomes necessary, record it here before asking the user to do it."
       ]
     },
