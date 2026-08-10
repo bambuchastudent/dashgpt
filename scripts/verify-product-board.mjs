@@ -94,8 +94,8 @@ assert.deepEqual({
   total: 14,
   idea: 7,
   specified: 0,
-  in_development: 1,
-  merged: 5,
+  in_development: 0,
+  merged: 6,
   deployed: 0,
   product_verified: 0,
   blocked: 1,
@@ -124,9 +124,11 @@ assert.equal(continuation.productBoard.evidence.prState, "merged");
 assert.equal(continuation.productBoard.mergeCommit, "4d6d120fd51263bef541312cef973b16ff8d1f15");
 
 const livingBoard = byId.get("dashgpt-living-product-board");
-assert.equal(livingBoard.productBoard.deliveryStatus, "in_development");
+assert.equal(livingBoard.productBoard.deliveryStatus, "merged");
 assert.equal(livingBoard.productBoard.openSpecChangeId, "f9-living-product-board");
 assert.equal(livingBoard.productBoard.prNumber, 21);
+assert.equal(livingBoard.productBoard.evidence.prState, "merged");
+assert.equal(livingBoard.productBoard.mergeCommit, "4be4941593928509ec75d4da58d2004963d3b694");
 
 const activation = byId.get("dashgpt-storage-production-activation");
 assert.equal(activation.productBoard.deliveryStatus, "blocked");

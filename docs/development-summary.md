@@ -205,7 +205,7 @@ Feature 7 Semantic Dashes is merged via PR #18. Feature 8 Semantic Gallery UX is
 
 Structured Chat Continuation is merged via PR #20 under the validated `structured-chat-continuation` OpenSpec change. Its provider-safe new-chat transport, Continuation Brief, privacy boundary, content-free activity and desktop/mobile browser coverage remain part of the combined quality gate.
 
-PR #21 owns Living Product Board: the `dashgpt-product` saved board, product Result cards, deterministic Review reconciliation and stable board route. Feature 9 passed the mandatory strict OpenSpec gate before production-code edits and its implementation is integrated against current `develop`. Stable production deployment and explicit product acceptance remain separate from merge state.
+Living Product Board is merged via PR #21: the `dashgpt-product` saved board, product Result cards, deterministic Review reconciliation and stable board route are now in `develop`. Feature 9 passed the mandatory strict OpenSpec gate before production-code edits and the combined current-`develop` repository and Chromium browser gates before merge. Stable production deployment and explicit product acceptance remain separate from merge state.
 
 External/manual release gates remain:
 

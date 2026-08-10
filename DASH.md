@@ -4,10 +4,10 @@ Developer operational handoff. Product delivery state lives on the DashGPT Produ
 
 ## NOW
 
-**Active delivery:** Living Product Board in PR #21, integrated against the current `develop` after Structured Chat Continuation merged via PR #20.
+**Active delivery:** post-merge stable-production verification and external activation gates.
 
 - Feature 9 OpenSpec `f9-living-product-board` passed strict validation before production-code changes.
-- The stable `dashgpt-product` board is repository-backed, reconstructable without browser localStorage and available through `/demo/dash/dashgpt-product/`.
+- Living Product Board is merged via PR #21. The stable `dashgpt-product` board is repository-backed, reconstructable without browser localStorage and available through `/demo/dash/dashgpt-product/`.
 - Product topics are Results with explicit delivery states; Review-mode reconciliation never silently rewrites decisions or grants product verification.
 - Structured Chat Continuation is merged and its Continuation Brief, preview/copy, transport fallbacks, privacy boundary and activity tests remain in the combined quality gate.
 - Feature 6 GitHub production activation remains an external gate: protected Worker secrets plus one real private-repository smoke test.
@@ -26,16 +26,16 @@ Developer operational handoff. Product delivery state lives on the DashGPT Produ
 - Feature 7 Semantic Dashes merged via PR #18.
 - Feature 8 Semantic Gallery UX merged via PR #19.
 - Structured Chat Continuation merged via PR #20.
+- Feature 9 Living Product Board merged via PR #21.
 
 ## NEXT
 
-1. Merge Living Product Board PR #21 after its combined `develop` quality and browser gates pass.
-2. Verify the Product Board on the stable production deployment; keep merge, deployment and explicit product acceptance as separate states.
-3. Configure `GITHUB_APP_PRIVATE_KEY` and `GITHUB_SESSION_SECRET` on the production Worker without putting secrets in chat, repository or Vault.
-4. Run one disposable private-repository smoke test: pair → sync → idempotent re-sync → disconnect while the local Vault survives.
-5. Mark GitHub production activation complete only after that smoke test.
-6. Keep Google Drive, Semantic Navigator, Localization, Developer Fast Path, Chat-to-Result capture and authenticated private-Vault access as separate future OpenSpec changes.
-7. Resume the external OpenAI plugin submission flow when desired.
+1. Verify the Product Board and Structured Chat Continuation on the stable production deployment; keep merge, deployment and explicit product acceptance as separate states.
+2. Configure `GITHUB_APP_PRIVATE_KEY` and `GITHUB_SESSION_SECRET` on the production Worker without putting secrets in chat, repository or Vault.
+3. Run one disposable private-repository smoke test: pair → sync → idempotent re-sync → disconnect while the local Vault survives.
+4. Mark GitHub production activation complete only after that smoke test.
+5. Keep Google Drive, Semantic Navigator, Localization, Developer Fast Path, Chat-to-Result capture and authenticated private-Vault access as separate future OpenSpec changes.
+6. Resume the external OpenAI plugin submission flow when desired.
 
 ## BLOCKERS / EXTERNAL HINGES
 
@@ -56,4 +56,3 @@ Developer operational handoff. Product delivery state lives on the DashGPT Produ
 - Do not duplicate product requirements from `docs/product-summary.md` or development process from `docs/development-summary.md`.
 - Prefer links, PR numbers and branches over long narrative history.
 - This file is operational state, not an immutable Result.
-
