@@ -19,6 +19,8 @@ Open http://localhost:8080.
 - local persistence via browser localStorage
 - search
 - category filters
+- stable semantic grouping with within-topic activity priority
+- five-level touch/trackpad/keyboard gallery density
 - favorites
 - Result details
 - portable Context Pack generation and copy

@@ -5,12 +5,23 @@ import {
   materializeResults,
   mergeVaults,
   putResult,
+  recordResultActivity,
   saveBrowserVault,
   setFavorite,
   vaultStatus
 } from "./vault.js";
-import { rankResults } from "./semantic-dashes.js";
+import { rankResults, semanticTerms } from "./semantic-dashes.js";
 import { createSemanticDashUi } from "./semantic-dash-ui.js";
+import {
+  createGalleryZoomController,
+  gallerySelectionKey,
+  loadGalleryState,
+  orderGalleryResults,
+  rememberGalleryOrder,
+  rememberedOrder,
+  saveGalleryState,
+  semanticHue
+} from "./semantic-gallery.js";
 
 const DURABLE_FIELDS = ["id", "title", "summary", "category", "tags", "decisions", "next", "source"];
 const HASH_PATTERN = /^sha256:[0-9a-f]{64}$/;
@@ -19,8 +30,13 @@ const LEGACY_SEED_IDS = new Set(["dashgpt-product", "development-workflow", "dep
 let results = [];
 let vault;
 let vaultLoadInfo;
-let activeCategory = "All";
-let favoritesOnly = false;
+let galleryState = loadGalleryState(globalThis.localStorage);
+let galleryZoomController;
+let dashGalleryZoomController;
+let activeCategory = galleryState.activeCategory;
+let favoritesOnly = galleryState.favoritesOnly;
+let routeOpenRecorded = false;
+let galleryFocusRestored = false;
 let dashUi;
 
 const vaultAdapter = {
@@ -54,6 +70,15 @@ const storageObjectCount = document.querySelector("#storageObjectCount");
 const storageMigrationNote = document.querySelector("#storageMigrationNote");
 const storageImportInput = document.querySelector("#storageImportInput");
 const storageImportMessage = document.querySelector("#storageImportMessage");
+const galleryRegion = document.querySelector("#galleryRegion");
+const galleryZoom = document.querySelector("#galleryZoom");
+const galleryZoomOut = document.querySelector("#galleryZoomOut");
+const galleryZoomIn = document.querySelector("#galleryZoomIn");
+const galleryZoomValue = document.querySelector("#galleryZoomValue");
+const showFavoritesButton = document.querySelector("#showFavoritesButton");
+const showAllButton = document.querySelector("#showAllButton");
+
+if (searchInput) searchInput.value = galleryState.query;
 
 function validResult(result) {
   return Boolean(result && typeof result.id === "string" && typeof result.title === "string" && typeof result.summary === "string");
@@ -152,6 +177,50 @@ function updateSummary() {
   if (summary) summary.textContent = `${results.length} results, ${favorites} favorites, ${verified} immutable verified. Stored in your local DashGPT Vault.`;
 }
 
+function currentGallerySelectionKey() {
+  const dashId = dashUi?.routeDashId?.();
+  if (dashId) return gallerySelectionKey({ scope: `dash:${dashId}` });
+  return gallerySelectionKey({
+    scope: galleryRegion?.dataset.galleryScope || "all",
+    category: activeCategory,
+    favoritesOnly,
+    query: searchInput?.value || ""
+  });
+}
+
+function persistGalleryView(options = {}) {
+  const activeZoomController = dashUi?.routeDashId?.() ? dashGalleryZoomController : galleryZoomController;
+  const densityIndex = Number.isInteger(options.densityIndex)
+    ? options.densityIndex
+    : activeZoomController?.getDensityIndex?.() ?? galleryState.densityIndex;
+  galleryState = saveGalleryState(globalThis.localStorage, {
+    ...galleryState,
+    densityIndex,
+    activeCategory,
+    favoritesOnly,
+    query: searchInput?.value || "",
+    selectionKey: options.selectionKey || currentGallerySelectionKey()
+  });
+}
+
+function recordActivity(resultId, kind) {
+  if (!vault || !resultId) return;
+  galleryState.focusedResultId = resultId;
+  persistGalleryView();
+  const previousCount = vault.events.length;
+  recordResultActivity(vault, resultId, kind);
+  if (vault.events.length === previousCount) return;
+  vaultAdapter.save(vault);
+  renderStorageStatus();
+  if (dashboardView && !dashboardView.hidden) queueMicrotask(() => {
+    if (!dashboardView.hidden) renderDashboard();
+  });
+  else {
+    const dashId = dashUi?.routeDashId?.();
+    if (dashId) queueMicrotask(() => dashUi?.renderDashPage?.(dashId));
+  }
+}
+
 function categories() {
   return ["All", ...new Set(results.map(result => result.category).filter(Boolean))];
 }
@@ -165,6 +234,7 @@ function renderCategoryFilters() {
     button.textContent = category;
     button.addEventListener("click", () => {
       activeCategory = category;
+      persistGalleryView();
       renderDashboard();
     });
     categoryFilters.appendChild(button);
@@ -182,62 +252,161 @@ function resultPagePath(result) {
   return `/demo/result/${encodeURIComponent(result.id)}/`;
 }
 
-function stableHash(text) {
-  let hash = 2166136261;
-  for (let i = 0; i < text.length; i += 1) {
-    hash ^= text.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  return hash >>> 0;
-}
-
-function semanticHue(result) {
-  const semantic = `${result.category || ""} ${result.title || ""} ${(result.tags || []).join(" ")}`.toLowerCase();
-  const anchors = [
-    { words: ["еда", "food", "recipe", "soup", "chicken", "kiev", "korean", "pechuga"], hue: 28 },
-    { words: ["дом", "home", "air-conditioner", "cleaning", "drainage", "filter"], hue: 178 },
-    { words: ["поезд", "trip", "travel", "camping", "fishing", "gva", "permit"], hue: 105 },
-    { words: ["dashgpt", "product", "context", "openspec", "ai"], hue: 266 },
-    { words: ["испан", "spanish", "language"], hue: 48 },
-    { words: ["tech", "code", "dev", "github", "software"], hue: 220 }
-  ];
-  let weighted = 0;
-  let total = 0;
-  for (const anchor of anchors) {
-    const hits = anchor.words.reduce((count, word) => count + (semantic.includes(word) ? 1 : 0), 0);
-    if (hits) {
-      weighted += anchor.hue * hits;
-      total += hits;
-    }
-  }
-  const perturb = (stableHash(`${result.title}|${(result.tags || []).join("|")}`) % 25) - 12;
-  return Math.round(((total ? weighted / total : stableHash(semantic) % 360) + perturb + 360) % 360);
-}
-
 function applySemanticVisual(element, result) {
   const hue = semanticHue(result);
   element.style.setProperty("--semantic-hue", hue);
   element.style.setProperty("--semantic-hue-2", (hue + 28) % 360);
 }
 
+function semanticSignatureForResult(result) {
+  const hue = semanticHue(result);
+  const concepts = semanticTerms(`${result.category || ""} ${result.title || ""} ${(result.tags || []).join(" ")}`)
+    .filter(term => term.startsWith("concept:"));
+  if (!concepts.length) return null;
+  const groupKey = concepts[0];
+  let groupRank = 0;
+  for (let index = 0; index < groupKey.length; index += 1) groupRank = (Math.imul(groupRank, 31) + groupKey.charCodeAt(index)) >>> 0;
+  return { groupKey, groupRank, position: hue, hue };
+}
+
 function renderDashboard() {
+  releaseDashMemberGallery();
+  resultPage?.classList.remove("dash-gallery-page");
+  if (galleryZoomController?.getDensityIndex?.() !== galleryState.densityIndex) {
+    galleryZoomController?.setDensityIndex?.(galleryState.densityIndex);
+  }
   renderCategoryFilters();
   const visible = filteredResults();
+  const selectionKey = currentGallerySelectionKey();
+  const ordered = orderGalleryResults(visible, {
+    events: vault?.events || [],
+    previousOrder: rememberedOrder(galleryState, selectionKey),
+    semanticSignature: semanticSignatureForResult
+  });
   resultsGrid.replaceChildren();
-  visible.forEach(result => resultsGrid.appendChild(createCard(result)));
+  ordered.forEach(result => resultsGrid.appendChild(createCard(result)));
+  galleryState = rememberGalleryOrder(galleryState, selectionKey, ordered.map(result => result.id));
+  persistGalleryView();
+  if (!galleryFocusRestored && galleryState.focusedResultId) {
+    const focusedCard = [...resultsGrid.querySelectorAll(".result-card")]
+      .find(card => card.dataset.resultId === galleryState.focusedResultId);
+    if (focusedCard) {
+      focusedCard.dataset.galleryFocus = "true";
+      requestAnimationFrame(() => {
+        if (!document.activeElement || document.activeElement === document.body) focusedCard.focus({ preventScroll: true });
+      });
+    }
+    galleryFocusRestored = true;
+  }
   resultCount.textContent = `${visible.length} / ${results.length}`;
   resultsTitle.textContent = favoritesOnly ? "Favorites" : "Everything worth keeping";
+  showFavoritesButton?.setAttribute("aria-pressed", String(favoritesOnly));
+  showAllButton?.setAttribute("aria-pressed", String(!favoritesOnly && activeCategory === "All" && !searchInput.value.trim()));
   emptyState.hidden = visible.length !== 0;
   updateSummary();
+}
+
+function releaseDashMemberGallery() {
+  dashGalleryZoomController?.destroy?.();
+  dashGalleryZoomController = null;
+}
+
+function renderDashMemberGallery({ container, dashId, members, createMemberNode }) {
+  releaseDashMemberGallery();
+  const selectionKey = gallerySelectionKey({ scope: `dash:${dashId}` });
+  const memberById = new Map(members.map(member => [member.result.id, member]));
+  const ordered = orderGalleryResults(members.map(member => member.result), {
+    events: vault?.events || [],
+    previousOrder: rememberedOrder(galleryState, selectionKey),
+    semanticSignature: semanticSignatureForResult
+  });
+
+  const root = document.createElement("div");
+  root.className = "gallery-region dash-member-gallery";
+  root.dataset.galleryScope = `dash:${dashId}`;
+  const toolbar = document.createElement("div");
+  toolbar.className = "dash-gallery-toolbar";
+  const count = document.createElement("span");
+  count.className = "count";
+  count.textContent = `${ordered.length} Results`;
+  const controls = document.createElement("div");
+  controls.className = "gallery-zoom";
+  controls.setAttribute("role", "group");
+  controls.setAttribute("aria-label", "Semantic Dash gallery density");
+  const decrease = document.createElement("button");
+  decrease.type = "button";
+  decrease.className = "button small gallery-zoom-button";
+  decrease.setAttribute("aria-label", "Show more, smaller Dash cards");
+  decrease.textContent = "−";
+  const rangeLabel = document.createElement("label");
+  rangeLabel.className = "gallery-zoom-range";
+  const rangeText = document.createElement("span");
+  rangeText.className = "visually-hidden";
+  rangeText.textContent = "Semantic Dash gallery density";
+  const range = document.createElement("input");
+  range.type = "range";
+  range.setAttribute("aria-label", "Semantic Dash gallery density");
+  rangeLabel.append(rangeText, range);
+  const output = document.createElement("output");
+  output.setAttribute("aria-live", "polite");
+  const increase = document.createElement("button");
+  increase.type = "button";
+  increase.className = "button small gallery-zoom-button";
+  increase.setAttribute("aria-label", "Show fewer, larger Dash cards");
+  increase.textContent = "+";
+  controls.append(decrease, rangeLabel, output, increase);
+  toolbar.append(count, controls);
+
+  const grid = document.createElement("div");
+  grid.className = "results-grid dash-members-grid";
+  for (const result of ordered) {
+    const member = memberById.get(result.id);
+    if (member) grid.append(createMemberNode(member));
+  }
+  root.append(toolbar, grid);
+  container.append(root);
+
+  galleryState = rememberGalleryOrder(galleryState, selectionKey, ordered.map(result => result.id));
+  persistGalleryView({ densityIndex: galleryState.densityIndex, selectionKey });
+  dashGalleryZoomController = createGalleryZoomController({
+    root,
+    range,
+    decrease,
+    increase,
+    output,
+    initialDensityIndex: galleryState.densityIndex,
+    onCommit(index) {
+      galleryState.densityIndex = index;
+      persistGalleryView({ densityIndex: index, selectionKey });
+    }
+  });
+
+  if (galleryState.focusedResultId) {
+    const focusedCard = [...grid.querySelectorAll(".result-card")]
+      .find(card => card.dataset.resultId === galleryState.focusedResultId);
+    if (focusedCard) focusedCard.dataset.galleryFocus = "true";
+  }
 }
 
 function createCard(result) {
   const node = cardTemplate.content.cloneNode(true);
   const card = node.querySelector(".result-card");
+  card.dataset.resultId = result.id;
+  card.setAttribute("aria-label", `Open ${result.title}`);
   applySemanticVisual(card, result);
-  node.querySelector(".category").textContent = result.category;
+  node.querySelector(".category").textContent = result.category || "Result";
   node.querySelector(".title").textContent = result.title;
   node.querySelector(".summary").textContent = result.summary;
+  const status = node.querySelector(".card-status");
+  status.textContent = result.status || (result.immutable ? "Saved" : "Draft");
+  const next = node.querySelector(".card-next");
+  next.textContent = result.next ? `Next: ${result.next}` : "";
+  next.hidden = !result.next;
+  const related = node.querySelector(".card-related");
+  const relatedCount = [result.links, result.images, result.assets, result.relatedResults]
+    .reduce((count, items) => count + (Array.isArray(items) ? items.length : 0), 0);
+  related.textContent = relatedCount ? `${relatedCount} related ${relatedCount === 1 ? "material" : "materials"}` : "";
+  related.hidden = relatedCount === 0;
   const favoriteButton = node.querySelector(".favorite-button");
   favoriteButton.textContent = result.favorite ? "★" : "☆";
   favoriteButton.setAttribute("aria-pressed", String(Boolean(result.favorite)));
@@ -247,7 +416,26 @@ function createCard(result) {
   const pageLink = node.querySelector(".page-link");
   pageLink.href = resultPagePath(result);
   pageLink.setAttribute("aria-label", `Open ${result.title}`);
+  pageLink.addEventListener("click", () => recordActivity(result.id, "opened"));
   node.querySelector(".open-button").addEventListener("click", () => openResult(result.id));
+  const original = node.querySelector(".original-link");
+  if (result.source?.url) {
+    original.href = result.source.url;
+    original.addEventListener("click", () => recordActivity(result.id, "source.open"));
+  } else {
+    original.hidden = true;
+  }
+  const continuation = node.querySelector(".continue-link");
+  continuation.href = continuationUrl(result);
+  continuation.addEventListener("click", () => recordActivity(result.id, "continue.new-chat"));
+  const openFromCard = (event) => {
+    if (event.target.closest?.("a,button,input,summary,details")) return;
+    if (event.type === "keydown" && !["Enter", " "].includes(event.key)) return;
+    if (event.type === "keydown") event.preventDefault();
+    openResult(result.id);
+  };
+  card.addEventListener("click", openFromCard);
+  card.addEventListener("keydown", openFromCard);
   return node;
 }
 
@@ -285,7 +473,7 @@ function immutableBadge(result) {
   return badge;
 }
 
-function sourceBlock(source) {
+function sourceBlock(source, resultId) {
   const block = document.createElement("div");
   block.className = "detail-block";
   const strong = document.createElement("strong");
@@ -295,6 +483,7 @@ function sourceBlock(source) {
   link.target = "_blank";
   link.rel = "noopener noreferrer";
   link.textContent = source.type === "chatgpt-share" ? "Open original chat ↗" : "Open source ↗";
+  link.addEventListener("click", () => recordActivity(resultId, "source.open"));
   block.append(strong, link);
   return block;
 }
@@ -328,6 +517,7 @@ function actionBar(result, id) {
     source.target = "_blank";
     source.rel = "noopener noreferrer";
     source.textContent = "Original chat ↗";
+    source.addEventListener("click", () => recordActivity(id, "source.open"));
     actions.appendChild(source);
   }
   const continuation = document.createElement("a");
@@ -336,6 +526,7 @@ function actionBar(result, id) {
   continuation.target = "_blank";
   continuation.rel = "noopener noreferrer";
   continuation.textContent = "Continue in new chat ↗";
+  continuation.addEventListener("click", () => recordActivity(id, "continue.new-chat"));
   actions.appendChild(continuation);
   const more = document.createElement("details");
   more.className = "more-actions";
@@ -358,6 +549,7 @@ function actionBar(result, id) {
 function openResult(id) {
   const result = results.find(item => item.id === id);
   if (!result) return;
+  recordActivity(id, "opened");
   resultDialogContent.replaceChildren();
   const category = document.createElement("p");
   category.className = "eyebrow";
@@ -415,7 +607,7 @@ function addResult(formData) {
   const category = String(formData.get("category") || "Ideas").trim() || "Ideas";
   const tags = String(formData.get("tags") || "").split(",").map(tag => tag.trim()).filter(Boolean);
   const next = String(formData.get("next") || "").trim();
-  results.unshift({
+  const created = {
     id: `${Date.now()}-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "result"}`,
     schemaVersion: 1,
     title,
@@ -428,8 +620,10 @@ function addResult(formData) {
     immutable: false,
     contentVersion: 1,
     _integrity: "local"
-  });
+  };
+  results.unshift(created);
   persistRuntimeResults();
+  recordActivity(created.id, "created");
   activeCategory = "All";
   favoritesOnly = false;
   searchInput.value = "";
@@ -474,7 +668,7 @@ function renderStandaloneResult(result) {
   details.className = "detail-grid page-details";
   details.appendChild(detailBlock("Decisions", (result.decisions || []).join(" • ") || "No decisions captured yet."));
   details.appendChild(detailBlock("Next", result.next || "No next step captured yet."));
-  if (result.source?.url) details.appendChild(sourceBlock(result.source));
+  if (result.source?.url) details.appendChild(sourceBlock(result.source, result.id));
   article.append(details);
   const actions = document.createElement("div");
   actions.className = "page-actions";
@@ -490,6 +684,7 @@ function renderStandaloneResult(result) {
     source.target = "_blank";
     source.rel = "noopener noreferrer";
     source.textContent = "Original chat ↗";
+    source.addEventListener("click", () => recordActivity(result.id, "source.open"));
     actions.append(source);
   }
   const continuation = document.createElement("a");
@@ -498,6 +693,7 @@ function renderStandaloneResult(result) {
   continuation.target = "_blank";
   continuation.rel = "noopener noreferrer";
   continuation.textContent = "Continue in new chat ↗";
+  continuation.addEventListener("click", () => recordActivity(result.id, "continue.new-chat"));
   actions.append(continuation);
   const context = document.createElement("button");
   context.className = "button ghost";
@@ -539,6 +735,7 @@ async function reloadFromVault() {
   const published = await loadPublishedResults();
   const local = materializeResults(vault);
   results = await attachIntegrity(mergePublishedAndLocal(published, local));
+  if (activeCategory !== "All" && !results.some(result => result.category === activeCategory)) activeCategory = "All";
   persistRuntimeResults();
   dashUi?.renderList();
   const dashId = dashUi?.routeDashId();
@@ -547,7 +744,13 @@ async function reloadFromVault() {
     return;
   }
   const id = routeResultId();
-  if (id) renderStandaloneResult(results.find(item => item.id === id));
+  if (id) {
+    if (!routeOpenRecorded && results.some(item => item.id === id)) {
+      recordActivity(id, "opened");
+      routeOpenRecorded = true;
+    }
+    renderStandaloneResult(results.find(item => item.id === id));
+  }
   else renderDashboard();
 }
 
@@ -567,6 +770,18 @@ async function importVaultFile(file) {
 }
 
 async function init() {
+  galleryZoomController = createGalleryZoomController({
+    root: galleryRegion,
+    range: galleryZoom,
+    decrease: galleryZoomOut,
+    increase: galleryZoomIn,
+    output: galleryZoomValue,
+    initialDensityIndex: galleryState.densityIndex,
+    onCommit(index) {
+      galleryState.densityIndex = index;
+      persistGalleryView();
+    }
+  });
   vaultLoadInfo = vaultAdapter.load();
   vault = vaultLoadInfo.vault;
   dashUi = createSemanticDashUi({
@@ -577,23 +792,37 @@ async function init() {
       renderStorageStatus();
     },
     openResult,
-    continuationUrl
+    continuationUrl,
+    recordActivity,
+    decorateResultCard: applySemanticVisual,
+    renderMemberGallery: renderDashMemberGallery,
+    releaseMemberGallery: releaseDashMemberGallery
   });
   renderStorageStatus();
   await reloadFromVault();
   dashUi.importFromHash();
 }
 
-searchInput?.addEventListener("input", renderDashboard);
-document.querySelector("#showFavoritesButton")?.addEventListener("click", () => {
-  favoritesOnly = true;
+searchInput?.addEventListener("input", () => {
+  persistGalleryView();
   renderDashboard();
 });
-document.querySelector("#showAllButton")?.addEventListener("click", () => {
+showFavoritesButton?.addEventListener("click", () => {
+  favoritesOnly = true;
+  persistGalleryView();
+  renderDashboard();
+});
+showAllButton?.addEventListener("click", () => {
   favoritesOnly = false;
   activeCategory = "All";
   searchInput.value = "";
+  persistGalleryView();
   renderDashboard();
+});
+resultDialog?.addEventListener("close", () => {
+  const dashId = dashUi?.routeDashId?.();
+  if (dashId) dashUi.renderDashPage(dashId);
+  else renderDashboard();
 });
 addResultButton?.addEventListener("click", () => addDialog.showModal());
 document.querySelector("#cancelAddButton")?.addEventListener("click", () => addDialog.close());
