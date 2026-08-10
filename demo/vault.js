@@ -3,9 +3,12 @@ export const VAULT_STORAGE_KEY = "dashgpt.demo.vault.v1";
 export const LEGACY_RESULTS_KEYS = ["dashgpt.demo.results.v2", "dashgpt.demo.results.v1"];
 
 const RESULT_FIELDS = [
-  "id", "schemaVersion", "title", "summary", "category", "tags", "decisions", "next",
-  "source", "publishedAt", "immutable", "contentVersion", "contentHash", "semanticHue"
+  "id", "schemaVersion", "title", "summary", "category", "tags", "decisions", "next", "source",
+  "publishedAt", "immutable", "contentVersion", "contentHash", "status", "result", "body", "instructions",
+  "code", "links", "images", "assets", "openQuestions", "relatedResults", "continuationContext"
 ];
+const SOURCE_FIELDS = ["type", "url", "title", "provider", "sourceId"];
+const EVENT_FIELDS = ["schemaVersion", "eventId", "type", "resultId", "value", "createdAt"];
 const LEGACY_SEED_IDS = new Set(["dashgpt-product", "development-workflow", "deployment"]);
 
 function clone(value) {
@@ -29,11 +32,18 @@ function validResult(result) {
   return Boolean(result && typeof result.id === "string" && typeof result.title === "string" && typeof result.summary === "string");
 }
 
+function sanitizeSource(source) {
+  if (!isObject(source)) return undefined;
+  const clean = {};
+  for (const field of SOURCE_FIELDS) if (source[field] !== undefined) clean[field] = clone(source[field]);
+  return Object.keys(clean).length ? clean : undefined;
+}
+
 export function sanitizeResult(result) {
   if (!validResult(result)) throw new Error("Invalid DashGPT Result");
   const clean = {};
   for (const field of RESULT_FIELDS) {
-    if (result[field] !== undefined) clean[field] = clone(result[field]);
+    if (result[field] !== undefined) clean[field] = field === "source" ? sanitizeSource(result[field]) : clone(result[field]);
   }
   clean.schemaVersion = Number(clean.schemaVersion || 1);
   clean.tags = Array.isArray(clean.tags) ? clean.tags : [];
@@ -43,13 +53,23 @@ export function sanitizeResult(result) {
   return clean;
 }
 
+function sanitizeEvent(event) {
+  if (!isObject(event) || typeof event.eventId !== "string" || typeof event.type !== "string" || typeof event.createdAt !== "string") {
+    throw new Error("Invalid vault event");
+  }
+  const clean = {};
+  for (const field of EVENT_FIELDS) if (event[field] !== undefined) clean[field] = clone(event[field]);
+  clean.schemaVersion = Number(clean.schemaVersion || 1);
+  return clean;
+}
+
 function immutableIdentity(result) {
   const hash = typeof result.contentHash === "string" ? result.contentHash : `unverified:${JSON.stringify(result)}`;
   return `${result.id}@${result.contentVersion || 1}:${hash}`;
 }
 
 function eventIdentity(event) {
-  return `${event.eventId}:${JSON.stringify(event)}`;
+  return `${event.eventId}:${JSON.stringify(sanitizeEvent(event))}`;
 }
 
 export function createVault(options = {}) {
@@ -73,12 +93,21 @@ export function validateVault(input) {
     throw new Error("Vault arrays are missing");
   }
   for (const result of input.results) sanitizeResult(result);
-  for (const event of input.events) {
-    if (!isObject(event) || typeof event.eventId !== "string" || typeof event.type !== "string" || typeof event.createdAt !== "string") {
-      throw new Error("Invalid vault event");
-    }
-  }
+  for (const event of input.events) sanitizeEvent(event);
   return true;
+}
+
+export function portableVault(vault) {
+  validateVault(vault);
+  return {
+    schemaVersion: VAULT_SCHEMA_VERSION,
+    vaultId: vault.vaultId,
+    createdAt: String(vault.createdAt || ""),
+    updatedAt: String(vault.updatedAt || vault.createdAt || ""),
+    results: vault.results.map(sanitizeResult),
+    events: vault.events.map(sanitizeEvent),
+    profileRevisions: clone(vault.profileRevisions)
+  };
 }
 
 export function putResult(vault, result, options = {}) {
@@ -167,8 +196,7 @@ function migrateArrayIntoVault(vault, items, legacyKey, options = {}) {
 export function loadBrowserVault(storage, options = {}) {
   const rawVault = storage.getItem(VAULT_STORAGE_KEY);
   if (rawVault) {
-    const parsed = JSON.parse(rawVault);
-    validateVault(parsed);
+    const parsed = portableVault(JSON.parse(rawVault));
     return { vault: parsed, migratedFrom: null, created: false };
   }
 
@@ -195,33 +223,33 @@ export function loadBrowserVault(storage, options = {}) {
 }
 
 export function saveBrowserVault(storage, vault) {
-  validateVault(vault);
-  storage.setItem(VAULT_STORAGE_KEY, JSON.stringify(vault));
-  return vault;
+  const portable = portableVault(vault);
+  storage.setItem(VAULT_STORAGE_KEY, JSON.stringify(portable));
+  return portable;
 }
 
 export function mergeVaults(baseVault, incomingVault, options = {}) {
-  validateVault(baseVault);
-  validateVault(incomingVault);
-  const merged = clone(baseVault);
+  const merged = portableVault(baseVault);
+  const incoming = portableVault(incomingVault);
 
-  for (const result of incomingVault.results) putResult(merged, result, { updatedAt: merged.updatedAt });
+  for (const result of incoming.results) putResult(merged, result, { updatedAt: merged.updatedAt });
 
   const knownEvents = new Set(merged.events.map(eventIdentity));
-  const knownIds = new Map(merged.events.map(event => [event.eventId, JSON.stringify(event)]));
-  for (const event of incomingVault.events) {
-    const serialized = JSON.stringify(event);
-    if (knownEvents.has(eventIdentity(event))) continue;
-    if (knownIds.has(event.eventId) && knownIds.get(event.eventId) !== serialized) {
-      throw new Error(`Event integrity conflict: ${event.eventId}`);
+  const knownIds = new Map(merged.events.map(event => [event.eventId, JSON.stringify(sanitizeEvent(event))]));
+  for (const event of incoming.events) {
+    const cleanEvent = sanitizeEvent(event);
+    const serialized = JSON.stringify(cleanEvent);
+    if (knownEvents.has(eventIdentity(cleanEvent))) continue;
+    if (knownIds.has(cleanEvent.eventId) && knownIds.get(cleanEvent.eventId) !== serialized) {
+      throw new Error(`Event integrity conflict: ${cleanEvent.eventId}`);
     }
-    merged.events.push(clone(event));
-    knownEvents.add(eventIdentity(event));
-    knownIds.set(event.eventId, serialized);
+    merged.events.push(cleanEvent);
+    knownEvents.add(eventIdentity(cleanEvent));
+    knownIds.set(cleanEvent.eventId, serialized);
   }
 
   const profileById = new Map(merged.profileRevisions.map(item => [item.profileRevisionId || JSON.stringify(item), JSON.stringify(item)]));
-  for (const revision of incomingVault.profileRevisions) {
+  for (const revision of incoming.profileRevisions) {
     const key = revision.profileRevisionId || JSON.stringify(revision);
     const serialized = JSON.stringify(revision);
     if (!profileById.has(key)) {
@@ -237,12 +265,11 @@ export function mergeVaults(baseVault, incomingVault, options = {}) {
 }
 
 export function exportVaultBundle(vault) {
-  validateVault(vault);
   const bundle = {
     format: "dashgpt-vault-bundle",
     bundleVersion: 1,
     exportedAt: isoNow(),
-    vault: clone(vault)
+    vault: portableVault(vault)
   };
   return `${JSON.stringify(bundle, null, 2)}\n`;
 }
@@ -250,19 +277,18 @@ export function exportVaultBundle(vault) {
 export function importVaultBundle(text) {
   const parsed = typeof text === "string" ? JSON.parse(text) : clone(text);
   const vault = parsed?.format === "dashgpt-vault-bundle" ? parsed.vault : parsed;
-  validateVault(vault);
-  return clone(vault);
+  return portableVault(vault);
 }
 
 export function vaultStatus(vault) {
-  validateVault(vault);
+  const portable = portableVault(vault);
   return {
     mode: "local",
     remote: "unpaired",
     dirty: false,
     label: "LOCAL · NOT SYNCED",
-    vaultId: vault.vaultId,
-    resultObjects: vault.results.length,
-    events: vault.events.length
+    vaultId: portable.vaultId,
+    resultObjects: portable.results.length,
+    events: portable.events.length
   };
 }
