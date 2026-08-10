@@ -71,10 +71,11 @@ const common = {
 putResult(left, { ...common, contentHash: `sha256:${"1".repeat(64)}` }, { updatedAt: "2026-08-10T00:00:01.000Z" });
 putResult(right, { ...common, contentHash: `sha256:${"2".repeat(64)}` }, { updatedAt: "2026-08-10T00:00:02.000Z" });
 setFavorite(left, common.id, true, { eventId: "evt_left", createdAt: "2026-08-10T00:00:03.000Z" });
-setFavorite(right, common.id, false, { eventId: "evt_right", createdAt: "2026-08-10T00:00:04.000Z" });
+setFavorite(right, common.id, true, { eventId: "evt_right_on", createdAt: "2026-08-10T00:00:03.500Z" });
+setFavorite(right, common.id, false, { eventId: "evt_right_off", createdAt: "2026-08-10T00:00:04.000Z" });
 const merged = mergeVaults(left, right, { updatedAt: "2026-08-10T00:00:05.000Z" });
 assert.equal(merged.results.length, 2, "immutable divergence must preserve both revisions");
-assert.equal(merged.events.length, 2, "append-only state events must union by event id");
+assert.equal(merged.events.length, 3, "append-only state events must union by event id");
 const materialized = materializeResults(merged)[0];
 assert.equal(materialized._vaultConflictCount, 2);
 assert.equal(materialized.favorite, false, "latest favorite event must win deterministically");
