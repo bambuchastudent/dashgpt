@@ -19,3 +19,5 @@ jobs:
           node-version: 22
       - run: npm install --ignore-scripts
       - run: npm run check
+      - name: Probe production GitHub storage
+        run: node scripts/probe-production-github-status.mjs
