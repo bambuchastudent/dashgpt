@@ -2,10 +2,10 @@
   {
     "schemaVersion": 1,
     "dashId": "dashgpt-product",
-    "dashRevisionId": "dashrev-dashgpt-product-1",
-    "baseRevisionId": null,
-    "title": "DashGPT",
-    "description": "Public demo Dash for DashGPT product discussions and capabilities.",
+    "dashRevisionId": "dashrev-dashgpt-product-2",
+    "baseRevisionId": "dashrev-dashgpt-product-1",
+    "title": "DashGPT Product Board",
+    "description": "Living product memory: decisions, delivery status, current work and next changes.",
     "semanticDefinition": {
       "query": "DashGPT Product",
       "normalizedTerms": [
@@ -30,10 +30,34 @@
     },
     "updateMode": "review",
     "automaticResultIds": [
-      "dashgpt-first-live-demo"
+      "dashgpt-semantic-dashes",
+      "dashgpt-semantic-gallery-ux",
+      "dashgpt-living-product-board",
+      "dashgpt-semantic-navigator",
+      "dashgpt-localization",
+      "dashgpt-developer-fast-path",
+      "dashgpt-structured-chat-continuation",
+      "dashgpt-chat-to-result-capture",
+      "dashgpt-storage-local-vault",
+      "dashgpt-storage-github",
+      "dashgpt-storage-production-activation",
+      "dashgpt-storage-google-drive",
+      "dashgpt-storage-provider-mirroring",
+      "dashgpt-storage-private-vault-auth"
     ],
     "suggestedResultIds": [],
+    "productBoard": {
+      "type": "product",
+      "primaryTag": "DashGPT",
+      "slug": "dashgpt-product",
+      "canonicalPath": "/demo/dash/dashgpt-product/",
+      "automaticMode": false,
+      "lastRefreshedAt": "2026-08-10T15:18:00Z",
+      "lastSavedAt": "2026-08-10T15:18:00Z",
+      "updateSource": "repository+github-review"
+    },
     "createdAt": "2026-08-10T12:00:00.000Z",
-    "lastUpdatedAt": "2026-08-10T12:00:00.000Z"
+    "lastUpdatedAt": "2026-08-10T15:18:00Z"
   }
 ]
+
