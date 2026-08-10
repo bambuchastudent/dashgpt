@@ -76,6 +76,31 @@ Dash membership combines semantic selection with explicit user overrides:
 
 Every build and refresh must apply the user's current Result access, source, archive and deletion constraints before ranking or summarization. If a referenced Result becomes unavailable, the Dash may show that state but must not retain or reveal its content through the aggregate summary.
 
+### Living Product Board
+
+DashGPT dogfoods the Result + Semantic Dash model for its own product memory. `dashgpt-product` is a normal saved Semantic Dash whose member Results represent substantial product topics with stable IDs. The board is a saved view over those Results, not a second product-status database.
+
+Its canonical route is `/demo/dash/dashgpt-product/`; `/demo/dash/` resolves to the same board identity. The stable board must remain reconstructable from repository-backed public Result/Dash catalogs even when browser local storage is empty.
+
+Product-topic Results use an explicit delivery model rather than `done/not done`:
+
+- `idea`
+- `specified`
+- `in_development`
+- `merged`
+- `deployed`
+- `product_verified`
+- `blocked`
+- `archived`
+
+`merged` does not imply `deployed`, and `deployed` does not imply `product_verified`. Product verification is an explicit acceptance step.
+
+The board summary is derived from current accessible member Results. It may show total topics, status counts, freshness, update source and pending review proposals, but must not store a manually duplicated product-status paragraph when the same information can be computed from cards.
+
+Product-board refresh is Review-mode by default. External evidence such as an open/merged PR or confirmed deployment may propose a delivery-state advancement, but must not silently overwrite product decisions, summaries, continuation instructions or private notes. Invisible Automatic mutation remains disabled until separately specified.
+
+The board and its Results support a structured continuation package containing role, product definition, current objective/state, completed and active work, decisions, constraints, open questions, next actions and sources. Raw private chat history is not the stored board artifact.
+
 ### Source
 
 Provenance for a Result, such as a ChatGPT conversation, another AI chat, repository, URL, file or image.
@@ -108,6 +133,7 @@ The dashboard should provide:
 - automatically generated topic/category summaries
 - active and completed topics/projects
 - saved Semantic Dashes and temporary topic previews
+- a visible stable entry point to the DashGPT Product Board
 
 ### Continue actions
 
