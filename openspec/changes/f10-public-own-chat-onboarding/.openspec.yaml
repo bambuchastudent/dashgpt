@@ -1,0 +1,3 @@
+schema: spec-driven
+created: 2026-08-10
+goal: Ensure a new public DashGPT visitor starts from their own AI chat instead of seeing the publisher's Results.
