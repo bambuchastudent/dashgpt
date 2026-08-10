@@ -5,7 +5,9 @@ const primaryPath = PUBLISHED_RESULT_PATHS[0];
 
 function publishedCatalogAllowed() {
   const params = new URLSearchParams(window.location.search);
+  if (params.get("personal") === "1") return false;
   if (params.get("showcase") === "1") return true;
+  if (["localhost", "127.0.0.1", "::1"].includes(window.location.hostname)) return true;
   return /^\/demo\/(?:result|dash)\//.test(window.location.pathname);
 }
 
