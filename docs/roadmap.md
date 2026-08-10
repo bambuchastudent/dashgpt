@@ -68,6 +68,8 @@ Scope candidates:
 - related Results and sources
 - deterministic fallback summaries without mandatory LLM API
 
+The Living Product Board is an intentional dogfooding slice of this direction: it proves structured delivery-state summaries using ordinary Result cards and a saved Semantic Dash before a broader Project entity is required.
+
 ## M3 — MCP core
 
 Goal: expose DashGPT knowledge and continuation context to replaceable agents.
@@ -140,25 +142,48 @@ MVP scope:
 
 Automatic update mode remains architecturally possible but disabled in this first change. Private Vault access from a hosted ChatGPT tool remains behind the authenticated storage/runtime work; the public MCP surface can use only an instance's intentionally exposed catalog.
 
-Status: **merged into `develop` via PR #18 under `openspec/changes/f7-semantic-dashes/`**.
+Status: **merged into `develop` via PR #18 (`f7-semantic-dashes`)**.
 
-## Tactical Change — Structured Chat Continuation
+## Tactical Feature 8 — Semantic Gallery UX
 
-Goal: make **Continue in new chat** hand off the current working state instead of only the Result title.
+Goal: make Results and Dash selections feel like a semantic visual memory rather than a static list while keeping membership and topic identity stable.
+
+Scope:
+
+- deterministic semantic grouping/neighbourhoods
+- stable layout under activity changes
+- within-topic activity ordering
+- five density/zoom levels
+- shared Gallery rendering for Results and Dash selections
+- deterministic regressions for layout and density contracts
+
+Status: **merged into `develop` via PR #19 (`f8-semantic-gallery-ux`)**. Stable deployment and physical touch/trackpad product verification remain separate acceptance evidence rather than being inferred from merge state.
+
+## Tactical Feature — Structured Chat Continuation
+
+Goal: make `Continue in new chat` transfer a bounded, inspectable Continuation Brief rather than an ad-hoc title/summary prompt.
+
+Scope belongs to its dedicated OpenSpec change and PR and includes provider transport, byte-budget/fallback behaviour, privacy/prompt-injection boundaries, exact preview and continuation activity semantics.
+
+Status: **merged into `develop` via PR #20 under the strictly validated `openspec/changes/structured-chat-continuation/` change; automated and desktop/mobile browser gates are green**.
+
+## Tactical Feature 9 — Living Product Board
+
+Goal: dogfood DashGPT as its own product memory and eliminate the separately maintained product-status snapshot.
 
 MVP scope:
 
-- stable RU/EN Markdown Continuation Brief derived from the latest Result
-- trusted DashGPT assistant instructions separated from untrusted source content
-- exact preview, transient editing and direct copy
-- current ChatGPT adapter with encoded-size validation, priority-preserving compact mode and clipboard fallback
-- no silent truncation or title-only success path
-- content-free successful-continuation activity
-- unit, integration and desktop/mobile browser verification
+- evolve the existing `dashgpt-product` Semantic Dash rather than create a parallel ProductBoard entity
+- stable canonical `/demo/dash/dashgpt-product/` route with `/demo/dash/` compatibility
+- product topics as immutable Result cards with stable IDs and explicit delivery status
+- computed status summary and freshness/provenance
+- deterministic Review-mode GitHub/deployment reconciliation proposals
+- no invisible Automatic mutation
+- structured board continuation package
+- visible discovery from the normal dashboard and Dash catalog
+- explicit storage slices instead of one ambiguous storage `done` state
 
-Full Context Pack remains the richer optional export. Transcript synchronization, automatic translation, every provider, Semantic Gallery, Semantic Navigator and card redesign stay outside this change.
-
-Status: **implemented under the strictly validated `openspec/changes/structured-chat-continuation/` change in draft PR #20; automated and desktop/mobile browser gates are green**.
+Status: **implemented in PR #21 under strictly validated `openspec/changes/f9-living-product-board/`; combined current-`develop` verification is required before merge, and stable deployment/product acceptance remain separate gates**.
 
 ## M5 — Optional private quick deploy
 
@@ -192,6 +217,8 @@ Potential scope after the core loop is proven:
 
 ## Current delivery intent
 
-**Active: Structured Chat Continuation in its own validated OpenSpec change and PR.**
+**Active:** Living Product Board PR #21.
+
+Semantic Dashes PR #18, Semantic Gallery UX PR #19 and Structured Chat Continuation PR #20 are merged. Feature 6 production GitHub activation remains an explicit external gate rather than a merged-code status. Semantic Navigator, Localization, Developer Fast Path, Chat-to-Result capture, Google Drive, provider mirroring and authenticated private-Vault access remain separate future changes and should not be folded into Feature 9 without updating its OpenSpec scope.
 
 Feature 6's production GitHub activation and the public plugin release remain external tracks. Semantic Gallery is already merged via PR #19 and remains a separate presentation capability rather than continuation scope.
