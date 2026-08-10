@@ -8,14 +8,14 @@ The application code is safe to deploy before these values exist: without GitHub
 
 Use this pre-filled GitHub registration URL on the account that will own the DashGPT GitHub App:
 
-https://github.com/settings/apps/new?name=DashGPT+Storage&description=Private+user-owned+Vault+synchronization+for+DashGPT&url=https%3A%2F%2Fdashgpt.dimkashir.workers.dev%2Fdemo%2F&setup_url=https%3A%2F%2Fdashgpt.dimkashir.workers.dev%2Fapi%2Fstorage%2Fgithub%2Fsetup&setup_on_update=true&public=true&webhook_active=false&contents=write
+https://github.com/settings/apps/new?name=DashGPT+Storage&description=Private+user-owned+Vault+synchronization+for+DashGPT&url=https%3A%2F%2Fdashgpt.dimkashir.workers.dev%2Fdemo%2F&setup_url=https%3A%2F%2Fdashgpt.dimkashir.workers.dev%2Fapi%2Fstorage%2Fgithub%2Fsetup&setup_on_update=false&public=true&webhook_active=false&contents=write
 
 Expected settings:
 
 - Name: `DashGPT Storage` (choose another clear name if GitHub reports that it is already taken)
 - Homepage: `https://dashgpt.dimkashir.workers.dev/demo/`
 - Setup URL: `https://dashgpt.dimkashir.workers.dev/api/storage/github/setup`
-- Redirect on update: enabled
+- Redirect on update: disabled; the setup endpoint expects a DashGPT-initiated pending pairing session
 - Public: enabled, so another DashGPT user can install the same app
 - Webhooks: disabled for this slice
 - Repository permissions → Contents: **Read and write**
