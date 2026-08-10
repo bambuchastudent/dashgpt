@@ -11,13 +11,17 @@
 - [x] Add public support page and update privacy copy for remote-instance reads.
 - [x] Bring `plugins/dashgpt/.codex-plugin/plugin.json` to submission-ready metadata/version and add an MVP brand asset.
 - [x] Prepare `plugins/dashgpt/SUBMISSION.md` with listing copy, starter prompts, 5 positive tests, 3 negative tests, availability, release notes and portal checklist.
+- [x] Generate root `chatgpt-app-submission.json` from the inspected MCP implementation with all five tools, explicit hint justifications, exactly five positive tests and exactly three negative tests.
+- [x] Add `scripts/verify-chatgpt-app-submission.mjs` to the normal repository check so submission metadata/test-count drift fails CI.
+- [x] Reconcile `SUBMISSION.md` with the generated import packet and current explicit-import behavior.
+- [x] Record missing MCP `outputSchema` declarations as a non-blocking reliability hardening item; do not misrepresent them in the submission JSON.
 - [x] Verify the feature branch Cloudflare preview deploys successfully and the production-shaped `/mcp` behavior passes automated smoke checks.
 - [x] Merge Feature 4 implementation into `develop` after checks pass.
 - [x] Manual: confirm the publishing OpenAI Platform submitter has plugin submission write access. The submitting account is an Organization Owner, which includes Apps Management write access.
 - [x] Produce an interim `DashGPT v2` handoff for the next chat/agent while Feature 4 is blocked on publisher identity review. This is a continuity artifact, not MVP completion.
 - [x] Capture the source ChatGPT conversation URL in the handoff: `https://chatgpt.com/share/6a78a99f-bff4-83eb-80ce-e51389a70861`.
 - [x] Manual: complete/confirm verified developer or business identity for the publisher. User confirmed Individual publisher identity is verified on 2026-08-09.
-- [ ] Manual: open the OpenAI Platform plugin submission portal, create **DashGPT**, scan the production MCP server, complete domain verification, and submit for review.
+- [ ] Manual: open the OpenAI Platform plugin submission portal, create **DashGPT**, import the repository submission packet when available, scan the production MCP server, complete domain verification, and submit for review.
 - [ ] After approval, publish DashGPT to the universal Plugins Directory.
 - [ ] Test installation from a second ChatGPT account against a separate DashGPT instance.
 - [ ] Prove list/read + Context Pack + explicit import/save on that second person's data.
