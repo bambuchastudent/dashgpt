@@ -2,9 +2,19 @@ import { McpServer } from "@modelcontextprotocol/server";
 import { createMcpHandler } from "agents/mcp/server";
 import { fetchChatGptShare } from "chatgpt-share-parser";
 import { z } from "zod";
+import {
+  createTemporaryDash,
+  dashImportData,
+  formatDashForChat,
+  matchSavedDashes,
+  materializeDash,
+  rankResults,
+  refreshDash
+} from "../demo/semantic-dashes.js";
+import { sanitizeDashRevision } from "../demo/vault.js";
 
 const ALLOWED_SHARE_HOSTS = new Set(["chatgpt.com", "chat.openai.com"]);
-const MCP_VERSION = "0.3.0";
+const MCP_VERSION = "0.4.0";
 const INSTANCE_PROTOCOL_VERSION = 1;
 const DURABLE_FIELDS = ["id", "title", "summary", "category", "tags", "decisions", "next", "source"];
 const OPEN_READ_ANNOTATIONS = {
@@ -119,6 +129,15 @@ async function loadPublishedResults(env) {
   return results;
 }
 
+async function loadPublishedDashes(env) {
+  const response = await env.ASSETS.fetch(new Request("https://dashgpt-assets.local/data/dashes.json"));
+  if (response.status === 404) return [];
+  if (!response.ok) throw new Error(`Dash catalog returned ${response.status}`);
+  const dashes = await response.json();
+  if (!Array.isArray(dashes)) throw new Error("Dash catalog is not an array.");
+  return dashes.map(sanitizeDashRevision);
+}
+
 function normalizeInstanceOrigin(siteUrl, request) {
   let target;
   try {
@@ -176,6 +195,21 @@ async function loadResultsForSite(siteUrl, request, env) {
   const payload = await fetchInstanceJson(instanceOrigin, "/api/dashgpt/results", request, env);
   if (!Array.isArray(payload?.results)) throw new Error("Remote DashGPT Result catalog is invalid.");
   return { instanceOrigin, results: payload.results };
+}
+
+async function loadDashesForSite(siteUrl, request, env) {
+  const instanceOrigin = normalizeInstanceOrigin(siteUrl, request);
+  if (sameOrigin(instanceOrigin, request)) {
+    return { instanceOrigin, dashes: await loadPublishedDashes(env) };
+  }
+  try {
+    const payload = await fetchInstanceJson(instanceOrigin, "/api/dashgpt/dashes", request, env);
+    if (!Array.isArray(payload?.dashes)) throw new Error("Remote DashGPT Dash catalog is invalid.");
+    return { instanceOrigin, dashes: payload.dashes.map(sanitizeDashRevision) };
+  } catch (error) {
+    if (String(error?.message || "").includes("returned 404")) return { instanceOrigin, dashes: [] };
+    throw error;
+  }
 }
 
 async function loadResultForSite(siteUrl, id, request, env) {
@@ -259,12 +293,33 @@ function textResult(structuredContent, text) {
   return { structuredContent, content: [{ type: "text", text }] };
 }
 
+function boundedDashView(view, limit) {
+  const boundedLimit = Math.max(1, Math.min(Number(limit || 6), 12));
+  return {
+    dashId: view.dashId,
+    dashRevisionId: view.dashRevisionId,
+    title: view.title,
+    description: view.description,
+    semanticDefinition: view.semanticDefinition,
+    updateMode: view.updateMode,
+    lastUpdatedAt: view.lastUpdatedAt,
+    temporary: Boolean(view.temporary),
+    summary: view.summary,
+    memberCount: view.members.length,
+    proposalCount: view.proposals.length,
+    unavailableCount: view.unavailable.length,
+    members: view.members.slice(0, boundedLimit),
+    proposals: view.proposals.slice(0, boundedLimit),
+    relatedDashes: view.relatedDashes.slice(0, 5)
+  };
+}
+
 function createDashGptServer(request, env) {
   const server = new McpServer(
     { name: "dashgpt", version: MCP_VERSION },
     {
       instructions:
-        "DashGPT keeps useful AI outcomes as durable Results. If the user gives a DashGPT site URL, pass that siteUrl consistently to list_results, get_result and get_context_pack so you read that person's instance rather than the default demo instance. If the user asks about their own DashGPT but has not identified the site, ask for its HTTPS URL. When the user asks to save the useful outcome of the current conversation, distill it and call prepare_result_import; the returned link lets the user explicitly import the immutable Result into the chosen DashGPT site. Never include secrets or personal document identifiers unless the user explicitly asks for them to be saved."
+        "DashGPT keeps useful AI outcomes as durable Results and living Semantic Dashes. For natural topic requests such as 'Даш про еду', 'Продолжим про квас', or 'What did we discuss about Morocco?', call open_semantic_dash. One confident saved Dash opens directly; ambiguous saved Dashes require the returned short choice; no saved Dash produces a temporary view and an explicit import link rather than a silent write. If the user gives a DashGPT site URL, pass that siteUrl consistently so tools read the selected instance. Public MCP can read only Results and Dashes intentionally exposed by that instance; never imply access to a browser-local or paired private Vault. When the user asks to save the useful outcome of the current conversation, distill it and call prepare_result_import. Never include secrets or personal document identifiers unless the user explicitly asks for them to be saved."
     }
   );
 
@@ -283,19 +338,8 @@ function createDashGptServer(request, env) {
     },
     async ({ siteUrl, query = "", category = "", limit = 20 }) => {
       const { instanceOrigin, results } = await loadResultsForSite(siteUrl, request, env);
-      const needle = query.trim().toLowerCase();
-      const matches = results
-        .filter((result) => !category || result.category === category)
-        .filter((result) => {
-          if (!needle) return true;
-          return [result.title, result.summary, result.category, ...(result.tags || []), ...(result.decisions || [])]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase()
-            .includes(needle);
-        })
-        .slice(0, limit)
-        .map((result) => ({
+      const matches = rankResults(results, query, { category, limit })
+        .map(({ result, score }) => ({
           id: result.id,
           title: result.title,
           summary: result.summary,
@@ -304,12 +348,80 @@ function createDashGptServer(request, env) {
           immutable: Boolean(result.immutable),
           contentVersion: result.contentVersion || 1,
           contentHash: result.contentHash || null,
+          relevance: query ? score : null,
           pageUrl: resultPageUrl(instanceOrigin, result)
         }));
 
       return textResult(
         { siteUrl: instanceOrigin.origin, results: matches, total: matches.length },
         matches.length ? matches.map((item) => `${item.title} — ${item.pageUrl}`).join("\n") : "No matching DashGPT Results."
+      );
+    }
+  );
+
+  server.registerTool(
+    "open_semantic_dash",
+    {
+      title: "Open a Semantic Dash",
+      description:
+        "Open or build a living topic view from accessible DashGPT Results. Use natural topic wording; the tool resolves one confident saved Dash, returns choices for ambiguity, or builds a temporary Dash with an explicit save link.",
+      inputSchema: {
+        query: z.string().min(1).max(200),
+        siteUrl: z.string().url().max(2000).optional(),
+        limit: z.number().int().min(1).max(12).default(6)
+      },
+      annotations: OPEN_READ_ANNOTATIONS
+    },
+    async ({ query, siteUrl, limit = 6 }) => {
+      const [{ instanceOrigin, results }, { dashes }] = await Promise.all([
+        loadResultsForSite(siteUrl, request, env),
+        loadDashesForSite(siteUrl, request, env)
+      ]);
+      const linkedResults = results.map((result) => ({ ...result, pageUrl: resultPageUrl(instanceOrigin, result) }));
+      const match = matchSavedDashes(query, dashes, []);
+
+      if (match.status === "ambiguous") {
+        const choices = match.candidates.map(({ dash, score }) => ({
+          dashId: dash.dashId,
+          title: dash.title,
+          description: dash.description,
+          relevance: score
+        }));
+        return textResult(
+          { status: "ambiguous", siteUrl: instanceOrigin.origin, choices },
+          `Several saved Dashes match. Ask the user to choose, then call this tool with the selected title:\n${choices.map((choice) => `- ${choice.title}`).join("\n")}`
+        );
+      }
+
+      if (match.status === "confident") {
+        const refreshed = refreshDash(match.dash, [], linkedResults, {
+          now: new Date().toISOString(),
+          allDashRevisions: dashes
+        });
+        const view = refreshed.view;
+        return textResult(
+          { status: "saved", siteUrl: instanceOrigin.origin, dash: boundedDashView(view, limit) },
+          formatDashForChat(view, { limit })
+        );
+      }
+
+      const view = createTemporaryDash(query, linkedResults, {
+        now: new Date().toISOString(),
+        allDashRevisions: dashes
+      });
+      const hasMatches = view.members.length + view.proposals.length > 0;
+      let importUrl = null;
+      if (hasMatches) {
+        const target = normalizeTargetSite(siteUrl, request);
+        target.hash = `dash-import=${base64UrlEncode(JSON.stringify(dashImportData(view)))}`;
+        importUrl = target.toString();
+      }
+      const suffix = importUrl
+        ? `\n\nThis Dash is temporary and was not saved. Ask the user to open this link to review and save it explicitly:\n${importUrl}`
+        : "\n\nNo accessible matching Results were found, so no save link was created.";
+      return textResult(
+        { status: "temporary", siteUrl: instanceOrigin.origin, dash: boundedDashView(view, limit), importUrl },
+        `${formatDashForChat(view, { limit })}${suffix}`
       );
     }
   );
@@ -440,6 +552,7 @@ function handleInstanceDiscovery(request) {
     protocolVersion: INSTANCE_PROTOCOL_VERSION,
     siteUrl: `${origin}/demo/`,
     resultsEndpoint: `${origin}/api/dashgpt/results`,
+    dashesEndpoint: `${origin}/api/dashgpt/dashes`,
     contextEndpointTemplate: `${origin}/api/dashgpt/context/{id}`
   });
 }
@@ -447,6 +560,11 @@ function handleInstanceDiscovery(request) {
 async function handleInstanceResults(request, env) {
   const results = await loadPublishedResults(env);
   return json({ protocolVersion: INSTANCE_PROTOCOL_VERSION, results });
+}
+
+async function handleInstanceDashes(request, env) {
+  const dashes = await loadPublishedDashes(env);
+  return json({ protocolVersion: INSTANCE_PROTOCOL_VERSION, dashes });
 }
 
 async function handleInstanceResult(request, env, id) {
@@ -481,6 +599,7 @@ export default {
     if (url.pathname === "/.well-known/dashgpt.json") return handleInstanceDiscovery(request);
     if (url.pathname === "/api/shared-chat") return handleSharedChat(request);
     if (url.pathname === "/api/dashgpt/results") return handleInstanceResults(request, env);
+    if (url.pathname === "/api/dashgpt/dashes") return handleInstanceDashes(request, env);
 
     const resultMatch = url.pathname.match(/^\/api\/dashgpt\/results\/([^/]+)$/);
     if (resultMatch) return handleInstanceResult(request, env, decodeURIComponent(resultMatch[1]));
