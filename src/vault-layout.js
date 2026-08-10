@@ -85,14 +85,16 @@ export function vaultFromObjects(objects, root = "") {
   return portableVault(vault);
 }
 
-export function mergeVaultObjectSets(localVault, remoteObjects, root = "", options = {}) {
+export function mergeVaultObjectSets(localVault, remoteObjects, root = "") {
+  const local = portableVault(localVault);
   const remoteVault = vaultFromObjects(remoteObjects, root);
-  if (!remoteVault) return portableVault(localVault);
-  if (remoteVault.vaultId !== localVault.vaultId) {
+  if (!remoteVault) return local;
+  if (remoteVault.vaultId !== local.vaultId) {
     const error = new Error("The selected GitHub folder already contains a different DashGPT Vault.");
     error.code = "vault_id_mismatch";
     error.remoteVaultId = remoteVault.vaultId;
     throw error;
   }
-  return mergeVaults(remoteVault, localVault, options);
+  const updatedAt = [remoteVault.updatedAt, local.updatedAt].filter(Boolean).sort().at(-1) || local.updatedAt;
+  return mergeVaults(remoteVault, local, { updatedAt });
 }
