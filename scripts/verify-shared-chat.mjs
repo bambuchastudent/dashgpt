@@ -2,10 +2,11 @@ import assert from "node:assert/strict";
 import worker from "../src/worker.js";
 
 const SHARE_URL = "https://chatgpt.com/share/6a7a445b-a420-83ea-9c36-3c10fd1ce85f";
+const SHARE_ID = "6a7a445b-a420-83ea-9c36-3c10fd1ce85f";
 
 function legacyShareHtml() {
   const data = {
-    conversation_id: "6a7a445b-a420-83ea-9c36-3c10fd1ce85f",
+    conversation_id: SHARE_ID,
     author_name: "Visitor",
     title: "Картошка в аэрогриле",
     update_time: 1786390000,
@@ -34,6 +35,92 @@ function legacyShareHtml() {
   return `<!doctype html><html><head><script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
     props: { pageProps: { serverResponse: { data } } }
   })}</script></head><body></body></html>`;
+}
+
+function backendSharePayload() {
+  return {
+    title: "New chat",
+    conversation_id: SHARE_ID,
+    current_node: "a2",
+    default_model_slug: "auto",
+    mapping: {
+      root: {
+        id: "root",
+        parent: null,
+        children: ["u1"],
+        message: {
+          author: { role: "system" },
+          content: { content_type: "text", parts: ["internal"] },
+          create_time: 1
+        }
+      },
+      u1: {
+        id: "u1",
+        parent: "root",
+        children: ["a-old", "a1"],
+        message: {
+          author: { role: "user" },
+          content: { content_type: "text", parts: ["Составь план выходных"] },
+          create_time: 2
+        }
+      },
+      "a-old": {
+        id: "a-old",
+        parent: "u1",
+        children: [],
+        message: {
+          author: { role: "assistant" },
+          content: { content_type: "text", parts: ["Старый регенерированный ответ"] },
+          create_time: 3
+        }
+      },
+      a1: {
+        id: "a1",
+        parent: "u1",
+        children: ["hidden", "u2"],
+        message: {
+          author: { role: "assistant" },
+          content: { content_type: "text", parts: ["Утром рынок, вечером прогулка."] },
+          create_time: 4
+        }
+      },
+      hidden: {
+        id: "hidden",
+        parent: "a1",
+        children: [],
+        message: {
+          author: { role: "assistant" },
+          content: { content_type: "text", parts: ["Скрытый служебный ответ"] },
+          metadata: { is_visually_hidden_from_conversation: true },
+          create_time: 5
+        }
+      },
+      u2: {
+        id: "u2",
+        parent: "a1",
+        children: ["a2"],
+        message: {
+          author: { role: "user" },
+          content: { content_type: "multimodal_text", parts: ["Без лишних переездов"] },
+          create_time: 6
+        }
+      },
+      a2: {
+        id: "a2",
+        parent: "u2",
+        children: [],
+        message: {
+          author: { role: "assistant" },
+          content: { content_type: "text", parts: [{ text: "Тогда оставим всё рядом с центром." }] },
+          create_time: 7
+        }
+      }
+    }
+  };
+}
+
+function backendReaderTranscript() {
+  return `Title:\n\nURL Source: https://chatgpt.com/backend-api/share/${SHARE_ID}\n\nMarkdown Content:\n${JSON.stringify(backendSharePayload())}`;
 }
 
 function readerTranscript() {
@@ -70,15 +157,17 @@ function requestFor(url = SHARE_URL) {
   return new Request(`https://dashgpt.example/api/shared-chat?url=${encodeURIComponent(url)}`);
 }
 
-// Anonymous happy path: Jina Reader succeeds; no direct or browser request is needed.
+// Fresh-share happy path: current public backend JSON succeeds immediately and selects only current_node ancestry.
 {
   const resolverUrls = [];
   let directCalls = 0;
   let browserCalls = 0;
   const env = {
     DASHGPT_RESOLVER_FETCH: async input => {
-      resolverUrls.push(String(input));
-      return new Response(readerTranscript(), { status: 200 });
+      const url = String(input);
+      resolverUrls.push(url);
+      assert.match(url, new RegExp(`^https://r\\.jina\\.ai/https://chatgpt\\.com/backend-api/share/${SHARE_ID}$`));
+      return new Response(backendReaderTranscript(), { status: 200 });
     },
     DASHGPT_SHARE_FETCH: async () => {
       directCalls += 1;
@@ -94,16 +183,43 @@ function requestFor(url = SHARE_URL) {
   const response = await worker.fetch(requestFor(), env, {});
   assert.equal(response.status, 200, await response.clone().text());
   const payload = await response.json();
-  assert.equal(payload.retrieval, "reader");
-  assert.equal(payload.title, "Картошка в аэрогриле");
-  assert.deepEqual(payload.replies.map(reply => reply.type), ["user", "assistant"]);
-  assert.match(resolverUrls[0], /^https:\/\/r\.jina\.ai\/https:\/\/chatgpt\.com\/share\//);
+  assert.equal(payload.retrieval, "reader-backend");
+  assert.equal(payload.title, "Составь план выходных");
+  assert.deepEqual(payload.replies.map(reply => reply.type), ["user", "assistant", "user", "assistant"]);
+  assert.deepEqual(payload.replies.map(reply => reply.statement), [
+    "Составь план выходных",
+    "Утром рынок, вечером прогулка.",
+    "Без лишних переездов",
+    "Тогда оставим всё рядом с центром."
+  ]);
+  assert.doesNotMatch(JSON.stringify(payload), /Старый регенерированный|Скрытый служебный/);
   assert.equal(resolverUrls.length, 1);
   assert.equal(directCalls, 0);
   assert.equal(browserCalls, 0);
 }
 
-// Provider fallback: Reader can fail and AllOrigins raw HTML can still satisfy the same contract.
+// Reader page fallback remains available if backend JSON cannot be resolved.
+{
+  const resolverUrls = [];
+  const env = {
+    DASHGPT_RESOLVER_FETCH: async input => {
+      const url = String(input);
+      resolverUrls.push(url);
+      if (url.includes("/backend-api/share/")) return new Response("backend unavailable", { status: 503 });
+      return new Response(readerTranscript(), { status: 200 });
+    },
+    DASHGPT_SHARE_FETCH: async () => new Response("should not run", { status: 500 })
+  };
+  const response = await worker.fetch(requestFor(), env, {});
+  assert.equal(response.status, 200, await response.clone().text());
+  const payload = await response.json();
+  assert.equal(payload.retrieval, "reader");
+  assert.equal(payload.title, "Картошка в аэрогриле");
+  assert.deepEqual(payload.replies.map(reply => reply.type), ["user", "assistant"]);
+  assert.equal(resolverUrls.length, 2);
+}
+
+// Provider fallback: both Reader forms can fail and AllOrigins raw HTML can still satisfy the same contract.
 {
   const resolverUrls = [];
   let directCalls = 0;
@@ -126,8 +242,8 @@ function requestFor(url = SHARE_URL) {
   assert.equal(payload.retrieval, "raw-proxy");
   assert.equal(payload.title, "Картошка в аэрогриле");
   assert.equal(payload.replies.length, 2);
-  assert.equal(resolverUrls.length, 2);
-  assert.match(resolverUrls[1], /^https:\/\/api\.allorigins\.win\/raw\?url=/);
+  assert.equal(resolverUrls.length, 3);
+  assert.match(resolverUrls[2], /^https:\/\/api\.allorigins\.win\/raw\?url=/);
   assert.equal(directCalls, 0);
 }
 
@@ -159,7 +275,7 @@ function requestFor(url = SHARE_URL) {
   const payload = await response.json();
   assert.equal(payload.retrieval, "browser-dom");
   assert.equal(payload.title, "Вечер в Валенсии");
-  assert.equal(resolverCalls, 2);
+  assert.equal(resolverCalls, 3);
   assert.equal(browserCalls, 1);
   assert.equal(directCalls, 0);
 }
@@ -183,7 +299,7 @@ function requestFor(url = SHARE_URL) {
   const payload = await response.json();
   assert.equal(payload.retrieval, "direct");
   assert.equal(payload.title, "Картошка в аэрогриле");
-  assert.equal(resolverCalls, 2);
+  assert.equal(resolverCalls, 3);
   assert.equal(directCalls, 1);
 }
 
@@ -234,7 +350,7 @@ function requestFor(url = SHARE_URL) {
   const payload = await response.json();
   assert.equal(payload.code, "SHARED_CHAT_UNREADABLE");
   assert.match(payload.error, /Unable to read this public ChatGPT conversation/);
-  assert.doesNotMatch(payload.error, /403|429|Jina|AllOrigins|Reader|proxy|Legacy/i);
+  assert.doesNotMatch(payload.error, /403|429|Jina|AllOrigins|Reader|proxy|Legacy|backend/i);
 }
 
-console.log("Shared ChatGPT anonymous resolver and compatibility fallback checks passed.");
+console.log("Shared ChatGPT fresh-backend resolver and compatibility fallback checks passed.");
