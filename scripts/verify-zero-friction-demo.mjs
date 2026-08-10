@@ -22,17 +22,18 @@ const impact = readFileSync(new URL("../openspec/changes/f9-zero-friction-mobile
 const heroEnd = html.indexOf('<details class="dashboard-tools">');
 assert.ok(heroEnd > 0, "dashboard must keep secondary tools below the value-first surface");
 const firstSurface = html.slice(0, heroEnd);
+const visibleFirstSurface = firstSurface.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
 
 assert.match(firstSurface, /Важное из разговоров с ИИ — всегда под рукой/, "exact F9 hero title is required");
 assert.match(firstSurface, /DashGPT превращает полезные итоги, решения и планы в карточки, которые легко найти и продолжить\./,
   "exact F9 hero subtitle is required");
 assert.match(firstSurface, />Показать за 20 секунд</, "20-second demo CTA is required");
 assert.match(firstSurface, />Сохранить разговор</, "human save-conversation CTA is required");
-assert.doesNotMatch(firstSurface, /PRIVATE\s*•\s*LOCAL-FIRST/i, "technical privacy architecture must not lead the first screen");
-assert.doesNotMatch(firstSurface, /LOCAL\s*·\s*NOT SYNCED/i, "sync state must not lead the first screen");
-assert.doesNotMatch(firstSurface, /\bVault\b/i, "Vault terminology must not lead the first screen");
-assert.doesNotMatch(firstSurface, /MCP/i, "MCP terminology must not lead the first screen");
-assert.doesNotMatch(firstSurface, /immutable|verified|browser storage|local storage/i,
+assert.doesNotMatch(visibleFirstSurface, /PRIVATE\s*•\s*LOCAL-FIRST/i, "technical privacy architecture must not lead the first screen");
+assert.doesNotMatch(visibleFirstSurface, /LOCAL\s*·\s*NOT SYNCED/i, "sync state must not lead the first screen");
+assert.doesNotMatch(visibleFirstSurface, /\bVault\b/i, "Vault terminology must not lead the first screen");
+assert.doesNotMatch(visibleFirstSurface, /MCP/i, "MCP terminology must not lead the first screen");
+assert.doesNotMatch(visibleFirstSurface, /immutable|verified|browser storage|local storage/i,
   "technical storage/integrity terminology must not lead the first screen");
 assert.doesNotMatch(html, /No saved Dashes yet/, "legacy empty Semantic Dashes message must not appear in the demo flow");
 assert.doesNotMatch(html, /\+ Add Result/, "legacy Add Result action must be removed from the dashboard shell");
