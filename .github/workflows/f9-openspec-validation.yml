@@ -56,6 +56,10 @@ jobs:
             await page.getByRole('heading', { name: 'Важное из разговоров с ИИ — всегда под рукой' }).waitFor();
             assert.equal(await page.locator('#demoDashesGrid .demo-dash-card').count(), 3, `${label}: demo Dashes`);
             assert.equal(await page.locator('#demoResultsGrid .f9-demo-card').count(), 5, `${label}: demo Results`);
+            assert.equal(await page.locator('#resultCount').isHidden(), true, `${label}: technical result counter must stay hidden`);
+            const visibleDashboard = await page.locator('#dashboardView').innerText();
+            assert.doesNotMatch(visibleDashboard, /PRIVATE\s*•\s*LOCAL-FIRST|LOCAL\s*·\s*NOT SYNCED|\bVault\b|MCP|immutable|verified|browser storage|local storage/i,
+              `${label}: technical storage/integrity terminology leaked into visible dashboard`);
             const metrics = await page.evaluate(() => ({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth }));
             assert.ok(metrics.scrollWidth <= metrics.width + 1, `${label}: horizontal overflow ${metrics.scrollWidth} > ${metrics.width}`);
 
