@@ -34,13 +34,14 @@ Implementation PR: `#12` (`feature/f6-vault-core`), merged into `develop`.
 - [x] Merge local/remote Vault state before writing and reject different `vaultId` targets.
 - [x] Commit one atomic Git tree/commit per logical synchronization.
 - [x] Preserve local/offline usability and allow later retry after provider failure.
-- [x] Add deterministic GitHub adapter contract tests, idempotence checks and conflict fixtures.
+- [x] Add deterministic GitHub adapter contract tests, empty-repository initialization, idempotence checks and conflict fixtures.
 - [x] Add browser pairing/sync/disconnect UX without PAT/token input.
-- [x] Add privacy disclosure, ADR 0004 and activation runbook.
+- [x] Add privacy disclosure, accepted ADR 0004 and activation runbook.
+- [x] Merge implementation PR `#13` into `develop`.
 - [ ] Register/configure the production public GitHub App and Worker secrets.
 - [ ] Run the real private-repository acceptance smoke test from `docs/github-storage-setup.md`.
 
-Implementation PR: `#13` (`feature/f6-github-sync`).
+Implementation PR: `#13` (`feature/f6-github-sync`), merged into `develop`.
 
 ## Slice C — Google Drive sync
 
