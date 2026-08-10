@@ -20,6 +20,13 @@ let vaultLoadInfo;
 let activeCategory = "All";
 let favoritesOnly = false;
 
+const vaultAdapter = {
+  type: "browser-local",
+  load: options => loadBrowserVault(localStorage, options),
+  save: currentVault => saveBrowserVault(localStorage, currentVault),
+  status: currentVault => vaultStatus(currentVault)
+};
+
 const resultsGrid = document.querySelector("#resultsGrid");
 const resultCount = document.querySelector("#resultCount");
 const resultsTitle = document.querySelector("#resultsTitle");
@@ -118,7 +125,8 @@ function mergePublishedAndLocal(published, local) {
     const localVersion = Number(localResult.contentVersion || 1);
     const publishedVersion = Number(publishedResult.contentVersion || 1);
     const chosen = localVersion > publishedVersion ? localResult : publishedResult;
-    merged.push({ ...structuredClone(chosen), favorite: Boolean(localResult.favorite || publishedResult.favorite) });
+    const favorite = typeof localResult.favorite === "boolean" ? localResult.favorite : Boolean(publishedResult.favorite);
+    merged.push({ ...structuredClone(chosen), favorite });
   }
 
   return merged;
@@ -129,7 +137,7 @@ function persistRuntimeResults() {
     putResult(vault, result);
     setFavorite(vault, result.id, Boolean(result.favorite));
   }
-  saveBrowserVault(localStorage, vault);
+  vaultAdapter.save(vault);
   renderStorageStatus();
   updateSummary();
 }
@@ -503,7 +511,7 @@ function renderStandaloneResult(result) {
 
 function renderStorageStatus() {
   if (!vault || !storageButton) return;
-  const status = vaultStatus(vault);
+  const status = vaultAdapter.status(vault);
   storageButton.textContent = status.label;
   storageButton.dataset.state = status.remote;
   if (storageStatusText) storageStatusText.textContent = "This browser is the active local vault. No cloud provider is paired yet.";
@@ -545,7 +553,7 @@ async function importVaultFile(file) {
     const emptyCurrent = vault.results.length === 0 && vault.events.length === 0 && vault.profileRevisions.length === 0;
     vault = emptyCurrent ? incoming : mergeVaults(vault, incoming);
     vaultLoadInfo = { migratedFrom: null, created: false };
-    saveBrowserVault(localStorage, vault);
+    vaultAdapter.save(vault);
     await reloadFromVault();
     storageImportMessage.textContent = "Vault imported and merged. Existing immutable conflicts were preserved.";
   } catch (error) {
@@ -554,7 +562,7 @@ async function importVaultFile(file) {
 }
 
 async function init() {
-  vaultLoadInfo = loadBrowserVault(localStorage);
+  vaultLoadInfo = vaultAdapter.load();
   vault = vaultLoadInfo.vault;
   renderStorageStatus();
   await reloadFromVault();
