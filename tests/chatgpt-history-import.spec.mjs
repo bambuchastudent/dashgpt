@@ -18,6 +18,14 @@ async function dispatchSourceMessage(page, data, origin = "https://chatgpt.com")
   }, { payload: data, sourceOrigin: origin });
 }
 
+async function emulateNavigator(page, { userAgent, platform = "", maxTouchPoints = 0 }) {
+  await page.addInitScript(({ ua, navigatorPlatform, touchPoints }) => {
+    Object.defineProperty(navigator, "userAgent", { configurable: true, get: () => ua });
+    Object.defineProperty(navigator, "platform", { configurable: true, get: () => navigatorPlatform });
+    Object.defineProperty(navigator, "maxTouchPoints", { configurable: true, get: () => touchPoints });
+  }, { ua: userAgent, navigatorPlatform: platform, touchPoints: maxTouchPoints });
+}
+
 function envelope(type, extra = {}) {
   return {
     protocol: PROTOCOL,
@@ -62,18 +70,22 @@ test("new My Dash shows one import card while keeping chat-first capture availab
   expect(overflow).toBeLessThanOrEqual(1);
 });
 
-test("360px My Dash keeps the import action usable without horizontal overflow", async ({ page }) => {
+test("360px My Dash keeps the import setup usable without horizontal overflow", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 800 });
   await page.goto("/demo/?personal=1");
 
   const card = page.locator(`[data-result-id="${IMPORT_ID}"]`);
   await expect(card).toBeVisible();
   await expect(card.locator(".open-button")).toBeVisible();
+  await card.locator(".open-button").click();
+  await expect(page.locator("#chatgptImportLaunchDialog")).toBeVisible();
+  await expect(page.locator("#chatgptImportCopyAction")).toBeVisible();
+  await expect(page.locator("#chatgptImportOpenChatGpt")).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);
 });
 
-test("Start import opens ChatGPT, copies one runner, and truthfully waits for source handshake", async ({ page }) => {
+test("Start import opens zero-DevTools setup, copies one reusable action, and truthfully waits for source handshake", async ({ page }) => {
   await page.addInitScript(() => {
     window.__dashgptOpened = null;
     window.__dashgptCopied = "";
@@ -91,19 +103,70 @@ test("Start import opens ChatGPT, copies one runner, and truthfully waits for so
   const importCard = page.locator(`[data-result-id="${IMPORT_ID}"]`);
   await importCard.locator(".open-button").click();
 
-  await expect(page.locator("#chatgptImportLaunchDialog")).toBeVisible();
-  const opened = await page.evaluate(() => window.__dashgptOpened);
-  expect(opened?.url).toBe("https://chatgpt.com/");
+  const dialog = page.locator("#chatgptImportLaunchDialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText(/DashGPT Import/);
+  await expect(dialog).not.toContainText(/Web Inspector|Console|Developer Tools/);
+  expect(await page.evaluate(() => window.__dashgptOpened)).toBeNull();
+  expect(await page.evaluate(() => window.__dashgptCopied)).toBe("");
+
+  await page.locator("#chatgptImportCopyAction").click();
   const copied = await page.evaluate(() => window.__dashgptCopied);
+  expect(copied.startsWith("javascript:")).toBe(true);
   expect(copied).toContain("dashgpt-progressive-import-source");
   expect(copied).toContain("https://chatgpt.com");
+  expect(copied).toContain("randomUUID");
+  expect(copied).toContain("connect.click()");
+  expect(copied).not.toContain("__DASHGPT_ACTION_SESSION__");
   expect(copied).not.toContain("SECRET_ACCESS_TOKEN");
+
+  await page.locator("#chatgptImportOpenChatGpt").click();
+  const opened = await page.evaluate(() => window.__dashgptOpened);
+  expect(opened?.url).toBe("https://chatgpt.com/");
 
   const progress = await page.evaluate(key => {
     const vault = JSON.parse(localStorage.getItem(key));
     return vault.results.find(result => result.id === "dashgpt-chatgpt-history-import")?.result;
   }, VAULT_KEY);
   expect(progress?.state).toBe("waiting_for_source");
+});
+
+test("iPhone Safari gets bookmark instructions for the same DashGPT Import action", async ({ page }) => {
+  await emulateNavigator(page, {
+    userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 Version/18.6 Mobile/15E148 Safari/604.1",
+    platform: "iPhone",
+    maxTouchPoints: 5
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/demo/?personal=1");
+  await page.locator(`[data-result-id="${IMPORT_ID}"] .open-button`).click();
+
+  const dialog = page.locator("#chatgptImportLaunchDialog");
+  await expect(dialog).toContainText(/Safari/);
+  await expect(dialog).toContainText(/Закладки|Bookmarks/);
+  await expect(dialog).toContainText(/DashGPT Import/);
+  await expect(dialog).not.toContainText(/Web Inspector|Console/);
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+});
+
+test("Android Chrome gets bookmark and address-bar instructions for the same DashGPT Import action", async ({ page }) => {
+  await emulateNavigator(page, {
+    userAgent: "Mozilla/5.0 (Linux; Android 16; SM-A366B) AppleWebKit/537.36 Chrome/139.0.0.0 Mobile Safari/537.36",
+    platform: "Linux armv8l",
+    maxTouchPoints: 5
+  });
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.goto("/demo/?personal=1");
+  await page.locator(`[data-result-id="${IMPORT_ID}"] .open-button`).click();
+
+  const dialog = page.locator("#chatgptImportLaunchDialog");
+  await expect(dialog).toContainText(/Chrome/);
+  await expect(dialog).toContainText(/адресной строке|address bar/);
+  await expect(dialog).toContainText(/DashGPT Import/);
+  await expect(dialog).not.toContainText(/Web Inspector|Console/);
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
 });
 
 test("receiver rejects wrong origin, wrong session and oversized messages without importing cards", async ({ page }) => {
