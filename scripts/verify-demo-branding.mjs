@@ -1,6 +1,9 @@
 import { readFileSync } from "node:fs";
 
 const index = readFileSync(new URL("../demo/index.html", import.meta.url), "utf8");
+const support = readFileSync(new URL("../demo/support.html", import.meta.url), "utf8");
+const privacy = readFileSync(new URL("../demo/privacy.html", import.meta.url), "utf8");
+const terms = readFileSync(new URL("../demo/terms.html", import.meta.url), "utf8");
 const favicon = readFileSync(new URL("../demo/favicon.svg", import.meta.url), "utf8");
 const pluginLogo = readFileSync(new URL("../plugins/dashgpt/assets/logo.svg", import.meta.url), "utf8");
 const manifest = JSON.parse(readFileSync(new URL("../demo/site.webmanifest", import.meta.url), "utf8"));
@@ -12,10 +15,14 @@ function requireText(haystack, needle, label) {
 
 const title = "DashGPT — Save, find and continue useful AI work";
 const description = "DashGPT keeps useful outcomes from AI conversations as cards so you can find them and continue your work later.";
+const faviconLink = '<link rel="icon" href="/demo/favicon.svg" type="image/svg+xml" />';
 
 requireText(index, `<title>${title}</title>`, "document title");
 requireText(index, `<meta name="description" content="${description}" />`, "meta description");
-requireText(index, '<link rel="icon" href="/demo/favicon.svg" type="image/svg+xml" />', "favicon link");
+requireText(index, faviconLink, "favicon link");
+for (const [name, html] of [["support", support], ["privacy", privacy], ["terms", terms]]) {
+  requireText(html, faviconLink, `${name} favicon link`);
+}
 requireText(index, '<link rel="manifest" href="/demo/site.webmanifest" />', "manifest link");
 requireText(index, '<link rel="canonical" href="/demo/" />', "canonical link");
 requireText(index, '<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1" />', "robots meta");
