@@ -74,6 +74,14 @@ function activeCardCount() {
   return document.querySelectorAll("#resultsGrid .result-card[data-result-id]").length;
 }
 
+function ensurePopulatedHomeControlsVisible() {
+  if (!isHomeRoute() || activeCardCount() === 0) return;
+  const dashboard = document.querySelector("#dashboardView");
+  const controls = dashboard?.querySelector(":scope > .controls");
+  if (dashboard?.hidden) dashboard.hidden = false;
+  if (controls?.hidden) controls.hidden = false;
+}
+
 function ensureCanonicalHomeShell() {
   if (!isHomeRoute() || document.querySelector("#unifiedDashContext")) return false;
   const dashboard = document.querySelector("#dashboardView");
@@ -162,6 +170,7 @@ function syncRouteEnhancements() {
     restoreSavedDashQuery();
     return;
   }
+  ensurePopulatedHomeControlsVisible();
   if (ensureCanonicalHomeShell()) return;
   ensureOriginScopeControl();
 }
@@ -195,6 +204,10 @@ document.addEventListener("input", event => {
   }
   scheduleRouteSync();
 });
+
+document.addEventListener("toggle", event => {
+  if (event.target instanceof HTMLDetailsElement && event.target.classList.contains("my-dashes-menu")) scheduleRouteSync();
+}, true);
 
 window.addEventListener("popstate", scheduleRouteSync);
 window.addEventListener("load", scheduleRouteSync, { once: true });
