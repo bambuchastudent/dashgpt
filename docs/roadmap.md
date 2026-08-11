@@ -1,224 +1,196 @@
 # DashGPT — Roadmap
 
-This roadmap is intentionally high-level. Detailed work belongs in OpenSpec changes/specs.
+This roadmap is intentionally high-level. Detailed implementation belongs in dedicated OpenSpec changes and PRs.
 
-## M0 — Project bootstrap
+Status vocabulary matters:
 
-Goal: make the repository understandable and operable by multiple AI providers without relying on chat history.
+- **merged** = code is in `develop`;
+- **deployed** = a deployment containing that code is verified;
+- **product verified** = the user-facing behavior was explicitly accepted in the relevant environment;
+- **planned/proposed** = do not describe as working.
 
-Status: **complete enough to proceed**.
+## Product spine
 
-## M1 — Local-first Result vertical slice
+DashGPT is converging on one product spine:
 
-Goal: prove the core product loop locally with no cloud dependency.
+`Capture → canonical Cards → Find / Semantic Gallery → save/reopen Dashes → Structured Continue → optional storage/sync`
 
-Scope:
+For developer workflows, project-local memory may extend that spine without replacing canonical cards.
 
-- Result domain model
-- local persistence
-- create/import Result
-- browse/open Results
-- basic search
-- favorites
-- Context Pack generation/export
-- minimal usable laptop/mobile-responsive web UI
+Current product terminology is **Card**. Legacy `Result` names remain in current implementation contracts and historical changes until separately migrated.
 
-Exit criterion: a user can save a useful outcome and export enough context to continue it elsewhere.
+## Foundation — merged
 
-Status: **merged into `develop`**.
+### M0 — repository/spec-driven bootstrap
 
-## Tactical Feature 2 — Shared chat → published Result
+Repository, durable product/development summaries, OpenSpec workflow and CI foundations are established.
 
-Goal: prove ingestion of a real AI conversation before building the full API/MCP import layer.
+### M1 — local-first memory vertical slice
 
-Target flow:
+The original implementation proved local create/import, persistence, browsing/search, favorites/details and continuation/export using the legacy `Result` model.
 
-public ChatGPT shared link → assistant/agent summary → published DashGPT Result → searchable card with source provenance.
+Status: **merged historical foundation**. Product language has since moved to canonical Cards.
 
-Status: **merged into `develop` and proven with a real shared chat**.
+### Feature 2 — shared chat → published memory
 
-## Tactical Feature 3 — Immutable Result pages + DashGPT ChatGPT plugin MVP
+Proved ingestion/distillation of real shared AI conversations with source provenance.
 
-Goal: turn the useful internal demo into something that can be shown and connected as a real product surface.
+Status: **merged historical capture path**.
 
-Scope:
+### Feature 3 — immutable pages + MCP foundation
 
-- stable `/demo/result/<id>/` pages
-- one shared renderer so presentation updates apply to old Result pages
-- immutable-content flag plus content digest and CI/browser verification
-- another real shared-chat Result published as a standalone page
-- per-instance MCP endpoint
-- ChatGPT reads Results and Context Packs from the connected instance
-- ChatGPT can distill the current conversation and prepare an explicit immutable Result import for the connected instance
-- plugin package with stable identity `dashgpt`
-- ChatGPT developer-mode connection
-- second-person / second-instance demo proving the integration is not hard-coded to the developer site
+Established stable standalone legacy Result pages, shared rendering, immutable-content verification and the first MCP/ChatGPT integration foundation.
 
-This tactical MVP proved the integration shape; later storage work removes the assumption that a personal deployed site is required before first use.
+Status: **merged**.
 
-## M2 — Project state and human summaries
+## Storage / ownership track
 
-Goal: make DashGPT explain current state, especially on a phone.
+### Feature 6 — zero-install privacy and portable storage
 
-Scope candidates:
+Established the provider-neutral Vault direction and explicit boundary between AI-provider context and DashGPT-owned durable memory.
 
-- Project entity/state
-- concise/normal/detailed summary representations
-- current / done / next / blockers
-- related Results and sources
-- deterministic fallback summaries without mandatory LLM API
+Merged slices:
 
-The Living Product Board is an intentional dogfooding slice of this direction: it proves structured delivery-state summaries using ordinary Result cards and a saved Semantic Dash before a broader Project entity is required.
+- architecture/privacy boundary — PR #11;
+- local Vault core/migration — PR #12;
+- GitHub adapter — PR #13;
+- public GitHub App identity/status follow-ups — PRs #14/#16.
 
-## M3 — MCP core
+Remaining external gate:
 
-Goal: expose DashGPT knowledge and continuation context to replaceable agents.
+- configure protected production GitHub secrets;
+- run one real private disposable-repository pair → sync → idempotent re-sync → disconnect smoke test.
 
-Scope candidates:
+Future storage capabilities such as Google Drive, explicit Profile and broader provider switching/mirroring should be split into dedicated future OpenSpec changes rather than treated as already delivered by the umbrella Feature 6 change.
 
-- search/get/create/update Result
-- get project state
-- generate/get Context Pack
-- related/context retrieval
-- local authentication/authorization boundary as required
+## Semantic memory / continuation — merged
 
-Tactical Feature 3 implements the first MCP subset early so the ChatGPT MVP can be tested before the full MCP milestone.
+### Feature 7 — Semantic Dashes
 
-## M4 — ChatGPT and external-agent integration
+Saved, reference-only semantic views with Review-mode refresh and user overrides.
 
-Goal: use the same DashGPT core from ChatGPT and other MCP-capable clients.
+Status: **merged via PR #18**.
 
-Scope candidates:
+### Feature 8 — Semantic Gallery UX
 
-- production ChatGPT plugin integration
-- save Result from conversation
-- retrieve DashGPT context from conversation
-- continue/new-chat/export UX
-- validate Claude/Codex/OpenCode interoperability
+Deterministic semantic neighborhoods/activity ordering and density/zoom behavior.
 
-## Tactical Feature 6 — Zero-install privacy, personalization and portable sync
+Status: **merged via PR #19**.
 
-Goal: make first use begin in chat while durable DashGPT data remains private, portable and user-owned.
+### Structured Chat Continuation
 
-Target experience:
+Bounded, inspectable Continuation Brief with privacy/prompt-injection boundaries, exact preview/copy and transport fallback.
 
-`start chat -> use DashGPT immediately -> paste a storage link or choose local vault -> authorize only that provider -> sync`
+Status: **merged via PR #20**.
 
-Scope is split into implementation slices:
+### Feature 9 — Product Board dogfooding
 
-- Vault v1 core and migration away from direct browser `localStorage` coupling
-- local/browser + local filesystem/local Git storage boundary
-- GitHub synchronization adapter
-- Google Drive synchronization adapter
-- explicit DashGPT Profile separate from inferred ChatGPT context
-- storage-link discovery and minimal pairing UX
-- local-first offline queue and conflict-preserving synchronization
-- refactor compatible DashGPT instances onto the same storage/vault model
+Uses the existing Semantic Dash + card/legacy-Result records to represent DashGPT product delivery state rather than a separate hand-maintained status database.
 
-Privacy constraints:
+Status: **merged via PR #21**.
 
-- ChatGPT Memory/Project context may personalize the interaction but is not the DashGPT Result database
-- raw chats are not synchronized by default
-- cloud sync is opt-in
-- provider credentials never enter the portable vault
-- immutable Result conflicts are preserved rather than silently overwritten
+Product-model note: Product Board is one specialized Dash/view, not a separate canonical product entity.
 
-Status: **architecture, Vault v1 core and GitHub synchronization implementation are merged; production GitHub activation remains an external secret/configuration smoke-test gate**.
+## Onboarding / Share reliability — merged
 
-## Tactical Feature 7 — Semantic Dashes
+A sequence of narrowly scoped changes hardened the public/chat-first capture path:
 
-Goal: let a user treat Results from multiple conversations as one living topic without copying or merging the underlying Results.
+- Feature 10 — public own-chat onboarding — PR #24;
+- Feature 11 — shared-chat fetch hardening — PR #25;
+- Feature 12 — visible rendered-DOM fallback — PR #26;
+- Feature 13 — avoid predictable direct 403 path — PR #27;
+- Feature 14 — chat-first onboarding — PR #28;
+- Feature 15 — anonymous Share resolver — PR #30;
+- Feature 16 — current public Share JSON/backend resolver — PR #31;
+- Feature 17 — permanent parser/browser/live-smoke regression safety net — PR #32.
 
-MVP scope:
+Status: **merged into `develop` through Feature 17**.
 
-- saved Dash entity with reference-only membership
-- semantic topic preview and explicit save
-- fuzzy reopening from natural chat commands
-- Review-mode refresh with proposals
-- pin, exclude and manual-add overrides
-- aggregate summary derived only from currently accessible Results
-- dashboard, current-chat/MCP and source-continuation surfaces
-- backward-compatible Vault v1 persistence and deterministic verification
+Product direction remains direct AI conversation → distill → save/update card. Share parsing is a fallback/additional capture path, not the architectural foundation.
 
-Automatic update mode remains architecturally possible but disabled in this first change. Private Vault access from a hosted ChatGPT tool remains behind the authenticated storage/runtime work; the public MCP surface can use only an instance's intentionally exposed catalog.
+## Public ChatGPT App track — external release gate
 
-Status: **merged into `develop` via PR #18 (`f7-semantic-dashes`)**.
+Feature 4 implementation/submission artifacts are in `develop`. Publisher identity is already verified according to its current task state.
 
-## Tactical Feature 8 — Semantic Gallery UX
+Still incomplete:
 
-Goal: make Results and Dash selections feel like a semantic visual memory rather than a static list while keeping membership and topic identity stable.
+- create/finalize the public DashGPT submission in the current OpenAI Platform flow;
+- complete domain/tool review and submit;
+- approval/publication;
+- second-user acceptance against separate user-controlled data.
 
-Scope:
+Do not call the public-app MVP complete until those external acceptance steps occur.
 
-- deterministic semantic grouping/neighbourhoods
-- stable layout under activity changes
-- within-topic activity ordering
-- five density/zoom levels
-- shared Gallery rendering for Results and Dash selections
-- deterministic regressions for layout and density contracts
+## Active open feature work — not in `develop`
 
-Status: **merged into `develop` via PR #19 (`f8-semantic-gallery-ux`)**. Stable deployment and physical touch/trackpad product verification remain separate acceptance evidence rather than being inferred from merge state.
+### Feature 18 — Unified Card Dashboard / `My Dash`
 
-## Tactical Feature — Structured Chat Continuation
+PR #33, OpenSpec `f18-unified-card-dashboard` on its feature branch.
 
-Goal: make `Continue in new chat` transfer a bounded, inspectable Continuation Brief rather than an ad-hoc title/summary prompt.
+Direction:
 
-Scope belongs to its dedicated OpenSpec change and PR and includes provider transport, byte-budget/fallback behaviour, privacy/prompt-injection boundaries, exact preview and continuation activity semantics.
+- make canonical cards the visible home/search/Dash surface;
+- use `My Dash` / `Мой Dash` as the virtual default home view;
+- remove separate Living Topics/Results product surfaces from the user model;
+- save useful semantic selections as Dashes;
+- keep the active saved Dash visible.
 
-Status: **merged into `develop` via PR #20 under the strictly validated `openspec/changes/structured-chat-continuation/` change; automated and desktop/mobile browser gates are green**.
+Status: **open draft PR; not merged, not shipped**.
 
-## Tactical Feature 9 — Living Product Board
+### Feature 19 — Project-local Developer Memory
 
-Goal: dogfood DashGPT as its own product memory and eliminate the separately maintained product-status snapshot.
+PR #34, OpenSpec `f19-project-local-developer-memory` on its feature branch.
 
-MVP scope:
+Direction:
 
-- evolve the existing `dashgpt-product` Semantic Dash rather than create a parallel ProductBoard entity
-- stable canonical `/demo/dash/dashgpt-product/` route with `/demo/dash/` compatibility
-- product topics as immutable Result cards with stable IDs and explicit delivery status
-- computed status summary and freshness/provenance
-- deterministic Review-mode GitHub/deployment reconciliation proposals
-- no invisible Automatic mutation
-- structured board continuation package
-- visible discovery from the normal dashboard and Dash catalog
-- explicit storage slices instead of one ambiguous storage `done` state
+- provider-neutral `.dashgpt` project-memory contract;
+- cards remain canonical memory;
+- sessions are optional evidence;
+- Project State becomes the developer-oriented summary/view;
+- future coding-agent capture remains explicitly separate/planned.
 
-Status: **merged into `develop` via PR #21 under strictly validated `openspec/changes/f9-living-product-board/`; combined repository and Chromium browser gates passed before merge, while stable deployment/product acceptance remain separate gates**.
+Status: **open PR/prototype; not merged, not shipped**.
 
-## M5 — Optional private quick deploy
+## Established future directions — require dedicated scopes
 
-Goal: a non-DevOps user who wants a hosted personal instance can deploy one with minimal setup.
+These are product directions, not implementation claims:
 
-Target experience:
+### Zero-friction mobile demo
 
-GitHub + Cloudflare accounts → guided setup → protected DashGPT instance.
+New users should immediately see populated useful cards/Semantic Gallery and understand the product before storage/MCP/Vault internals.
 
-This is an optional advanced/self-hosted path, not the standard first-use requirement.
+### Direct AI capture
 
-Constraints:
+Normal AI conversation → distill → review → real save/update card through the integration. A command such as `dashgpt добавь карточку` must persist through the integration when available, not merely print sample JSON/text.
 
-- cloud remains optional
-- private-by-default
-- hosted storage adapters must not redefine the core domain model
-- self-hosted/local parity remains possible
+### Mobile Share Sheet / Shortcuts
 
-## M6 — Rich knowledge layer
+Additional low-friction capture into the same card model.
 
-Potential scope after the core loop is proven:
+### Bulk browser import
 
-- image-first Results and richer assets
-- automatic category/topic summaries
-- relationship graph
-- version history
-- richer provenance
-- selective sharing/publication
-- old-chat import pipelines
-- smarter context-size selection and relevance ranking
+Migration/bootstrap for existing history. It should be resumable/idempotent, avoid duplicated cards across retries and make progress/recovery understandable. It must remain secondary to direct AI capture.
+
+### Card merge
+
+A synthesized card may combine useful context from multiple cards while preserving originals as source-of-truth evidence. Originals should be de-prioritized/grouped rather than deleted and may participate in later merges.
+
+### Additional storage/provider work
+
+Google Drive and other user-controlled providers over the same portable memory model; storage implementation must not redefine Cards/Dashes.
+
+### Semantic navigation / localization
+
+Richer semantic navigation and broader product localization remain separate capabilities.
+
+### Authenticated private-memory agent access
+
+Hosted agents should eventually access a user's private paired memory through an explicit authenticated boundary, not by weakening the public instance protocol.
 
 ## Current delivery intent
 
-**Active:** stable-production verification and the next separately specified product slice.
-
-Semantic Dashes PR #18, Semantic Gallery UX PR #19, Structured Chat Continuation PR #20 and Living Product Board PR #21 are merged. Feature 6 production GitHub activation remains an explicit external gate rather than a merged-code status. Semantic Navigator, Localization, Developer Fast Path, Chat-to-Result capture, Google Drive, provider mirroring and authenticated private-Vault access remain separate future changes and require their own OpenSpec scope.
-
-Feature 6's production GitHub activation and the public plugin release remain external tracks. Semantic Gallery is already merged via PR #19 and remains a separate presentation capability rather than continuation scope.
+1. Keep documentation/OpenSpec/repository state truthful as the product moves from legacy Result terminology to canonical Cards.
+2. Review and merge Feature 18 and Feature 19 independently only when their own OpenSpec/verification gates are satisfied.
+3. Keep Feature 4 public release and Feature 6 production GitHub activation as explicit external tracks.
+4. Prepare future capabilities as separate GitHub Issue/OpenSpec/PR scopes rather than widening active work.
+5. Preserve the central product priority: a normal user can save useful AI outcomes as cards, find them and continue later without understanding storage infrastructure.
