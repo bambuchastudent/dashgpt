@@ -9,6 +9,14 @@ const STATE_DECLARATION = "  let unresolved = 0;";
 const SUCCESS_HOOK = "        if (detail) scheduler.succeeded();";
 const THROTTLE_HOOK = "        scheduler.throttled(delay);\n        setSourceState(\"waiting\",";
 const HANDSHAKE_HOOK = "    postToReceiver({ type: \"HELLO\", sourceVersion });\n    const ready = await waitForReply(\"READY\", () => true, 5000);";
+const SAFARI_SAFE_COLORS = new Map([
+  ["#111827", "rgb(17, 24, 39)"],
+  ["#f8fafc", "rgb(248, 250, 252)"],
+  ["#cbd5e1", "rgb(203, 213, 225)"],
+  ["#475569", "rgb(71, 85, 105)"],
+  ["#1f2937", "rgb(31, 41, 55)"],
+  ["#fff", "rgb(255, 255, 255)"]
+]);
 
 function injectBridgeState(runner) {
   for (const needle of [STATE_DECLARATION, SUCCESS_HOOK, THROTTLE_HOOK, HANDSHAKE_HOOK]) {
@@ -34,6 +42,13 @@ function injectBridgeState(runner) {
     );
 }
 
+function makeSafariConsoleSafe(runner) {
+  let output = runner;
+  for (const [hex, rgb] of SAFARI_SAFE_COLORS) output = output.replaceAll(hex, rgb);
+  if (output.includes("#")) throw new Error("Generated ChatGPT import runner still contains a hash character");
+  return output;
+}
+
 export function buildChatGptHistorySourceRunner(options) {
-  return injectBridgeState(buildCoreRunner(options));
+  return makeSafariConsoleSafe(injectBridgeState(buildCoreRunner(options)));
 }
