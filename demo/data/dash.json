@@ -8,10 +8,10 @@
       "title": "NOW",
       "lines": [
         "**Active delivery:** card-first product consolidation plus independent open feature work.",
-        "- Current `develop` contains merged implementation through Feature 17 / PR #32.",
+        "- Current `develop` contains merged production implementation through Feature 17 / PR #32.",
         "- PR #33 (`f18-unified-card-dashboard`) is an open draft for the unified Card / `My Dash` surface; it is not merged.",
         "- PR #34 (`f19-project-local-developer-memory`) is an open project-local developer-memory prototype; it is not merged.",
-        "- Documentation/OpenSpec source-of-truth reconciliation is updating README/docs/OpenSpec guidance without changing production behavior.",
+        "- Canonical README/docs/OpenSpec guidance has been reconciled to the card-first model in PR #39.",
         "- Feature 4 public ChatGPT App release remains an external submission/approval/second-user acceptance track.",
         "- Feature 6 GitHub production activation still requires protected Worker secrets plus one real private-repository acceptance smoke test."
       ]
@@ -34,7 +34,8 @@
         "- Feature 14 chat-first onboarding merged via PR #28.",
         "- Feature 15 anonymous Share resolver merged via PR #30.",
         "- Feature 16 current public Share JSON/backend resolver merged via PR #31.",
-        "- Feature 17 permanent Share regression safety net merged via PR #32."
+        "- Feature 17 permanent Share regression safety net merged via PR #32.",
+        "- Documentation/OpenSpec source-of-truth reconciliation completed in PR #39."
       ]
     },
     {
