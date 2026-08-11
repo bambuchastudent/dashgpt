@@ -10,11 +10,29 @@ The prototype deliberately separates three concerns:
 
 Raw sessions are optional evidence, not the primary retrieval surface.
 
+The first renderer iteration grouped cards semantically but made project comprehension too indirect. The revised renderer therefore treats **current project state** as the first visual question and semantic neighborhoods as a secondary organizing signal.
+
 ## Design Principles
 
 ### Cards are memory; sessions are evidence
 
 A session can be discarded without destroying the project knowledge already distilled into cards. A card may reference one or more sessions, commits, pull requests, files or tests as evidence.
+
+### Project state is derived from cards, not a second task system
+
+Developer cards can carry optional `workstream`, `stage`, `stageLabel`, `progress[]` and `priority` metadata. The renderer derives Now/Shipped/Next and workstream views from those same cards. No parallel project-item entity is introduced.
+
+### Current state before archive
+
+The initial viewport should answer, in order:
+
+1. What is DashGPT building now?
+2. What user capability does each active change add?
+3. What is already shipped?
+4. What is next?
+5. How does this work compose into the product?
+
+Only after that should the user need to inspect individual evidence, sessions or historical timelines.
 
 ### AI-readable without DashGPT
 
@@ -60,6 +78,7 @@ The prototype fixture is a single JSON document mirroring the same logical model
 - `summary`
 - `branch`
 - `updatedAt`
+- optional `productSpine[]` describing the current product flow in human terms
 
 ### Card
 
@@ -73,7 +92,12 @@ Required:
 - `createdAt`
 - `updatedAt`
 
-Developer metadata is optional:
+Developer/project-state metadata is optional:
+- `workstream` — human project area such as Memory, Capture, Experience, Reliability, Developer Tools
+- `stage` — `shipped`, `active`, `prototype`, `next`, or another portable stage token
+- `stageLabel` — verified human-facing state such as `PR #34 · ready` or `In develop`
+- `priority` — deterministic display priority inside a stage/workstream
+- `progress[]` — compact verified milestones (`OpenSpec ✓`, `Code ✓`, `Tests ✓`, `Merge pending`)
 - `problem`
 - `decision`
 - `outcome`
@@ -105,11 +129,19 @@ The prototype intentionally does not include full raw transcripts.
 
 ## Visual Architecture
 
-The new standalone route loads one fixture and renders four views without changing the main dashboard.
+The standalone route loads one fixture and renders four views without changing the main dashboard.
 
-### Project Map
+### Project State (primary)
 
-Cards are grouped into semantic neighborhoods. Within each neighborhood the renderer shows status, outcome identity and relationship hints. Selecting a card opens a detail panel with causal history and evidence.
+The first view has three layers.
+
+**Product spine** — a compact horizontal/stacked explanation of how DashGPT capabilities compose into user value, e.g. Capture → Cards → Semantic organization → Continue → Developer memory.
+
+**Now** — active cards shown prominently with human outcome copy and a visible progress/evidence rail. An active change must be understandable without opening the card.
+
+**Workstreams** — cards grouped by human project area. Each card shows stage, concise outcome and relevant evidence label. Semantic hue remains a visual accent rather than the main structure.
+
+A small Shipped / Active / Next summary makes the project trajectory legible at a glance.
 
 ### Timeline
 
@@ -117,11 +149,15 @@ Cards are ordered by meaningful project timestamps and rendered as semantic work
 
 ### Results
 
-Results are derived from the same cards, grouped by status/kind, so no parallel Result entity is introduced.
+Results are derived from the same cards, grouped by stage/status/kind, so no parallel Result entity is introduced.
 
 ### Sessions
 
 Sessions show which clients contributed to the project and which canonical cards were distilled from them. They are visually secondary to outcomes.
+
+## Card Detail
+
+Selecting any project-state card opens the existing engineering detail path: problem → decision → outcome, code/files, evidence, contributing sessions and explicit relations. The primary view must not depend on this detail panel to explain what the active work is doing.
 
 ## Renderer Boundary
 
@@ -150,8 +186,10 @@ No existing card schema, immutable hash, Vault event, Semantic Dash, search sele
 ## Verification
 
 Browser tests verify:
-- all four views render;
-- project map cards are based on fixture cards;
+- Project State is the default view;
+- active work is visible without opening a card and exposes human outcome + progress state;
+- product spine and workstreams render from fixture data;
+- Timeline, Results and Sessions reuse the same canonical cards;
 - selecting a card exposes decision/outcome/evidence;
 - session provenance links back to canonical cards;
 - 390px mobile rendering has no horizontal overflow;
