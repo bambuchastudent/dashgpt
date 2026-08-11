@@ -17,6 +17,10 @@ function t(key, values = {}) {
   return unifiedDashText(key, values, { locale: locale() });
 }
 
+function setText(node, value) {
+  if (node && node.textContent !== value) node.textContent = value;
+}
+
 function dashRouteId() {
   const match = window.location.pathname.match(/^\/demo\/dashes\/([^/]+)\/?$/);
   return match ? decodeURIComponent(match[1]) : null;
@@ -87,9 +91,9 @@ function ensureOriginScopeControl() {
   const eyebrow = context.querySelector("#dashContextEyebrow");
   const meta = context.querySelector("#dashContextMeta");
   const query = input.value.trim();
-  if (eyebrow) eyebrow.textContent = t("notSaved");
-  if (title) title.textContent = `${t("selection")}: ${query || t("allCards")}`;
-  if (meta) meta.textContent = `${t("selectionMeta", { count: activeCardCount() })} · Dash: ${revision.title}`;
+  setText(eyebrow, t("notSaved"));
+  setText(title, `${t("selection")}: ${query || t("allCards")}`);
+  setText(meta, `${t("selectionMeta", { count: activeCardCount() })} · Dash: ${revision.title}`);
 
   for (const item of context.querySelectorAll(".my-dash-item")) {
     item.classList.toggle("active", item.getAttribute("href") === `/demo/dashes/${encodeURIComponent(dashId)}/`);
