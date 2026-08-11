@@ -20,6 +20,14 @@ function publishedCatalogAllowed() {
   return /^\/demo\/(?:result|dash)\//.test(window.location.pathname);
 }
 
+function chatGptHistoryImportAllowed() {
+  const params = new URLSearchParams(window.location.search);
+  if (!/^\/demo\/?$/.test(window.location.pathname) || params.get("showcase") === "1") return false;
+  if (params.get("chatgptImportReceiver") === "1") return true;
+  const local = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+  return local ? params.get("personal") === "1" : true;
+}
+
 function emptyCatalogResponse() {
   return new Response("[]", {
     status: 200,
@@ -84,6 +92,22 @@ if (!document.querySelector('link[data-dashgpt-unified-dashboard]')) {
   document.head.append(stylesheet);
 }
 
+const feature20PersonalEntry = chatGptHistoryImportAllowed();
+let chatGptHistoryImport = null;
+if (feature20PersonalEntry) {
+  // Install the import-only batch fast path before the regular lifecycle
+  // receiver. It owns validated BATCH messages and leaves HELLO/discovery/
+  // pause/completion to the canonical Feature 20 controller.
+  const chatGptBatchFastPath = await import("./chatgpt-history-import-batch.js");
+  chatGptBatchFastPath.installChatGptImportBatchFastPath();
+
+  // Feature 20 seeds the one default import card before app.js and the clean-user
+  // onboarding make their empty/non-empty decision. The same module also arms the
+  // bounded cross-window receiver before any ChatGPT source runner can connect.
+  chatGptHistoryImport = await import("./chatgpt-history-import.js");
+  chatGptHistoryImport.initializeChatGptHistoryImport({ phase: "pre-app" });
+}
+
 await import("./app.js");
 await import("./share-link-compat.js");
 await import("./public-onboarding.js");
@@ -94,3 +118,10 @@ await import("./unified-onboarding.js");
 await import("./unified-search.js");
 await import("./unified-dashboard-routing.js");
 await import("./unified-product-board.js");
+
+if (chatGptHistoryImport) {
+  // App/gallery ownership remains with the existing canonical renderer. Feature
+  // 20 only decorates its one operational card and adds the explicit restore
+  // action for already-populated Vaults.
+  chatGptHistoryImport.initializeChatGptHistoryImport({ phase: "post-app" });
+}

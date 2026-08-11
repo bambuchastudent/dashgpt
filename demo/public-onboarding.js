@@ -8,6 +8,7 @@ import {
 
 const params = new URLSearchParams(window.location.search);
 const isPersonalRoot = /^\/demo\/?$/.test(window.location.pathname) && params.get("showcase") !== "1";
+const CHATGPT_IMPORT_RESULT_ID = "dashgpt-chatgpt-history-import";
 
 const DASHGPT_CAPTURE_COMMAND = `DashGPT. Подготовь полезный итог ЭТОГО текущего разговора для сохранения.
 Верни только один JSON-объект без markdown, пояснений и code fence:
@@ -43,6 +44,8 @@ if (isPersonalRoot) {
 
   const load = () => loadBrowserVault(globalThis.localStorage);
   const ownResults = () => materializeResults(load().vault);
+  const userResults = () => ownResults().filter(result => result.id !== CHATGPT_IMPORT_RESULT_ID);
+  const hasImportCard = () => ownResults().some(result => result.id === CHATGPT_IMPORT_RESULT_ID);
 
   function make(tag, options = {}) {
     const node = document.createElement(tag);
@@ -173,8 +176,9 @@ if (isPersonalRoot) {
     const dashEmpty = document.querySelector("#dashesEmpty");
     setText(summaryTitle, "Здесь остаётся то, к чему стоит вернуться.");
     if (summaryText) {
-      const count = ownResults().length;
-      setText(summaryText, count === 1 ? "1 сохранённая карточка из твоего разговора." : `${count} сохранённых карточек из твоих разговоров.`);
+      const count = userResults().length;
+      if (count === 0 && hasImportCard()) setText(summaryText, "Начни с импорта старых чатов или сохрани текущий разговор — обе возможности уже готовы.");
+      else setText(summaryText, count === 1 ? "1 сохранённая карточка из твоего разговора." : `${count} сохранённых карточек из твоих разговоров.`);
     }
     setText(resultsTitle, "Твои карточки");
     if (dashEmpty) {
@@ -190,7 +194,7 @@ if (isPersonalRoot) {
     if (storageButton) storageButton.hidden = true;
 
     let welcome = document.querySelector("#publicWelcome");
-    if (welcome) return;
+    if (welcome) return welcome;
 
     welcome = make("section", { className: "public-welcome" });
     welcome.id = "publicWelcome";
@@ -293,10 +297,23 @@ if (isPersonalRoot) {
       });
       window.location.replace("/demo/");
     });
+    return welcome;
   }
 
-  if (ownResults().length === 0) renderWelcome();
-  else {
+  if (userResults().length === 0) {
+    const welcome = renderWelcome();
+    if (hasImportCard()) {
+      // Bulk migration is a secondary bootstrap path, so keep the normal
+      // chat-first capture instructions available while showing the default
+      // import card in the canonical My Dash above them.
+      dashboard.hidden = false;
+      if (addButton) addButton.hidden = false;
+      if (storageButton) storageButton.hidden = false;
+      const gallery = document.querySelector("#galleryRegion");
+      if (gallery && welcome) gallery.after(welcome);
+      humanizeDashboard();
+    }
+  } else {
     dashboard.hidden = false;
     if (addButton) addButton.hidden = false;
     if (storageButton) storageButton.hidden = false;

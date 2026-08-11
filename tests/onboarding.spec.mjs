@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 const VAULT_KEY = "dashgpt.demo.vault.v1";
+const IMPORT_ID = "dashgpt-chatgpt-history-import";
 const SHARE_URL = "https://chatgpt.com/share/6a7a445b-a420-83ea-9c36-3c10fd1ce85f";
 
 const RESULT_ENVELOPE = `\`\`\`json
@@ -26,6 +27,10 @@ function watchSharedChatRequests(page) {
   return () => calls;
 }
 
+function userStoredResults(results) {
+  return results.filter(result => result.id !== IMPORT_ID);
+}
+
 test("clean personal entry is chat-first and offers anonymous Share fallback without scraping automatically", async ({ page }) => {
   const sharedChatCalls = watchSharedChatRequests(page);
   await page.goto("/demo/?personal=1");
@@ -37,19 +42,20 @@ test("clean personal entry is chat-first and offers anonymous Share fallback wit
   await expect(page.locator("#anonymousShareUrl")).toBeVisible();
   await expect(page.getByRole("button", { name: "Понять этот чат" })).toBeVisible();
   await expect(page.locator("#publicShareUrl")).toHaveCount(0);
-  await expect(page.locator(".result-card")).toHaveCount(0);
+  await expect(page.locator(".result-card")).toHaveCount(1);
+  await expect(page.locator(`[data-result-id="${IMPORT_ID}"]`)).toBeVisible();
   await expect(page.getByText("Ночёвка с палаткой для рыбалки", { exact: false })).toHaveCount(0);
-  await expect(page.locator("#storageButton")).toBeHidden();
 
   const storedResults = await page.evaluate(key => {
     const vault = JSON.parse(localStorage.getItem(key));
     return vault?.results || [];
   }, VAULT_KEY);
-  expect(storedResults).toHaveLength(0);
+  expect(storedResults.filter(result => result.id === IMPORT_ID)).toHaveLength(1);
+  expect(userStoredResults(storedResults)).toHaveLength(0);
   expect(sharedChatCalls()).toBe(0);
 });
 
-test("pasted ChatGPT Result envelope creates only the visitor's first card", async ({ page }) => {
+test("pasted ChatGPT Result envelope creates only the visitor's first user card", async ({ page }) => {
   const sharedChatCalls = watchSharedChatRequests(page);
   await page.goto("/demo/?personal=1");
 
@@ -65,22 +71,20 @@ test("pasted ChatGPT Result envelope creates only the visitor's first card", asy
   await page.waitForURL(/\/demo\/$/);
 
   await expect(page.locator("#publicWelcome")).toHaveCount(0);
-  await expect(page.locator(".result-card")).toHaveCount(1);
+  await expect(page.locator(".result-card")).toHaveCount(2);
   await expect(page.locator(".result-card")).toContainText("Мой план на выходные");
   await expect(page.getByText("Ночёвка с палаткой для рыбалки", { exact: false })).toHaveCount(0);
 
-  const stored = await page.evaluate(key => {
-    const vault = JSON.parse(localStorage.getItem(key));
-    return vault.results;
-  }, VAULT_KEY);
-  expect(stored).toHaveLength(1);
-  expect(stored[0].title).toBe("Мой план на выходные");
-  expect(stored[0].category).toBe("Выходные");
-  expect(stored[0].decisions).toEqual(["Без лишних переездов"]);
-  expect(stored[0].userPreferences).toEqual(["Спокойный темп"]);
-  expect(stored[0].next).toBe("Сходить на рынок утром.");
-  expect(stored[0].source).toEqual({ type: "chatgpt-handoff", title: "ChatGPT conversation" });
-  expect(stored[0].source.url).toBeUndefined();
+  const stored = await page.evaluate(key => JSON.parse(localStorage.getItem(key)).results, VAULT_KEY);
+  expect(stored.filter(result => result.id === IMPORT_ID)).toHaveLength(1);
+  const [userCard] = userStoredResults(stored);
+  expect(userCard.title).toBe("Мой план на выходные");
+  expect(userCard.category).toBe("Выходные");
+  expect(userCard.decisions).toEqual(["Без лишних переездов"]);
+  expect(userCard.userPreferences).toEqual(["Спокойный темп"]);
+  expect(userCard.next).toBe("Сходить на рынок утром.");
+  expect(userCard.source).toEqual({ type: "chatgpt-handoff", title: "ChatGPT conversation" });
+  expect(userCard.source.url).toBeUndefined();
   expect(sharedChatCalls()).toBe(0);
 });
 
@@ -109,18 +113,19 @@ test("anonymous ?share mobile handoff resolves, previews, and saves the visitor 
   expect(requestedUrl).toBe(SHARE_URL);
   await expect(page.locator("#anonymousShareTitle")).toHaveValue("Картошка в аэрогриле");
   await expect(page.locator("#anonymousShareSummary")).toHaveValue(/Нарежь картошку/);
-  await expect(page.locator(".result-card")).toHaveCount(0);
+  await expect(page.locator(".result-card")).toHaveCount(1);
 
   await page.locator("#anonymousShareSave").click();
   await page.waitForURL(/\/demo\/$/);
   await expect(page.locator("#publicWelcome")).toHaveCount(0);
-  await expect(page.locator(".result-card")).toHaveCount(1);
+  await expect(page.locator(".result-card")).toHaveCount(2);
   await expect(page.locator(".result-card")).toContainText("Картошка в аэрогриле");
   await expect(page.getByText("Ночёвка с палаткой для рыбалки", { exact: false })).toHaveCount(0);
 
   const stored = await page.evaluate(key => JSON.parse(localStorage.getItem(key)).results, VAULT_KEY);
-  expect(stored).toHaveLength(1);
-  expect(stored[0].source).toEqual({ type: "chatgpt-share", url: SHARE_URL, title: "Картошка в аэрогриле" });
+  expect(stored.filter(result => result.id === IMPORT_ID)).toHaveLength(1);
+  const [userCard] = userStoredResults(stored);
+  expect(userCard.source).toEqual({ type: "chatgpt-share", url: SHARE_URL, title: "Картошка в аэрогриле" });
 });
 
 test("manual Share fallback normalizes mobile links, survives one transient resolver failure, and can retry", async ({ page }) => {
@@ -165,7 +170,7 @@ test("manual Share fallback normalizes mobile links, survives one transient reso
 
   await expect(page.locator("#anonymousShareStatus")).toContainText("Unable to read this public ChatGPT conversation");
   await expect(page.locator("#anonymousShareReview")).toBeHidden();
-  await expect(page.locator(".result-card")).toHaveCount(0);
+  await expect(page.locator(".result-card")).toHaveCount(1);
 
   await page.getByRole("button", { name: "Понять этот чат" }).click();
   await expect(page.locator("#anonymousShareReview")).toBeVisible();
@@ -177,8 +182,9 @@ test("manual Share fallback normalizes mobile links, survives one transient reso
   await page.waitForURL(/\/demo\/$/);
 
   const stored = await page.evaluate(key => JSON.parse(localStorage.getItem(key)).results, VAULT_KEY);
-  expect(stored).toHaveLength(1);
-  expect(stored[0].source).toEqual({
+  expect(stored.filter(result => result.id === IMPORT_ID)).toHaveLength(1);
+  const [userCard] = userStoredResults(stored);
+  expect(userCard.source).toEqual({
     type: "chatgpt-share",
     url: normalizedShare,
     title: "Свежий мобильный чат"
@@ -198,17 +204,15 @@ test("anonymous Share failure never creates or exposes a publisher card", async 
   await page.goto(`/demo/?personal=1&share=${encodeURIComponent(SHARE_URL)}`);
   await expect(page.locator("#anonymousShareStatus")).toContainText("Unable to read this public ChatGPT conversation");
   await expect(page.locator("#anonymousShareReview")).toBeHidden();
-  await expect(page.locator(".result-card")).toHaveCount(0);
+  await expect(page.locator(".result-card")).toHaveCount(1);
   await expect(page.getByText("Ночёвка с палаткой для рыбалки", { exact: false })).toHaveCount(0);
 
-  const storedResults = await page.evaluate(key => {
-    const vault = JSON.parse(localStorage.getItem(key));
-    return vault?.results || [];
-  }, VAULT_KEY);
-  expect(storedResults).toHaveLength(0);
+  const storedResults = await page.evaluate(key => JSON.parse(localStorage.getItem(key))?.results || [], VAULT_KEY);
+  expect(storedResults.filter(result => result.id === IMPORT_ID)).toHaveLength(1);
+  expect(userStoredResults(storedResults)).toHaveLength(0);
 });
 
-test("invalid handoff stays usable and does not create a card", async ({ page }) => {
+test("invalid handoff stays usable and does not create a user card", async ({ page }) => {
   const sharedChatCalls = watchSharedChatRequests(page);
   await page.goto("/demo/?personal=1");
 
@@ -217,12 +221,10 @@ test("invalid handoff stays usable and does not create a card", async ({ page })
 
   await expect(page.locator("#publicHandoffStatus")).toContainText("Скопируй ответ ChatGPT целиком");
   await expect(page.locator("#publicShareReview")).toBeHidden();
-  await expect(page.locator(".result-card")).toHaveCount(0);
+  await expect(page.locator(".result-card")).toHaveCount(1);
 
-  const storedResults = await page.evaluate(key => {
-    const vault = JSON.parse(localStorage.getItem(key));
-    return vault?.results || [];
-  }, VAULT_KEY);
-  expect(storedResults).toHaveLength(0);
+  const storedResults = await page.evaluate(key => JSON.parse(localStorage.getItem(key))?.results || [], VAULT_KEY);
+  expect(storedResults.filter(result => result.id === IMPORT_ID)).toHaveLength(1);
+  expect(userStoredResults(storedResults)).toHaveLength(0);
   expect(sharedChatCalls()).toBe(0);
 });
