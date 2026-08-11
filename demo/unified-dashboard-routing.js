@@ -100,8 +100,7 @@ function ensureOriginScopeControl() {
   if (!context || !actions || !input) return;
 
   const revision = revisionById(dashId);
-  const dashTitle = revision?.title || renderedDashTitle(dashId);
-  if (!dashTitle) return;
+  const dashTitle = revision?.title || renderedDashTitle(dashId) || dashId;
 
   context.dataset.originDashId = dashId;
   const title = context.querySelector("#dashContextTitle");
@@ -129,7 +128,6 @@ function ensureOriginScopeControl() {
     select.setAttribute("aria-label", t("search"));
     const dashOption = document.createElement("option");
     dashOption.value = "dash";
-    dashOption.textContent = `${t("inThisDash")}: ${dashTitle}`;
     const allOption = document.createElement("option");
     allOption.value = "all";
     allOption.textContent = t("allCardsScope");
@@ -141,6 +139,9 @@ function ensureOriginScopeControl() {
       if (select.value === "dash") window.location.href = savedDashUrl(dashId, input.value);
     });
   }
+  const select = group.querySelector("#originDashSearchScope");
+  const dashOption = select?.querySelector('option[value="dash"]');
+  setText(dashOption, `${t("inThisDash")}: ${dashTitle}`);
 
   let back = context.querySelector("#originDashBackButton");
   if (!back) {
@@ -148,9 +149,9 @@ function ensureOriginScopeControl() {
     back.id = "originDashBackButton";
     back.className = "button ghost";
     back.href = savedDashUrl(dashId);
-    back.textContent = `← Dash: ${dashTitle}`;
     actions.append(back);
   }
+  setText(back, `← Dash: ${dashTitle}`);
 }
 
 function restoreSavedDashQuery() {
