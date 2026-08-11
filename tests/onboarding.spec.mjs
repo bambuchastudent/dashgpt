@@ -93,7 +93,7 @@ test("anonymous ?share mobile handoff resolves, previews, and saves the visitor 
       contentType: "application/json",
       body: JSON.stringify({
         sourceUrl: SHARE_URL,
-        retrieval: "reader",
+        retrieval: "reader-backend",
         title: "Картошка в аэрогриле",
         replies: [
           { type: "user", statement: "Как приготовить картошку в аэрогриле?" },
@@ -121,6 +121,91 @@ test("anonymous ?share mobile handoff resolves, previews, and saves the visitor 
   const stored = await page.evaluate(key => JSON.parse(localStorage.getItem(key)).results, VAULT_KEY);
   expect(stored).toHaveLength(1);
   expect(stored[0].source).toEqual({ type: "chatgpt-share", url: SHARE_URL, title: "Картошка в аэрогриле" });
+});
+
+test("manual Share fallback normalizes mobile links, survives one transient resolver failure, and can retry", async ({ page }) => {
+  const mobileShare = "https://chatgpt.com/s/t_regression-fixture";
+  const normalizedShare = "https://chatgpt.com/share/t_regression-fixture";
+  const requestedUrls = [];
+  let attempts = 0;
+
+  await page.route("**/api/shared-chat?**", async route => {
+    attempts += 1;
+    requestedUrls.push(new URL(route.request().url()).searchParams.get("url") || "");
+    if (attempts === 1) {
+      await route.fulfill({
+        status: 502,
+        contentType: "application/json",
+        body: JSON.stringify({
+          code: "SHARED_CHAT_UNREADABLE",
+          error: "Unable to read this public ChatGPT conversation. Try again."
+        })
+      });
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        sourceUrl: normalizedShare,
+        retrieval: "reader-backend",
+        title: "Свежий мобильный чат",
+        replies: [
+          { type: "user", statement: "Сохрани это" },
+          { type: "assistant", statement: "Вот полезный итог свежего разговора." }
+        ]
+      })
+    });
+  });
+
+  await page.goto("/demo/?personal=1");
+  await page.locator("#anonymousShareUrl").fill(mobileShare);
+  await page.getByRole("button", { name: "Понять этот чат" }).click();
+
+  await expect(page.locator("#anonymousShareStatus")).toContainText("Unable to read this public ChatGPT conversation");
+  await expect(page.locator("#anonymousShareReview")).toBeHidden();
+  await expect(page.locator(".result-card")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Понять этот чат" }).click();
+  await expect(page.locator("#anonymousShareReview")).toBeVisible();
+  await expect(page.locator("#anonymousShareTitle")).toHaveValue("Свежий мобильный чат");
+  await expect(page.locator("#anonymousShareSummary")).toHaveValue("Вот полезный итог свежего разговора.");
+  expect(requestedUrls).toEqual([normalizedShare, normalizedShare]);
+
+  await page.locator("#anonymousShareSave").click();
+  await page.waitForURL(/\/demo\/$/);
+
+  const stored = await page.evaluate(key => JSON.parse(localStorage.getItem(key)).results, VAULT_KEY);
+  expect(stored).toHaveLength(1);
+  expect(stored[0].source).toEqual({
+    type: "chatgpt-share",
+    url: normalizedShare,
+    title: "Свежий мобильный чат"
+  });
+});
+
+test("anonymous Share failure never creates or exposes a publisher card", async ({ page }) => {
+  await page.route("**/api/shared-chat?**", route => route.fulfill({
+    status: 502,
+    contentType: "application/json",
+    body: JSON.stringify({
+      code: "SHARED_CHAT_UNREADABLE",
+      error: "Unable to read this public ChatGPT conversation. Try again."
+    })
+  }));
+
+  await page.goto(`/demo/?personal=1&share=${encodeURIComponent(SHARE_URL)}`);
+  await expect(page.locator("#anonymousShareStatus")).toContainText("Unable to read this public ChatGPT conversation");
+  await expect(page.locator("#anonymousShareReview")).toBeHidden();
+  await expect(page.locator(".result-card")).toHaveCount(0);
+  await expect(page.getByText("Ночёвка с палаткой для рыбалки", { exact: false })).toHaveCount(0);
+
+  const storedResults = await page.evaluate(key => {
+    const vault = JSON.parse(localStorage.getItem(key));
+    return vault?.results || [];
+  }, VAULT_KEY);
+  expect(storedResults).toHaveLength(0);
 });
 
 test("invalid handoff stays usable and does not create a card", async ({ page }) => {
