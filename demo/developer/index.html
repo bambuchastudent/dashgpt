@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DashGPT · Project Memory</title>
+  <link rel="stylesheet" href="./developer.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div class="hero-copy">
+        <a class="back-link" href="/demo/">← DashGPT</a>
+        <div class="eyebrow-row">
+          <span class="eyebrow">Developer prototype</span>
+          <span class="memory-path" data-testid="memory-path">.dashgpt/</span>
+        </div>
+        <h1 id="project-title">Project memory</h1>
+        <p id="project-summary" class="hero-summary">Loading project memory…</p>
+        <p class="prototype-note">Prototype fixture · cards are memory · sessions are local evidence · automatic IDE capture is not active.</p>
+      </div>
+
+      <div class="hero-metrics" aria-label="Project memory summary">
+        <article class="metric">
+          <span>Cards</span>
+          <strong id="metric-cards">—</strong>
+        </article>
+        <article class="metric">
+          <span>Shipped</span>
+          <strong id="metric-shipped">—</strong>
+        </article>
+        <article class="metric">
+          <span>Sessions</span>
+          <strong id="metric-sessions">—</strong>
+        </article>
+        <article class="metric">
+          <span>Relations</span>
+          <strong id="metric-relations">—</strong>
+        </article>
+      </div>
+    </header>
+
+    <nav class="view-tabs" aria-label="Developer memory views">
+      <button class="view-tab is-active" type="button" data-view="map" aria-pressed="true">Project Map</button>
+      <button class="view-tab" type="button" data-view="timeline" aria-pressed="false">Timeline</button>
+      <button class="view-tab" type="button" data-view="results" aria-pressed="false">Results</button>
+      <button class="view-tab" type="button" data-view="sessions" aria-pressed="false">Sessions</button>
+    </nav>
+
+    <section id="view" class="view" aria-live="polite">
+      <div class="loading">Loading developer memory…</div>
+    </section>
+  </main>
+
+  <dialog id="card-dialog" class="card-dialog" aria-labelledby="dialog-title">
+    <form method="dialog" class="dialog-shell">
+      <div class="dialog-topbar">
+        <div>
+          <span id="dialog-kind" class="eyebrow"></span>
+          <h2 id="dialog-title">Card</h2>
+        </div>
+        <button class="close-button" type="submit" value="close" aria-label="Close card details">×</button>
+      </div>
+      <div id="dialog-content" class="dialog-content"></div>
+    </form>
+  </dialog>
+
+  <script type="module" src="./developer.js"></script>
+</body>
+</html>
