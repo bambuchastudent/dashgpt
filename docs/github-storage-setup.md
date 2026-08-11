@@ -1,95 +1,91 @@
 # DashGPT GitHub Storage — activation runbook
 
-This runbook activates the GitHub Vault adapter implemented by Feature 6 Slice B.
+This runbook covers the remaining production activation of the GitHub storage adapter implemented by Feature 6 Slice B.
 
-The application code is safe to deploy before these values exist: without GitHub App configuration, local Vault behavior continues normally and the GitHub UI reports that remote sync is not configured.
+## Current state
 
-## 1. Register the public GitHub App
+Already completed in the repository/project:
 
-Use this pre-filled GitHub registration URL on the account that will own the DashGPT GitHub App:
+- GitHub storage implementation is merged.
+- Public GitHub App is registered.
+- App ID: `4544269`.
+- App slug: `dashgpt-storage`.
+- Non-secret app identity is configured in the Worker configuration.
 
-https://github.com/settings/apps/new?name=DashGPT+Storage&description=Private+user-owned+Vault+synchronization+for+DashGPT&url=https%3A%2F%2Fdashgpt.dimkashir.workers.dev%2Fdemo%2F&setup_url=https%3A%2F%2Fdashgpt.dimkashir.workers.dev%2Fapi%2Fstorage%2Fgithub%2Fsetup&setup_on_update=false&public=true&webhook_active=false&contents=write
+Still required before calling production GitHub sync activated:
 
-Expected settings:
+1. configure protected production secrets;
+2. run one real private disposable-repository acceptance smoke test;
+3. verify idempotence, disconnect behavior and secret isolation.
 
-- Name: `DashGPT Storage` (choose another clear name if GitHub reports that it is already taken)
-- Homepage: `https://dashgpt.dimkashir.workers.dev/demo/`
-- Setup URL: `https://dashgpt.dimkashir.workers.dev/api/storage/github/setup`
-- Redirect on update: disabled; the setup endpoint expects a DashGPT-initiated pending pairing session
-- Public: enabled, so another DashGPT user can install the same app
-- Webhooks: disabled for this slice
-- Repository permissions → Contents: **Read and write**
-- No user OAuth authorization is required
+Local memory remains usable when GitHub sync is unavailable.
 
-Do not add unrelated repository or account permissions.
+## 1. Protected secrets
 
-## 2. Record the non-secret app identity
+Required production Worker secrets:
 
-After creating the app, record:
-
-- App ID → `GITHUB_APP_ID`
-- App slug (the slug in the GitHub App URL) → `GITHUB_APP_SLUG`
-
-These values are identifiers, not user credentials, but the current deployment reads them from environment bindings together with the secrets below.
-
-## 3. Generate the GitHub App private key
-
-In the GitHub App settings, generate one private key and keep the downloaded `.pem` file private.
-
-Do **not**:
-
-- commit the PEM file to this repository;
-- paste the private key into ChatGPT;
-- put it in a DashGPT Vault, Result, Context Pack or URL.
-
-The Worker accepts GitHub's downloaded PEM form through `GITHUB_APP_PRIVATE_KEY`.
-
-## 4. Configure Worker secrets
-
-Configure these values on the production `dashgpt` Cloudflare Worker:
-
-- `GITHUB_APP_ID`
-- `GITHUB_APP_SLUG`
 - `GITHUB_APP_PRIVATE_KEY`
 - `GITHUB_SESSION_SECRET`
 
-`GITHUB_SESSION_SECRET` should be a new high-entropy random value used only for HMAC-signing the pending/session cookies.
+The GitHub App private key is generated/downloaded from the existing `dashgpt-storage` GitHub App settings.
 
-With Wrangler, use interactive secret input so values do not appear in shell history:
+`GITHUB_SESSION_SECRET` must be a new high-entropy value used only for signing DashGPT GitHub pairing/session state.
+
+Do **not**:
+
+- commit the PEM/private key;
+- paste it into ChatGPT or an issue/PR;
+- put it in a card, legacy Result, Context Pack, URL or portable Vault;
+- store it in browser localStorage/sessionStorage.
+
+Configure secrets using Cloudflare's protected secret mechanism. With Wrangler, interactive input avoids command-line values:
 
 ```bash
-npx wrangler secret put GITHUB_APP_ID
-npx wrangler secret put GITHUB_APP_SLUG
 npx wrangler secret put GITHUB_APP_PRIVATE_KEY
 npx wrangler secret put GITHUB_SESSION_SECRET
 ```
 
-For `GITHUB_APP_PRIVATE_KEY`, paste the complete PEM including the BEGIN/END lines into Wrangler's secret prompt. Prefer Cloudflare Dashboard secret entry if multiline terminal entry is inconvenient.
+Prefer Cloudflare Dashboard secret entry if multiline PEM entry is inconvenient.
 
-## 5. Real acceptance smoke test
+The non-secret `GITHUB_APP_ID` / `GITHUB_APP_SLUG` identifiers do not need to be re-created merely to activate this existing app.
 
-Use a private disposable repository or a dedicated folder in a private repository.
+## 2. Real acceptance smoke test
 
-1. Open DashGPT Storage.
-2. Paste the repository/folder URL.
-3. Choose `Connect GitHub`.
-4. In GitHub, install the app on **only that repository**.
-5. Return to DashGPT through the setup redirect.
-6. Confirm the storage badge becomes `LOCAL + GITHUB · SYNCED`.
-7. Confirm the repository contains the configured Vault root (default `.dashgpt/`) with `dashgpt-vault.json`, `results/` and state objects.
-8. Favorite/unfavorite or create a local Result.
-9. Confirm a later sync creates one DashGPT sync commit and the local UI remains usable throughout.
-10. Refresh/reopen DashGPT and confirm remote state merges back into the same Vault id.
-11. Disconnect GitHub and confirm the local Vault remains present.
+Use a **private disposable repository** or a disposable dedicated folder in a private repository.
 
-## 6. Security acceptance
+1. Open the current DashGPT storage management surface.
+2. Select/paste the private repository/folder URL supported by the GitHub StorageLocator flow.
+3. Choose the GitHub connection action.
+4. In GitHub, install/authorize `dashgpt-storage` for **only the disposable repository**.
+5. Return through the DashGPT setup flow.
+6. Confirm the UI reports the repository as paired/synchronized without exposing tokens.
+7. Confirm the repository contains the configured DashGPT Vault root (current default `.dashgpt/`).
+8. Confirm the current compatibility layout is written, including the vault manifest and legacy `results/` objects where applicable. Product terminology is Card; the `results/` folder name is an existing storage compatibility detail until separately migrated.
+9. Create/update/favorite a local card through the current UI behavior and synchronize.
+10. Confirm one logical synchronization creates one atomic Git commit.
+11. Synchronize again with no memory change and confirm no additional commit is created.
+12. Refresh/reopen DashGPT and confirm remote state merges into the same Vault id.
+13. Disconnect GitHub and confirm local memory remains present and usable.
 
-Before calling Slice B fully activated, verify:
+## 3. Security acceptance
 
-- GitHub installation was limited to the selected repository;
-- the GitHub App has no permissions beyond required metadata plus Contents read/write;
-- no PAT or installation token appears in browser localStorage/sessionStorage;
-- exported Vault JSON contains no GitHub token, private key or session value;
-- removing network access leaves local Results readable;
-- a second sync with no Vault changes creates no additional commit;
-- a different pre-existing `vaultId` in the target folder returns a visible conflict instead of overwriting it.
+Before marking production GitHub sync activated, verify:
+
+- GitHub installation is limited to the selected repository;
+- the app has no unrelated permissions beyond those required by the implemented adapter;
+- browser storage contains no GitHub installation token/private key/session secret;
+- exported portable memory contains no GitHub token/private key/session value;
+- removing network access leaves local cards/legacy Result records readable;
+- no-op re-sync is idempotent;
+- a different pre-existing `vaultId` in the target root produces a visible conflict instead of overwrite;
+- failure leaves local memory usable and retryable.
+
+## 4. Historical registration details
+
+The original setup runbook included a pre-filled GitHub App creation URL and registration instructions. Those steps are no longer the current activation blocker because the public app already exists.
+
+If the app ever has to be recreated deliberately, use the accepted architecture in `docs/adr/0004-github-app-vault-sync.md` and current GitHub App documentation rather than assuming an old pre-filled registration URL is still correct.
+
+## Completion rule
+
+Do not mark Feature 6 GitHub production activation complete because code is merged or `/api/storage/github/status` responds. Completion requires the protected-secret configuration **and** the real private-repository smoke test above.
