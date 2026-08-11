@@ -1,6 +1,10 @@
 import { latestDashRevisions } from "./semantic-dashes.js";
 import { loadBrowserVault } from "./vault.js";
-import { resolveUnifiedDashLocale, unifiedDashText } from "./unified-dashboard.js";
+import {
+  initializeUnifiedDashboard,
+  resolveUnifiedDashLocale,
+  unifiedDashText
+} from "./unified-dashboard.js";
 
 const ORIGIN_DASH_PARAM = "fromDash";
 const SEARCH_SCOPE_PARAM = "scope";
@@ -80,10 +84,6 @@ function originState() {
   return null;
 }
 
-function originDashId() {
-  return originState()?.dashId || "";
-}
-
 function revisionById(dashId) {
   if (!dashId) return null;
   try {
@@ -129,11 +129,14 @@ function ensurePopulatedHomeControlsVisible() {
 }
 
 function ensureCanonicalHomeShell() {
-  if (!isHomeRoute() || document.querySelector("#unifiedDashContext")) return false;
+  if (!isHomeRoute() || document.querySelector("#unifiedDashContext")) return;
   const dashboard = document.querySelector("#dashboardView");
-  if (!dashboard || dashboard.hidden) return false;
-  window.location.replace(`${window.location.pathname}${window.location.search}${window.location.hash}`);
-  return true;
+  if (!dashboard) return;
+  // A route/app startup race can expose the dashboard before the additive
+  // unified adapter has mounted its context. Re-run the idempotent adapter
+  // instead of replacing the page with the same URL, which could race user
+  // input and prevent origin-Dash scope controls from ever settling.
+  initializeUnifiedDashboard();
 }
 
 function ensureOriginScopeControl() {
@@ -223,7 +226,7 @@ function syncRouteEnhancements() {
     return;
   }
   ensurePopulatedHomeControlsVisible();
-  if (ensureCanonicalHomeShell()) return;
+  ensureCanonicalHomeShell();
   ensureOriginScopeControl();
 }
 
