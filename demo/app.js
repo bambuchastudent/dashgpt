@@ -837,7 +837,8 @@ async function init() {
     recordActivity,
     decorateResultCard: applySemanticVisual,
     renderMemberGallery: renderDashMemberGallery,
-    releaseMemberGallery: releaseDashMemberGallery
+    releaseMemberGallery: releaseDashMemberGallery,
+    renderDashboard
   });
   renderStorageStatus();
   await reloadFromVault();

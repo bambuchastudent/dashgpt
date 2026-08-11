@@ -51,6 +51,10 @@ if (isPersonalRoot) {
     return node;
   }
 
+  function setText(node, value) {
+    if (node && node.textContent !== value) node.textContent = value;
+  }
+
   function cleanText(value, maxLength) {
     const text = typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
     if (!text) return "";
@@ -167,17 +171,15 @@ if (isPersonalRoot) {
     const summaryText = document.querySelector("#summaryText");
     const resultsTitle = document.querySelector("#resultsTitle");
     const dashEmpty = document.querySelector("#dashesEmpty");
-    if (summaryTitle) summaryTitle.textContent = "Здесь остаётся то, к чему стоит вернуться.";
+    setText(summaryTitle, "Здесь остаётся то, к чему стоит вернуться.");
     if (summaryText) {
       const count = ownResults().length;
-      summaryText.textContent = count === 1 ? "1 сохранённая карточка из твоего разговора." : `${count} сохранённых карточек из твоих разговоров.`;
+      setText(summaryText, count === 1 ? "1 сохранённая карточка из твоего разговора." : `${count} сохранённых карточек из твоих разговоров.`);
     }
-    if (resultsTitle) resultsTitle.textContent = "Твои карточки";
+    setText(resultsTitle, "Твои карточки");
     if (dashEmpty) {
-      const heading = dashEmpty.querySelector("h3");
-      const copy = dashEmpty.querySelector("p");
-      if (heading) heading.textContent = "Темы появятся сами";
-      if (copy) copy.textContent = "Когда карточек станет больше, DashGPT соберёт связанные разговоры рядом.";
+      setText(dashEmpty.querySelector("h3"), "Темы появятся сами");
+      setText(dashEmpty.querySelector("p"), "Когда карточек станет больше, DashGPT соберёт связанные разговоры рядом.");
     }
   }
 
