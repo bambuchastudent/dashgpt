@@ -61,6 +61,7 @@ export function createSemanticDashUi(options) {
   const decorateResultCard = options.decorateResultCard || (() => {});
   const renderMemberGallery = options.renderMemberGallery || null;
   const releaseMemberGallery = options.releaseMemberGallery || (() => {});
+  const renderDashboard = options.renderDashboard || (() => {});
   const dashboardView = document.querySelector("#dashboardView");
   const resultPage = document.querySelector("#resultPage");
   const addResultButton = document.querySelector("#addResultButton");
@@ -464,6 +465,7 @@ export function createSemanticDashUi(options) {
     resultPage.classList.remove("dash-gallery-page");
     addResultButton.hidden = false;
     renderList();
+    renderDashboard();
   }
 
   function importFromHash() {
