@@ -35,12 +35,16 @@ async function fileResponse(pathname) {
   }
 }
 
+function isDemoDeepRoute(pathname) {
+  return /^\/demo\/result\/[^/]+\/?$/.test(pathname)
+    || /^\/demo\/dashes\/[^/]+\/?$/.test(pathname)
+    || /^\/demo\/dash\/[^/]+\/?$/.test(pathname);
+}
+
 createServer(async (request, response) => {
   const url = new URL(request.url, `http://${request.headers.host}`);
   let result = await fileResponse(url.pathname);
-  if (!result && (/^\/demo\/result\/[^/]+\/?$/.test(url.pathname) || /^\/demo\/dashes\/[^/]+\/?$/.test(url.pathname))) {
-    result = await fileResponse("/demo/index.html");
-  }
+  if (!result && isDemoDeepRoute(url.pathname)) result = await fileResponse("/demo/index.html");
   result ||= new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
   response.writeHead(result.status, Object.fromEntries(result.headers));
   response.end(Buffer.from(await result.arrayBuffer()));
