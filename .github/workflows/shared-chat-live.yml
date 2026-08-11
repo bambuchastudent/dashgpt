@@ -1,0 +1,85 @@
+name: Shared Chat live production smoke
+
+on:
+  push:
+    branches:
+      - develop
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: shared-chat-live-production
+  cancel-in-progress: false
+
+jobs:
+  live-share-resolver:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Resolve real public ChatGPT Share fixtures
+        shell: bash
+        env:
+          DASHGPT_PRODUCTION: https://dashgpt.dimkashir.workers.dev
+        run: |
+          set -euo pipefail
+
+          # Keep both fixtures public: one older conversation and one fresh/current-format conversation.
+          FIXTURES=(
+            "https://chatgpt.com/share/6a7a445b-a420-83ea-9c36-3c10fd1ce85f"
+            "https://chatgpt.com/share/6a7a59e3-c9d4-83ea-bb8d-88c57f00b491"
+          )
+
+          # Push-triggered runs can start before the external production deploy has propagated.
+          if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
+            sleep 20
+          fi
+
+          resolve_one() {
+            local share="$1"
+            local label="$2"
+            local encoded
+            local url
+            local status
+            encoded=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$share', safe=''))")
+            url="${DASHGPT_PRODUCTION}/api/shared-chat?url=${encoded}"
+
+            for attempt in 1 2 3 4 5 6 7 8; do
+              echo "${label}: attempt ${attempt}"
+              status=$(curl -L --silent --show-error --max-time 45 -o /tmp/share.json -w '%{http_code}' "$url" || true)
+
+              if [ "$status" = "200" ] && python3 - "$share" <<'PY'
+          import json
+          import sys
+
+          expected = sys.argv[1]
+          payload = json.load(open('/tmp/share.json'))
+          replies = payload.get('replies') or []
+
+          assert payload.get('sourceUrl') == expected, (payload.get('sourceUrl'), expected)
+          assert payload.get('retrieval'), payload
+          assert payload.get('title'), payload
+          assert len(replies) >= 2, len(replies)
+          assert any(r.get('type') == 'user' and r.get('statement') for r in replies), replies
+          assert any(r.get('type') == 'assistant' and r.get('statement') for r in replies), replies
+          assert not payload.get('error'), payload
+          print('LIVE_OK', payload.get('retrieval'), payload.get('title'), len(replies))
+          PY
+              then
+                local retrieval
+                retrieval=$(python3 -c "import json; print(json.load(open('/tmp/share.json')).get('retrieval','unknown'))")
+                echo "✅ ${label} resolved via ${retrieval}" | tee -a "$GITHUB_STEP_SUMMARY"
+                return 0
+              fi
+
+              echo "${label}: HTTP ${status}; retrying after transient deploy/upstream delay"
+              cat /tmp/share.json 2>/dev/null || true
+              sleep 10
+            done
+
+            echo "❌ ${label} could not be resolved in production" | tee -a "$GITHUB_STEP_SUMMARY"
+            return 1
+          }
+
+          resolve_one "${FIXTURES[0]}" "older public fixture"
+          resolve_one "${FIXTURES[1]}" "fresh public fixture"
