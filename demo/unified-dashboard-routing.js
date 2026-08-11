@@ -4,6 +4,7 @@ import { resolveUnifiedDashLocale, unifiedDashText } from "./unified-dashboard.j
 
 const ORIGIN_DASH_PARAM = "fromDash";
 const SEARCH_SCOPE_PARAM = "scope";
+const ROUTE_SYNC_DELAYS = [0, 40, 160];
 
 function locale() {
   return resolveUnifiedDashLocale({
@@ -152,6 +153,11 @@ function syncRouteEnhancements() {
   ensureOriginScopeControl();
 }
 
+function scheduleRouteSync() {
+  queueMicrotask(syncRouteEnhancements);
+  for (const delay of ROUTE_SYNC_DELAYS) setTimeout(syncRouteEnhancements, delay);
+}
+
 // The base unified controller owns the saved-Dash scope selector. Capture only the
 // "All cards" transition so the query moves to the existing My Dash gallery while
 // retaining the source Dash as reversible context instead of creating a second renderer.
@@ -174,21 +180,22 @@ document.addEventListener("input", event => {
     window.location.href = savedDashUrl(dashId);
     return;
   }
-  queueMicrotask(ensureOriginScopeControl);
+  scheduleRouteSync();
 });
 
-window.addEventListener("popstate", () => queueMicrotask(syncRouteEnhancements));
+window.addEventListener("popstate", scheduleRouteSync);
+window.addEventListener("load", scheduleRouteSync, { once: true });
 
 const routeSurface = document.querySelector("#resultPage");
 if (routeSurface) {
-  new MutationObserver(() => queueMicrotask(syncRouteEnhancements))
+  new MutationObserver(scheduleRouteSync)
     .observe(routeSurface, { childList: true, subtree: false, attributes: true, attributeFilter: ["hidden"] });
 }
 
 const dashboardSurface = document.querySelector("#dashboardView");
 if (dashboardSurface) {
-  new MutationObserver(() => queueMicrotask(syncRouteEnhancements))
-    .observe(dashboardSurface, { attributes: true, attributeFilter: ["hidden"] });
+  new MutationObserver(scheduleRouteSync)
+    .observe(dashboardSurface, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden"] });
 }
 
-queueMicrotask(syncRouteEnhancements);
+scheduleRouteSync();
