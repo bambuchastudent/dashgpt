@@ -43,7 +43,9 @@ function seedVault() {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(({ key, vault }) => localStorage.setItem(key, JSON.stringify(vault)), {
+  await page.addInitScript(({ key, vault }) => {
+    if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify(vault));
+  }, {
     key: VAULT_KEY,
     vault: seedVault()
   });
