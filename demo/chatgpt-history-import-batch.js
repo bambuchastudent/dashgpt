@@ -1,11 +1,13 @@
 import {
   loadBrowserVault,
   materializeResults,
+  putResult,
   saveBrowserVault
 } from "./vault.js";
 import {
   CHATGPT_IMPORT_PROTOCOL,
   CHATGPT_IMPORT_PROTOCOL_VERSION,
+  CHATGPT_IMPORT_RESULT_ID,
   CHATGPT_IMPORT_SOURCE_ORIGIN,
   applyChatGptImportBatch,
   sanitizeChatGptCardCandidate
@@ -16,6 +18,7 @@ const UI_PENDING_KEY = "dashgpt.chatgpt-import.pending-ui.v1";
 const VAULT_UPDATED_EVENT = "dashgpt:chatgpt-import-vault-updated";
 const MAX_BATCH_CARDS = 48;
 const MAX_MESSAGE_CHARS = 240_000;
+const SOURCE_STATES = new Set(["running", "rate_limited"]);
 let installed = false;
 let returnRefreshScheduled = false;
 
@@ -42,11 +45,23 @@ function validEnvelope(event) {
   if (!config || event.origin !== CHATGPT_IMPORT_SOURCE_ORIGIN) return null;
   if (!data || typeof data !== "object" || Array.isArray(data)) return null;
   if (data.protocol !== CHATGPT_IMPORT_PROTOCOL || data.version !== CHATGPT_IMPORT_PROTOCOL_VERSION) return null;
-  if (data.sessionId !== config.sessionId || data.nonce !== config.nonce || data.type !== "BATCH") return null;
+  if (data.sessionId !== config.sessionId || data.nonce !== config.nonce) return null;
   if (safeMessageSize(data) > MAX_MESSAGE_CHARS) return null;
-  if (!Number.isInteger(data.sequence) || data.sequence < 1) return null;
-  if (!Array.isArray(data.cards) || data.cards.length > MAX_BATCH_CARDS) return null;
-  return { config, data };
+
+  if (data.type === "BATCH") {
+    if (!Number.isInteger(data.sequence) || data.sequence < 1) return null;
+    if (!Array.isArray(data.cards) || data.cards.length > MAX_BATCH_CARDS) return null;
+    return { config, data };
+  }
+
+  if (data.type === "SOURCE_STATE") {
+    if (!SOURCE_STATES.has(data.state)) return null;
+    const retryAfterMs = Number(data.retryAfterMs || 0);
+    if (!Number.isFinite(retryAfterMs) || retryAfterMs < 0 || retryAfterMs > 60_000) return null;
+    return { config, data: { ...data, retryAfterMs: Math.floor(retryAfterMs) } };
+  }
+
+  return null;
 }
 
 function postReply(target, config, payload) {
@@ -155,17 +170,62 @@ function handleBatch(event, config, data) {
   }
 }
 
+function humanizedSourceState(current, state) {
+  const progress = current?.result;
+  if (!progress || progress.kind !== "chatgpt-history-import-progress") return null;
+  if (!["running", "rate_limited"].includes(progress.state)) return null;
+  const discovered = Math.max(0, Number(progress.discovered || 0));
+  const imported = Math.max(0, Number(progress.imported || 0));
+  const remaining = discovered ? Math.max(0, discovered - imported) : 0;
+  const ru = current.language === "ru";
+  const rateLimited = state === "rate_limited";
+  const summary = rateLimited
+    ? (ru
+      ? `Импортировано ${imported}${discovered ? ` из ${discovered}` : ""}. Жду, пока ChatGPT снова разрешит запросы.`
+      : `Imported ${imported}${discovered ? ` of ${discovered}` : ""}. Waiting for ChatGPT to allow more requests.`)
+    : (ru
+      ? `Импортировано ${imported}${discovered ? ` из ${discovered}` : ""}. Можно пользоваться DashGPT, пока исходная страница ChatGPT доступна.`
+      : `Imported ${imported}${discovered ? ` of ${discovered}` : ""}. You can keep using DashGPT while the source page stays available.`);
+  return {
+    ...current,
+    summary,
+    status: rateLimited ? (ru ? "Жду ChatGPT" : "Waiting for ChatGPT") : (ru ? "Импорт идёт" : "Importing"),
+    next: remaining ? `${remaining} ${ru ? "осталось" : "remaining"}` : "",
+    result: {
+      ...progress,
+      state,
+      updatedAt: new Date().toISOString()
+    }
+  };
+}
+
+function handleSourceState(event, config, data) {
+  const loaded = loadBrowserVault(globalThis.localStorage);
+  const current = materializeResults(loaded.vault).find(result => result.id === CHATGPT_IMPORT_RESULT_ID);
+  const updated = humanizedSourceState(current, data.state);
+  if (!updated) return;
+  try {
+    putResult(loaded.vault, updated);
+    saveBrowserVault(globalThis.localStorage, loaded.vault);
+    globalThis.dispatchEvent?.(new CustomEvent(VAULT_UPDATED_EVENT));
+    postReply(event.source, config, { type: "SOURCE_STATE_ACK", state: data.state });
+  } catch {
+    // A transient visual state is never acknowledged as durable if Vault save fails.
+  }
+}
+
 export function installChatGptImportBatchFastPath() {
   if (installed || typeof window === "undefined") return;
   installed = true;
-  // Install before the standard receiver. A validated BATCH is fully owned by
-  // this handler; all other protocol messages continue to the standard Feature
-  // 20 lifecycle receiver.
+  // Install before the standard receiver. Validated BATCH/SOURCE_STATE messages
+  // are fully owned here; all other protocol messages continue to the standard
+  // Feature 20 lifecycle receiver.
   window.addEventListener("message", event => {
     const envelope = validEnvelope(event);
     if (!envelope) return;
     event.stopImmediatePropagation();
-    handleBatch(event, envelope.config, envelope.data);
+    if (envelope.data.type === "BATCH") handleBatch(event, envelope.config, envelope.data);
+    else handleSourceState(event, envelope.config, envelope.data);
   }, true);
   document.addEventListener("visibilitychange", refreshProgressiveCardsOnReturn);
   queueMicrotask(refreshProgressiveCardsOnReturn);
