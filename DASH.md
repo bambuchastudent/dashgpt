@@ -1,58 +1,60 @@
 # DashGPT — DASH
 
-Developer operational handoff. Product delivery state lives on the DashGPT Product Board; keep this file short and focused on implementation and external gates.
+Developer operational handoff. Keep this short and grounded in repository/PR evidence. Canonical product language is Card; existing `Result` names are implementation compatibility vocabulary.
 
 ## NOW
 
-**Active delivery:** post-merge stable-production verification and external activation gates.
-
-- Feature 9 OpenSpec `f9-living-product-board` passed strict validation before production-code changes.
-- Living Product Board is merged via PR #21. The stable `dashgpt-product` board is repository-backed, reconstructable without browser localStorage and available through `/demo/dash/dashgpt-product/`.
-- Product topics are Results with explicit delivery states; Review-mode reconciliation never silently rewrites decisions or grants product verification.
-- Structured Chat Continuation is merged and its Continuation Brief, preview/copy, transport fallbacks, privacy boundary and activity tests remain in the combined quality gate.
-- Feature 6 GitHub production activation remains an external gate: protected Worker secrets plus one real private-repository smoke test.
-- Automatic Product Board mutation remains disabled; Review mode is the only active update mode.
+**Active delivery:** card-first product consolidation plus independent open feature work.
+- Current `develop` contains merged implementation through Feature 17 / PR #32.
+- PR #33 (`f18-unified-card-dashboard`) is an open draft for the unified Card / `My Dash` surface; it is not merged.
+- PR #34 (`f19-project-local-developer-memory`) is an open project-local developer-memory prototype; it is not merged.
+- Documentation/OpenSpec source-of-truth reconciliation is updating README/docs/OpenSpec guidance without changing production behavior.
+- Feature 4 public ChatGPT App release remains an external submission/approval/second-user acceptance track.
+- Feature 6 GitHub production activation still requires protected Worker secrets plus one real private-repository acceptance smoke test.
 
 ## DONE
 
-- M0 repository/bootstrap and durable product/development summaries.
-- M1 local-first Result → dashboard → Context Pack vertical slice.
-- Feature 2 shared ChatGPT link → published Result.
-- Stable standalone Result pages with shared renderer and immutable-content verification.
-- DashGPT MCP surface and provider-neutral instance protocol.
-- Semantic Result card and continuation-first UX.
-- Feature 6 architecture, Local Vault and GitHub storage adapter implementation.
-- Public DashGPT GitHub App registration.
+- M0 repository/bootstrap and spec-driven development foundation.
+- M1 local-first legacy Result memory vertical slice.
+- Feature 2 shared-chat capture and Feature 3 immutable pages/MCP foundation.
+- Feature 6 architecture, local Vault core and GitHub storage adapter implementation.
 - Feature 7 Semantic Dashes merged via PR #18.
 - Feature 8 Semantic Gallery UX merged via PR #19.
 - Structured Chat Continuation merged via PR #20.
-- Feature 9 Living Product Board merged via PR #21.
+- Feature 9 Product Board dogfooding merged via PR #21.
+- Feature 10 public own-chat onboarding merged via PR #24.
+- Feature 11 shared-chat fetch hardening merged via PR #25.
+- Feature 12 visible rendered-DOM fallback merged via PR #26.
+- Feature 13 no-direct-403 Share path merged via PR #27.
+- Feature 14 chat-first onboarding merged via PR #28.
+- Feature 15 anonymous Share resolver merged via PR #30.
+- Feature 16 current public Share JSON/backend resolver merged via PR #31.
+- Feature 17 permanent Share regression safety net merged via PR #32.
 
 ## NEXT
 
-1. Verify the Product Board and Structured Chat Continuation on the stable production deployment; keep merge, deployment and explicit product acceptance as separate states.
-2. Configure `GITHUB_APP_PRIVATE_KEY` and `GITHUB_SESSION_SECRET` on the production Worker without putting secrets in chat, repository or Vault.
-3. Run one disposable private-repository smoke test: pair → sync → idempotent re-sync → disconnect while the local Vault survives.
-4. Mark GitHub production activation complete only after that smoke test.
-5. Keep Google Drive, Semantic Navigator, Localization, Developer Fast Path, Chat-to-Result capture and authenticated private-Vault access as separate future OpenSpec changes.
-6. Resume the external OpenAI plugin submission flow when desired.
+1. Keep PR #33 and PR #34 independent; merge only after their own OpenSpec and verification gates pass.
+2. After any merge, reconcile roadmap/OpenSpec/DASH and do not present branch-only behavior as current `develop` before that point.
+3. Configure `GITHUB_APP_PRIVATE_KEY` and `GITHUB_SESSION_SECRET` through protected Cloudflare secret handling when resuming Feature 6 activation.
+4. Run the real private disposable-repository pair → sync → no-op re-sync → disconnect acceptance test before calling GitHub sync activated.
+5. Resume Feature 4 public submission/review/publication and second-user acceptance as an external track when desired.
+6. Keep mobile demo, direct capture, bulk browser import, card merge, additional storage providers, localization and semantic navigation as separate future Issue/OpenSpec/PR scopes unless already active.
 
 ## BLOCKERS / EXTERNAL HINGES
 
-- GitHub production sync activation requires protected Worker secret configuration and a real private-repository smoke test.
-- GitHub App private key and session secret must never be pasted into chat, committed to Git or serialized into a Vault.
-- Google Drive authorization and authenticated access to a private paired Vault from hosted chat remain future work.
-- Public plugin review and approval remain an external hinge.
-- Stable-production and physical-device product verification must be recorded separately from CI and merge state.
+- Feature 6 production GitHub activation depends on protected secret configuration and a real private-repository smoke test.
+- GitHub App private key/session secret must never be pasted into chat, committed to Git or serialized into DashGPT memory.
+- Feature 4 public availability depends on external platform submission/review/approval and second-user acceptance.
+- Open PR #33/#34 behavior is not available on `develop` until merged.
+- Stable deployment/product verification must remain separate from merge/CI state.
 
 ## RULES FOR THIS DASH
 
-- This file is a developer operational handoff, not the product-status source of truth.
-- Product delivery state is represented by Result cards on the stable `dashgpt-product` Product Board.
+- This file is a developer operational handoff, not a second product model.
+- Product requirements live in `docs/product-summary.md`; OpenSpec scopes implementation changes.
+- Card is the canonical user-facing memory entity; legacy `Result` identifiers remain literal implementation compatibility names where they still exist.
 - Update after meaningful implementation merge, deployment, architecture decision, blocker or external manual step.
 - Keep **DONE / NOW / NEXT / BLOCKERS** separate.
-- Keep the developer phone mirror `demo/data/dash.json` synchronized with this file; CI must reject drift.
-- `/demo/dash/` must not render `demo/data/dash.json` as a second product-status dataset.
-- Do not duplicate product requirements from `docs/product-summary.md` or development process from `docs/development-summary.md`.
-- Prefer links, PR numbers and branches over long narrative history.
-- This file is operational state, not an immutable Result.
+- Keep `demo/data/dash.json` synchronized with this file; CI must reject drift.
+- Do not infer shipped behavior from an issue, OpenSpec proposal, open PR or prototype.
+- Prefer links/PR numbers/change IDs over long narrative history.
