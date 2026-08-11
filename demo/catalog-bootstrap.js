@@ -91,3 +91,4 @@ await import("./anonymous-share-onboarding.js");
 await import("./product-board-discovery.js");
 await import("./unified-dashboard.js");
 await import("./unified-dashboard-routing.js");
+await import("./unified-product-board.js");
