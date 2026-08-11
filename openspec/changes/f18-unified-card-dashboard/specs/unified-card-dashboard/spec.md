@@ -121,3 +121,7 @@ The system SHALL keep the gallery visible near the top and provide usable search
 
 ### Requirement: Semantic Dash detail composes with the shared gallery
 Semantic Dash member rendering SHALL be treated as a context of the unified card dashboard rather than a separate user-facing Results surface. Existing Review proposals, overrides, refresh, edit, delete, continuation, privacy eligibility, and member activity behavior remain Feature 7 concerns.
+
+#### Scenario: Saved Dash keeps Feature 7 controls in the unified shell
+- **WHEN** a saved Dash is opened from the unified dashboard
+- **THEN** its accepted members use the shared gallery while Review proposals, overrides, refresh, edit, delete, continuation, privacy eligibility, and member activity remain available with their existing Feature 7 semantics
