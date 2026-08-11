@@ -49,6 +49,13 @@ function revisionById(dashId) {
   }
 }
 
+function renderedDashTitle(dashId) {
+  const href = `/demo/dashes/${encodeURIComponent(dashId)}/`;
+  return [...document.querySelectorAll(".my-dash-item")]
+    .find(item => item.getAttribute("href") === href)
+    ?.querySelector("strong")?.textContent?.trim() || "";
+}
+
 function savedDashUrl(dashId, query = "") {
   const url = new URL(`/demo/dashes/${encodeURIComponent(dashId)}/`, window.location.origin);
   if (String(query).trim()) url.searchParams.set("q", String(query).trim());
@@ -79,12 +86,14 @@ function ensureOriginScopeControl() {
   if (dashRouteId()) return;
   const dashId = originDashId();
   if (!dashId || params().get(SEARCH_SCOPE_PARAM) !== "all") return;
-  const revision = revisionById(dashId);
-  if (!revision) return;
   const context = document.querySelector("#unifiedDashContext");
   const actions = document.querySelector("#unifiedContextActions");
   const input = document.querySelector("#searchInput");
   if (!context || !actions || !input) return;
+
+  const revision = revisionById(dashId);
+  const dashTitle = revision?.title || renderedDashTitle(dashId);
+  if (!dashTitle) return;
 
   context.dataset.originDashId = dashId;
   const title = context.querySelector("#dashContextTitle");
@@ -93,7 +102,7 @@ function ensureOriginScopeControl() {
   const query = input.value.trim();
   setText(eyebrow, t("notSaved"));
   setText(title, `${t("selection")}: ${query || t("allCards")}`);
-  setText(meta, `${t("selectionMeta", { count: activeCardCount() })} · Dash: ${revision.title}`);
+  setText(meta, `${t("selectionMeta", { count: activeCardCount() })} · Dash: ${dashTitle}`);
 
   for (const item of context.querySelectorAll(".my-dash-item")) {
     item.classList.toggle("active", item.getAttribute("href") === `/demo/dashes/${encodeURIComponent(dashId)}/`);
@@ -112,7 +121,7 @@ function ensureOriginScopeControl() {
     select.setAttribute("aria-label", t("search"));
     const dashOption = document.createElement("option");
     dashOption.value = "dash";
-    dashOption.textContent = `${t("inThisDash")}: ${revision.title}`;
+    dashOption.textContent = `${t("inThisDash")}: ${dashTitle}`;
     const allOption = document.createElement("option");
     allOption.value = "all";
     allOption.textContent = t("allCardsScope");
@@ -131,7 +140,7 @@ function ensureOriginScopeControl() {
     back.id = "originDashBackButton";
     back.className = "button ghost";
     back.href = savedDashUrl(dashId);
-    back.textContent = `← Dash: ${revision.title}`;
+    back.textContent = `← Dash: ${dashTitle}`;
     actions.append(back);
   }
 }
