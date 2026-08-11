@@ -2,312 +2,254 @@
 
 This file answers one question only: **what are we building?**
 
-Do not put development-process decisions here.
+Do not put development-process decisions here. Implementation state belongs in `docs/development-summary.md`, `docs/roadmap.md`, OpenSpec and verified repository/PR state.
 
 ## Product statement
 
-DashGPT is a private personal dashboard for useful outcomes of AI conversations and portable working context. It turns chats, images, links, files and project discussions into curated Results that can be searched, summarized, revisited and handed off to another chat or agent.
+DashGPT is a user-controlled memory layer for AI conversations. It preserves useful outcomes — decisions, plans, research conclusions, recipes, instructions, project state and other reusable context — as **cards** that can be found, grouped and continued later.
+
+The everyday loop is:
+
+`AI conversation/context → distill → review → save/update canonical card → find/group → continue`
+
+Raw chat history is a source, not the primary memory object.
+
+A new user should understand DashGPT in roughly ten seconds:
+
+> DashGPT keeps useful parts of AI conversations as cards so they can be found and continued later.
+
+## Canonical terminology
+
+### Card
+
+**Card is the primary user-facing entity.**
+
+A card is a distilled reusable outcome. Depending on the source and topic, it may contain:
+
+- title and concise summary;
+- important facts/context;
+- decisions already made;
+- constraints and preferences relevant to the saved work;
+- current state;
+- unresolved questions;
+- useful next actions;
+- source/provenance links;
+- related references/assets;
+- structured continuation context;
+- semantic color and lightweight recognition metadata.
+
+Cards from different chats connect by meaning, not by chat boundaries.
+
+### Legacy `Result` compatibility
+
+The current `develop` implementation still uses `Result` in several schema names, routes, data files, MCP tool names and historical OpenSpec changes. That is **legacy implementation vocabulary**, not a second product entity.
+
+Do not create a separate user-facing Results model. New product specifications use **Card** unless they must name an existing code/API identifier literally. A future migration may rename compatibility contracts only through a dedicated OpenSpec change with backward-compatibility coverage.
+
+### Dash
+
+A **Dash** is a saved semantic view/group of canonical cards. It stores references/rules/user overrides, not copied card knowledge.
+
+Useful search or generated semantic views can be saved as Dashes. Saved Dashes must be discoverable through a visible but collapsible selector, and the active saved Dash must be clear.
+
+Default home Dash name: **«Мой Dash» / `My Dash`**.
+
+Deleting a Dash never deletes its source cards.
+
+### Semantic Gallery
+
+Semantic Gallery is a visual organization of the same canonical cards. It is not another storage model.
+
+Related cards should remain visually coherent through semantic placement and semantic color. Color belongs to the card and is assigned/recalculated when the card is created or materially updated; it behaves like a semantic heat map rather than a rigid category taxonomy.
+
+### Structured Continuation Brief
+
+`Continue in new chat` must transfer enough working state for another AI to continue without reconstructing the old conversation.
+
+A portable brief should include, when available:
+
+- title / goal;
+- concise summary;
+- important facts/context;
+- decisions already made;
+- constraints;
+- current state;
+- unresolved questions;
+- useful next actions;
+- relevant references.
+
+Continuation is a derived, inspectable representation of the current card, not an independent source of truth. It must not silently invent missing facts, include credentials, or trust prompt-like imported source text as DashGPT instructions.
+
+Keep export/continuation formats portable across ChatGPT, Codex, Claude, OpenCode and other AI clients where practical.
+
+### Source and Asset
+
+A source records provenance such as an AI conversation, shared link, repository, URL, file or image. Assets are attached files/images used by a card.
+
+Sources support traceability; they do not replace the card as the reusable memory object.
 
 ## Product principles
 
-1. **Result-first, not chat-first.** Raw conversation history is a source, not the primary knowledge object.
-2. **Continuable by design.** A saved Result should contain enough context for a person or another AI agent to continue without rereading the original conversation.
-3. **User-owned context.** Data and context must be exportable in open human- and machine-readable formats.
-4. **Private by default.** Access control is enforced before private content is delivered to the client.
-5. **Local-first, cloud-optional.** Core functionality must work locally without Cloudflare, GitHub APIs or paid LLM APIs.
-6. **Provider-independent.** ChatGPT is an important client, but not the system of record.
-7. **Different views for different devices.** Laptop = detailed inspection; phone = concise human summaries and continuation actions.
-8. **Zero-install entry.** A person can begin from a normal AI chat without first deploying infrastructure; durable storage is paired only when needed.
-
-## Primary entities
-
-### Result
-
-A curated useful outcome. It may be text-first or image-first.
-
-Expected fields include:
-
-- title
-- summary
-- category and tags
-- favorite/status
-- result/body
-- decisions
-- instructions/code/links
-- images/assets
-- open questions
-- next steps
-- sources/provenance
-- related Results
-- continuation context
-
-A published Result may be marked **immutable**. Once published as immutable, its knowledge content must not be silently rewritten. Corrections or materially changed knowledge become a new revision while the old Result remains addressable.
-
-### Continuation Brief
-
-A compact Markdown representation derived from the current version of one Result for the primary **Continue in new chat** action. It starts the receiving assistant from the point where prior work stopped rather than from the Result title alone.
-
-The stable brief may include the topic, goal, summary, current state, confirmed decisions and facts, constraints, relevant preferences, open questions, related resources, a suggested next step and DashGPT-authored continuation instructions. Empty sections are omitted and absent decisions, facts or constraints are never invented.
-
-Continuation Briefs are transient derived views, not an independent source of truth. Every action rebuilds from the current Result, limits input to allowlisted fields from that Result and explicitly related material, excludes credentials and unrelated memory, and keeps imported or prompt-like source text in data sections rather than trusted instructions. The user can preview, edit for one continuation and copy the exact Markdown without silently changing the saved Result.
-
-When a target cannot safely receive the complete prompt through its deeplink, DashGPT uses a visibly shortened brief that preserves the continuation-critical sections or an explicit clipboard fallback. It never silently degrades to the title or records a successful continuation before the transport succeeds.
-
-### Context Pack
-
-A portable representation of the current useful context for continuation by another chat or agent.
-
-It should support multiple sizes, for example quick/human, medium, large and agent-oriented variants, so callers do not have to send the whole history every time. A Full Context Pack is the richer optional export; it remains separate from the compact primary Continuation Brief.
-
-### Project
-
-A collection of Results, decisions, specs and state that can produce a current human summary and an agent continuation context.
-
-### Semantic Dash
-
-A saved, living semantic view of Results from one or more source conversations. A Dash stores its title, topic definition, update policy and Result references; it does not copy Result knowledge into a second store.
-
-Dash membership combines semantic selection with explicit user overrides:
-
-- pinned and manually added Results remain present;
-- excluded Results do not return during refresh;
-- new matches appear for review by default;
-- deleting a Dash never deletes its Results.
-
-Every build and refresh must apply the user's current Result access, source, archive and deletion constraints before ranking or summarization. If a referenced Result becomes unavailable, the Dash may show that state but must not retain or reveal its content through the aggregate summary.
-
-### Living Product Board
-
-DashGPT dogfoods the Result + Semantic Dash model for its own product memory. `dashgpt-product` is a normal saved Semantic Dash whose member Results represent substantial product topics with stable IDs. The board is a saved view over those Results, not a second product-status database.
-
-Its canonical route is `/demo/dash/dashgpt-product/`; `/demo/dash/` resolves to the same board identity. The stable board must remain reconstructable from repository-backed public Result/Dash catalogs even when browser local storage is empty.
-
-Product-topic Results use an explicit delivery model rather than `done/not done`:
-
-- `idea`
-- `specified`
-- `in_development`
-- `merged`
-- `deployed`
-- `product_verified`
-- `blocked`
-- `archived`
-
-`merged` does not imply `deployed`, and `deployed` does not imply `product_verified`. Product verification is an explicit acceptance step.
-
-The board summary is derived from current accessible member Results. It may show total topics, status counts, freshness, update source and pending review proposals, but must not store a manually duplicated product-status paragraph when the same information can be computed from cards.
-
-Product-board refresh is Review-mode by default. External evidence such as an open/merged PR or confirmed deployment may propose a delivery-state advancement, but must not silently overwrite product decisions, summaries, continuation instructions or private notes. Invisible Automatic mutation remains disabled until separately specified.
-
-The board and its Results support a structured continuation package containing role, product definition, current objective/state, completed and active work, decisions, constraints, open questions, next actions and sources. Raw private chat history is not the stored board artifact.
-
-### Source
-
-Provenance for a Result, such as a ChatGPT conversation, another AI chat, repository, URL, file or image.
-
-### Asset
-
-Images and other attached files used by Results.
-
-### DashGPT Profile
-
-A small, inspectable set of explicit user-approved preferences that should travel with DashGPT independently of any one AI provider. It may include preferred languages, answer density and stable working preferences. Provider-native memories or inferred conversational facts are context hints, not automatically persisted Profile data.
-
-### DashGPT Vault
-
-A portable user-owned durable storage unit for Results, Dash definitions/revisions, assets, user-state events and explicit Profile revisions. The same vault should be usable through local storage or replaceable synchronization adapters such as GitHub, Google Drive and a compatible DashGPT instance.
+1. **Card-first, not chat-first.** Conversation history is input/evidence; cards are reusable memory.
+2. **One canonical memory model.** Search, Semantic Gallery and Dashes operate on the same cards. Separate Results/Living Topics UI is unnecessary.
+3. **Continuable by design.** A saved card should contain enough state to resume useful work.
+4. **User-owned memory.** Data should remain exportable and portable in open human- and machine-readable forms.
+5. **Local-first and private by default.** Anonymous/local use should be possible without mandatory registration or cloud storage.
+6. **Cloud/sync optional.** GitHub, Google Drive and other providers are replaceable storage/sync adapters, not the domain model.
+7. **Provider-independent.** ChatGPT is an important client, not the system of record.
+8. **Value before infrastructure.** Onboarding should show useful cards before storage, Vault, MCP, GitHub or synchronization internals.
+9. **Truthful product state.** A discussed/open-PR/prototype capability must not be presented as implemented, merged or deployed.
+10. **Portable continuation.** The same saved memory should be useful to humans and multiple AI clients.
 
 ## Core user experience
 
-### Dashboard
+### Home / `My Dash`
 
-The dashboard should provide:
+The primary personal surface is a semantic gallery of canonical cards.
 
-- categories
-- tags
-- favorites
-- recent/active items
-- search
-- related Results
-- image previews
-- automatically generated topic/category summaries
-- active and completed topics/projects
-- saved Semantic Dashes and temporary topic previews
-- a visible stable entry point to the DashGPT Product Board
+It should support:
 
-### Continue actions
+- natural search;
+- semantic/category/tag/favorite filtering;
+- stable semantic neighborhoods;
+- meaningful recent activity within a topic;
+- opening card detail;
+- saving a useful current semantic view as a Dash;
+- reopening saved Dashes;
+- clear active-Dash state;
+- continuation from any relevant card.
 
-A Result should support actions equivalent to:
+`My Dash` is the default home view. It should not require creation of a separate persisted Dash object merely to show the user's memory.
 
-- continue the original chat when a source conversation link is available
-- start a new chat with a freshly generated structured Continuation Brief
-- preview, transiently edit or copy the exact Continuation Brief without rewriting the Result
-- send/export context to another agent
-- inspect/copy the Context Pack
-- share a deliberately selected item when supported
+**Implementation truth:** this unified `My Dash` behavior is the scope of open draft PR #33 and is not yet part of current `develop` until merged.
 
-### Zero-install onboarding
+### Card detail
 
-The normal first-run experience should begin in chat, not with deployment instructions.
+A card should make the useful outcome understandable without reopening the full source conversation. Primary actions should emphasize:
 
-A user can start using DashGPT immediately to distill and preview useful Results. Before durable storage is paired, DashGPT must clearly distinguish pending/conversational state from durably saved state.
+- open original/source conversation when available;
+- continue in a new chat with structured context.
 
-For durable storage, the target interaction is roughly:
+Editing, archive/delete, Dash membership, merge/version/history and technical metadata should remain available when relevant without dominating recognition and continuation.
 
-`start chat -> give DashGPT a supported storage link or choose local storage -> authorize that provider if needed -> sync`
+### Search and Dashes
 
-A storage link may identify a compatible DashGPT instance, GitHub location or Google Drive location. Provider authorization remains explicit. The user should not need to understand MCP, Cloudflare deployment or API-key configuration for the standard path.
+Natural-language search should retrieve the same canonical cards shown in the gallery. A useful result set can remain temporary or be explicitly saved as a Dash.
 
-### Shared-chat publishing MVP
+A saved Dash should reopen by identity/meaning without copying card content. User overrides such as pin, exclude and manual add take precedence over automatic semantic refresh behavior.
 
-A deliberately simple first ingestion flow should work before a full importer exists:
+Review mode is the default for proposed membership changes; invisible automatic memory mutation is not the MVP default.
 
-1. the user creates a public/shareable AI conversation link;
-2. the user sends that link to an assistant/agent that can access DashGPT;
-3. the assistant reads the conversation and distills the useful outcome into a Result;
-4. the Result is published into DashGPT with the original shared link preserved as provenance;
-5. the card becomes available for search, inspection and Context Pack generation.
+### Mobile
 
-For the first MVP, the summarizing assistant may perform the summarization outside DashGPT. DashGPT does not need a mandatory model API merely to accept the Result.
+A phone user should immediately see populated, useful cards and understand the product without reading infrastructure explanations.
 
-Later versions should make this flow available through normal DashGPT/agent APIs and may support direct automated import where appropriate.
+For first-time users, do not lead with:
 
-### Published Result pages
+- browser storage;
+- `LOCAL · NOT SYNCED`;
+- Vault terminology;
+- MCP;
+- GitHub/storage providers;
+- immutable/verified counters;
+- mandatory onboarding modals;
+- long technical setup instructions.
 
-Every published Result should have a stable standalone page that can be opened or shown without navigating the dashboard first.
+Storage and privacy controls remain available when the user chooses to manage persistence/sync.
 
-The page has two deliberately separate concerns:
+## Capture
 
-- **content is durable:** title, summary, decisions, next steps and provenance remain the published Result;
-- **presentation is living:** layout, typography, navigation and shared DashGPT UI may improve later and those improvements should appear on old Result pages too.
+### Preferred everyday flow
 
-An immutable Result page must visibly communicate that its content is locked. Updating the common DashGPT presentation must not count as changing the Result itself.
+`AI conversation → distill → save/update card`
 
-### Mobile experience
+From a normal AI conversation, a request such as **«dashgpt добавь карточку»** should create/save a real card through the DashGPT integration when that integration is available. Printing an example card is not equivalent to saving one.
 
-The phone UI should explain state rather than expose repository internals.
+The AI should prepare useful structured content; the user should not have to manually invent title, tags, summary, decisions and next actions for ordinary capture.
 
-A project summary should answer concisely:
+### Additional capture paths
 
-- where are we now?
-- what is already decided/done?
-- what is currently active?
-- what comes next?
-- are there blockers?
+Supported/desired capture paths may include:
 
-The same state may have short, normal, detailed and agent representations.
+- public/shared conversation links;
+- mobile Share Sheet / Shortcuts;
+- pasted/imported structured handoff;
+- bulk browser import of existing chat history.
 
-### Laptop experience
+Bulk browser import is migration/bootstrap functionality, **not the architectural foundation or preferred daily capture flow**. Import must avoid duplicate cards across retries and should be resumable when its dedicated implementation is built.
 
-The laptop view may expose deeper structured information such as Results, specs, sources, decisions, history, assets and detailed context.
+Share/import failures should be expressed as human product states. Do not expose raw HTTP/403/storage/backend/parser errors when they can be translated into an understandable outcome and retry/recovery path.
 
-## UX / visual design — open questions
+## Card merge direction
 
-The first M1 demo is intentionally utilitarian: the interaction model is already convenient enough to validate the Result → Context Pack loop, but the visual design is not a target design.
+Merging cards is a planned capability, not current `develop` behavior unless a future dedicated OpenSpec change/PR lands it.
 
-Keep for later exploration:
+The product direction is that a merged card may synthesize multiple source cards while preserving the originals as source-of-truth evidence. Source cards must not disappear merely because a stronger synthesized card exists; they can be de-prioritized/grouped as already merged and may still participate in later merges.
 
-- define a distinctive visual language for DashGPT instead of a generic dashboard look
-- preserve the current low-friction interaction flow while improving hierarchy, typography, spacing and density
-- make cards feel more like durable knowledge/results than generic admin-panel tiles
-- reconsider mobile navigation and quick actions once real Results/projects exist
-- test whether categories, projects, recent items and favorites should be visually stronger than tags/metadata
-- avoid polishing the UI so early that it hides flaws in the underlying information model
+Do not implement this direction by silently deleting or overwriting source cards.
+
+## Storage and privacy
+
+Principle: **user-owned, local-first memory**.
+
+- Anonymous/local use should be possible without mandatory registration.
+- Storage architecture should not dominate onboarding or the main UX.
+- Optional sync/storage may include GitHub, Google Drive and other user-controlled providers.
+- Development repository/specs are separate from user memory/content.
+- User memory belongs in user-controlled storage.
+- Prefer portable/open structured formats where practical.
+- Provider credentials are never portable card/profile/vault content.
+- Raw conversations are not synchronized by default merely because a card was saved from them.
+
+The existing `Vault` name is an implementation/storage term. It should stay behind normal product language unless the user explicitly manages storage/export/sync.
 
 ## Integrations
 
-### Agent interoperability
-
-DashGPT should expose its useful knowledge through a provider-neutral interface. MCP is the preferred integration boundary for agent access.
-
-Expected capabilities include concepts equivalent to:
-
-- search Results
-- open or preview a Semantic Dash from a natural topic request
-- get Result
-- create/update Result
-- get project state
-- generate/get Context Pack
-- find related Results
-
 ### ChatGPT
 
-DashGPT should be usable from ChatGPT through the current supported app/plugin mechanism backed by the same provider-neutral core/MCP interface. It should not require a separate ChatGPT-specific data model.
+DashGPT should be usable as an installable ChatGPT integration for ordinary users, backed by the same provider-neutral memory model.
 
-The product plugin identity is **DashGPT** (`dashgpt`). From a normal ChatGPT conversation, the user should be able to say the equivalent of **“save the useful result of this conversation to DashGPT”**. ChatGPT should distill the conversation rather than dump raw history and show what is about to be saved.
+The desired flow is not "configure MCP first". It is normal conversation → save a useful card → find it later → continue.
 
-ChatGPT conversation history, Projects and Memory may improve continuity and personalization when available, but they are not the authoritative DashGPT Result store. DashGPT must remain reconstructable from its own user-owned vault without relying on hidden host memory.
+Developer-mode MCP, shared-link import and explicit prepared-import links are useful compatibility/development mechanisms but do not alone prove the public end-to-end product experience.
 
-If a vault is already paired, save/read/search operations should target that vault. If no vault is paired, DashGPT may prepare a pending Result and guide the user through one minimal storage-pairing action before claiming durable save.
+### Other AI clients and developer tools
 
-The same plugin must be able to search the paired vault, open durable Results and obtain Context Packs for continuation.
+Cards and continuation context should be portable to Codex, Claude, OpenCode, Copilot, local models and other clients where practical.
 
-Natural requests such as “open my food Dash” or “what did we discuss about Morocco?” should reopen one confident saved Dash, ask the user to choose between materially ambiguous saved Dashes, or show a temporary topic preview that requires explicit confirmation before it is saved. Public plugin surfaces may only use Results and Dashes intentionally exposed by the selected DashGPT instance; access to a private paired Vault requires an authenticated storage surface.
+A project-local `.dashgpt` developer-memory direction is being explored in open PR #34. That prototype is **not merged into `develop`** and must not be documented as shipped behavior yet.
 
-The product must prove more than a connection to the developer's own test site: another person should be able to use the same recognizable DashGPT experience against storage they control, without hard-coded developer data.
+## Existing implementation directions
 
-### Other agents
+These directions are established and should remain compatible with the canonical card model:
 
-Context should be portable to tools such as Codex, Claude, OpenCode, Copilot and local agents without changing the underlying Result.
+- Semantic Dashes;
+- Semantic Gallery UX;
+- Structured Chat Continuation;
+- zero-friction/value-first mobile demo;
+- ChatGPT/shared-link/mobile capture;
+- bulk browser import as migration/bootstrap;
+- user-controlled local-first storage and optional sync;
+- project-local developer memory as an active prototype direction.
 
-## Personalization and privacy
+## Explicit non-goals / anti-patterns
 
-DashGPT should use personalization without becoming a shadow copy of a provider's memory system.
+Do not reintroduce:
 
-- provider-native context may influence the current interaction;
-- durable DashGPT Profile data is explicit, inspectable and user-approved;
-- raw chat transcripts are not stored or synchronized by default;
-- credentials and provider tokens are never Result/Profile/vault content;
-- cloud synchronization is opt-in and identifies the provider receiving the data;
-- the user can export or move their vault without an active cloud provider.
+- a separate user-facing Results page/model alongside cards;
+- separate Living Topics as another canonical memory object;
+- search results stored as a parallel result type;
+- storage/provider details as the first-run product story;
+- browser import as the architectural foundation;
+- mandatory account creation for local use;
+- title-only `Continue in new chat`;
+- claims that an open PR/prototype is already shipped;
+- raw backend errors as normal user-facing import states.
 
-## Deployment and privacy
+## Current product state boundary
 
-### Zero-install standard path
+Current `develop` has the legacy `Result`-named implementation plus merged Semantic Dashes, Semantic Gallery, Structured Chat Continuation, product-board dogfooding, chat-first onboarding and Share resolver/regression hardening through Feature 17.
 
-A user should not need a personal deployment in order to begin using DashGPT. The standard path starts in chat and adds durable storage through a local vault or a supported storage link plus explicit provider authorization.
+The canonical **card-first** product model is newer than some of those implementation names. PR #33 is the active UI consolidation toward `My Dash`; PR #34 is an active project-local developer-memory prototype. Both remain unmerged at the time of this reconciliation.
 
-### Optional private deployment
-
-A hosted personal DashGPT instance remains useful for advanced/self-hosted scenarios, but is one storage/runtime option rather than the onboarding prerequisite.
-
-There should still be a low-friction hosted path for people who want one, roughly equivalent to:
-
-GitHub account + Cloudflare account + permissions/configuration -> private personal DashGPT instance.
-
-### Local/self-hosted deployment
-
-The same product must remain runnable locally or on an arbitrary host using ordinary Git and local storage. GitHub and Cloudflare are adapters/convenience targets, not hard dependencies.
-
-Requirements:
-
-- core works offline where practical
-- self-hosting remains supported
-- Git provider is replaceable (GitHub/GitLab/Gitea/Forgejo/local Git, etc.)
-- data can be backed up and moved between deployments
-- no mandatory paid model/API for basic operation
-
-## Storage direction
-
-DashGPT durable personal state should converge on a provider-neutral portable Vault format rather than direct coupling to browser `localStorage`, GitHub, Google Drive or Cloudflare storage APIs.
-
-The Vault should use inspectable open formats such as JSON plus ordinary assets. Immutable Result knowledge remains revisioned; Dash membership is reference-only; mutable user state should be represented in a synchronization-friendly way that does not silently rewrite immutable Result content.
-
-Initial storage/sync adapters should cover local/browser storage, local filesystem/local Git, GitHub, Google Drive and compatible DashGPT instances. Cloud storage implementations must not redefine the domain model around one provider.
-
-## Initial product scope
-
-The first useful vertical slice should prove the central loop:
-
-1. create/import a Result
-2. store it locally
-3. browse/search Results
-4. favorite/open a Result
-5. generate a Context Pack
-6. copy/export it for continuation
-
-The next practical ingestion slice proves that a real shared AI chat can be distilled and published as a Result without requiring a built-in paid LLM API.
-
-The public plugin MVP established provider-neutral ChatGPT/MCP access and compatible-instance routing. Feature 6 moves onboarding and persistence toward zero-install chat-first use plus user-owned portable storage, so a personal deployed `siteUrl` is no longer the required first-use model.
-
-Later milestones add richer project-state summaries, images/assets, advanced relationships and richer synchronization/personalization behavior.
+When this document conflicts with a historical OpenSpec change, use this document for the **current product model** and the historical change for **what that implementation scope meant at the time**. Never infer implementation status from this product summary alone.

@@ -2,216 +2,186 @@
 
 This file answers one question only: **how are we building DashGPT?**
 
-Do not put product requirements here; those belong in `product-summary.md`.
+Product requirements and canonical terminology belong in `docs/product-summary.md`.
 
 ## Development principles
 
-1. **Spec-driven development.** Significant implementation work starts from an explicit spec/change, not an ad-hoc chat instruction.
-2. **Repository is the durable project memory.** A new agent must be able to understand the current milestone without reconstructing the project from chat history.
-3. **Provider-agnostic workflow.** Planning and implementation may move among Claude, Codex, GitHub Copilot, OpenCode and local/cheap models.
-4. **Strong models for reasoning-heavy work; cheaper/local models for execution where practical.** Model choice is an execution concern, not project state.
-5. **Short global instructions; detailed workflow in specs/skills.** Do not turn `AGENTS.md` into a project encyclopedia.
-6. **Ground against the repository.** Specs do not replace reading/testing the real codebase.
-7. **Handoffs are explicit.** Work should leave task/spec state understandable to another agent.
+1. **Spec-driven development.** Production capabilities start from a dedicated OpenSpec change, not ad-hoc implementation.
+2. **Repository is the implementation source of truth.** Chat discussion can propose work; repository/OpenSpec/PR/test/deployment evidence determines actual state.
+3. **One capability per change/PR.** Do not silently mix unrelated future work into an active PR.
+4. **Scope changes update OpenSpec first.** Production code follows the approved scope, not the other way around.
+5. **Regression coverage is required.** Bugs that escaped before receive tests that would have caught them.
+6. **Verification is layered.** Use focused checks while developing and one authoritative full gate before PR/merge; important UI work also requires production-preview/mobile verification.
+7. **Provider-neutral workflow.** Claude, Codex, Copilot, OpenCode and local models are replaceable clients of the same repository state.
+8. **Short global instructions; durable detail in specs/docs.** `AGENTS.md` routes; it is not a project encyclopedia.
+9. **Truthful status.** `specified`, `in development`, `merged`, `deployed`, `product verified` and `publicly available` are distinct states.
 
-## Initial SDD framework decision
+## Canonical product language vs implementation compatibility
 
-**OpenSpec is the initial SDD framework.**
+Current product language is **Card**. Existing `develop` still contains `Result` in schema names, static catalogs, routes, storage layout, MCP tools and historical OpenSpec changes.
 
-Why it is preferred for this project at bootstrap:
+Development rule:
 
-- DashGPT is explicitly multi-provider/multi-agent.
-- OpenSpec can configure multiple agent tools for the same repository.
-- It generates both skills and tool-specific commands.
-- Its change-oriented workflow is lightweight enough that specs can evolve with milestones.
-- Its local CLI provides a human browsing/status surface in addition to agent commands.
+- use **Card** for new product-facing behavior and documentation;
+- keep literal `Result` when referring to an existing identifier/contract that actually has that name;
+- do not create a second product entity to bridge the terminology;
+- rename compatibility contracts only through a dedicated OpenSpec migration with backward-compatibility tests.
 
-This is a reversible tooling decision. Product specs and project knowledge must remain readable without OpenSpec.
+Historical OpenSpec artifacts should remain historically accurate instead of being rewritten to pretend they used today's terminology.
 
-## Tooling baseline
+## Required production-change workflow
 
-### Required baseline
+For every production feature/change:
 
-- Git
-- OpenSpec for SDD/change lifecycle
-- minimal `AGENTS.md` as the universal entry/router
-- automated tests and CI as objective verification
+1. Read `docs/product-summary.md`, this file, `docs/roadmap.md` and `openspec/README.md`.
+2. Inspect existing OpenSpec capabilities/changes and the actual affected implementation.
+3. Check overlap with cards, Dashes, search, storage, continuation, UI, localization/security and compatibility contracts.
+4. Use a dedicated OpenSpec change.
+5. Prepare:
+   - proposal;
+   - spec delta;
+   - `design.md` when behavior/data/UX/architecture changes;
+   - verifiable `tasks.md`;
+   - Impact Manifest when blast radius matters.
+6. Strictly validate the OpenSpec change.
+7. Only then modify production code.
+8. Implement only approved scope. If scope changes, update/revalidate OpenSpec first.
+9. Add regression tests and run targeted verification during implementation.
+10. Before PR/merge, run the canonical full verification once while applicable.
+11. Verify meaningful UI changes in production preview and relevant mobile viewport.
+12. Link the PR to its OpenSpec change and keep independent capabilities in separate PRs.
+13. Reconcile tasks, roadmap/current-state docs and handoff state when the project state materially changes.
 
-### Coding agents
+For future capability discussions that are not already active, a GitHub Issue is the preferred durable product/PR handoff before implementation: keep the full Markdown/OpenSpec input there, then create the dedicated change/PR from it.
 
-Coding agents are replaceable clients of the same repository state. Initially target compatibility with:
+## OpenSpec in this repository
 
-- Claude Code
-- Codex
-- GitHub Copilot (including JetBrains where supported)
-- OpenCode
-- local/cheap models when capable
+OpenSpec remains the SDD/change lifecycle framework.
 
-### Code intelligence/editing
+Important current repository fact: `openspec/changes/` contains both merged historical changes and umbrella changes with remaining tasks. It is **not** a clean list of currently active work. See `openspec/README.md` for the reconciled index.
 
-- **Serena:** preferred optional tool for symbol-aware navigation and precise code changes/refactoring when useful.
-- **Graphify:** optional lightweight repository map/context reduction tool; not a core dependency.
-- **CodeGraphContext or equivalent:** optional alternative if a continuously maintained code graph becomes valuable.
+`.github/workflows/openspec.yml` installs the current OpenSpec CLI and strictly validates only change directories modified by the PR. This intentionally avoids making old-format historical changes fail unrelated work under a newer CLI.
 
-Do not require any of these tools for correctness of the repository.
+Current validation command:
 
-### Multi-agent task state
+```bash
+openspec validate <change-id> --type change --strict --no-interactive
+```
 
-Start with OpenSpec artifacts/tasks. Introduce a dedicated dependency/task system such as Beads only when parallel agents and cross-task blockers make the extra state worthwhile.
+Do not run `openspec init` on an existing DashGPT checkout as part of normal contribution; the repository is already initialized and contains its change history.
 
-## Agent responsibility split
+## Code-intelligence tooling
 
-Recommended default routing, not a hard product requirement:
+Use when available:
 
-- architecture, product clarification, spec review, difficult debugging → strong reasoning model
-- straightforward implementation, tests, formatting, mechanical refactors → cheaper/local model where quality is sufficient
-- repository/symbol exploration → native code tools, Serena and/or optional graph tooling
-- durable decisions/milestones → repository specs/docs, never model memory alone
+- **Graphify** to understand repository/dependency structure while minimizing loaded context.
+- **Serena** for focused symbol-aware navigation and modifications.
 
-## Spec lifecycle
+If either tool is unavailable in the current execution environment, use narrow repository-tree/search/symbol inspection instead and record the fallback when it matters to the change. Tool availability must not become a correctness dependency.
 
-For a meaningful change:
+## Current verification commands on `develop`
 
-1. Read `docs/product-summary.md`.
-2. Read this file and `docs/roadmap.md`.
-3. Inspect the relevant repository state.
-4. Explore unclear scope before committing to a proposal.
-5. Create/review an OpenSpec change.
-6. Implement only the agreed scope.
-7. Test and verify against the spec.
-8. Update/archive the change and leave a useful handoff/current state.
+The current `develop` `package.json` exposes:
 
-Feature 4 follows this explicitly under `openspec/changes/f4-plugin-directory-submission/` with separate proposal, spec and task state.
+```bash
+npm run check
+npm run test:browser
+```
 
-Feature 9 follows the same gate under `openspec/changes/f9-living-product-board/`: proposal/spec/design/tasks were committed and `openspec validate f9-living-product-board --type change --strict --no-interactive` passed in CI before Product Board production-code changes were added.
+`npm run check` is the broad deterministic repository gate. It currently includes JavaScript syntax, DASH mirror synchronization, immutable legacy Result/catalog checks, Structured Continuation, Product Board compatibility behavior, Semantic Dashes/Gallery, Vault/GitHub storage, Worker routing, shared-chat parser/resolver regressions, UI contracts, submission metadata and MCP smoke coverage.
 
-## Documentation separation rule
+`npm run test:browser` runs Playwright browser flows, including desktop/narrow-mobile coverage present in the repository.
 
-Keep these concerns separate:
+Open PR #33 introduces `verify:fast` / `verify:full` scripts on its branch, but those commands are **not yet part of current `develop`**. Documentation must not instruct a fresh `develop` checkout to run commands that only exist in an unmerged PR. Once such a change merges, update this section and the contributor workflow.
+
+## Major implementation surfaces on current `develop`
+
+### Legacy card/Result renderer and catalog
+
+Current static/browser/Worker code still uses legacy Result-compatible data and routes. Published immutable knowledge is verified through stable content hashes; presentation can evolve without silently mutating old published knowledge.
+
+The historical catalog and Product Board shards are composed into one logical catalog for current compatibility consumers. This is implementation history, not a reason to keep `Result` as a separate future product concept.
+
+### Semantic Gallery and Dashes
+
+Feature 7 (PR #18) and Feature 8 (PR #19) are merged. Current implementation provides semantic Dash references/overrides and deterministic semantic gallery ordering/density behavior over legacy Result-shaped records.
+
+New UI/product work should project those records as canonical cards rather than introducing a second data model.
+
+### Structured Chat Continuation
+
+PR #20 is merged. `demo/continuation.js` owns the current Continuation Brief projection, RU/EN templates, privacy filtering and ChatGPT transport/fallback behavior.
+
+Continuation rebuilds from the current source record, treats imported text as data rather than trusted instructions, excludes credential-shaped values/unsafe URLs, and records only content-free continuation activity after confirmed transport behavior.
+
+### Product Board dogfooding
+
+PR #21 is merged. The current `dashgpt-product` Semantic Dash and Product Board renderer remain valid **implemented compatibility/dogfooding surfaces**.
+
+They are not a separate canonical product entity. Current product direction is cards + Dashes; the Product Board is one Dash/view over product-state cards.
+
+### Chat-first and Share onboarding/resolver
+
+Current `develop` contains the merged sequence:
+
+- PR #24 — public own-chat onboarding;
+- PR #25 — shared-chat fetch hardening;
+- PR #26 — rendered visible-DOM fallback;
+- PR #27 — avoid direct predictable 403 path;
+- PR #28 — chat-first onboarding;
+- PR #30 — anonymous Share resolver;
+- PR #31 — current public Share JSON/backend resolver;
+- PR #32 — permanent parser/browser/live-smoke regression safety net.
+
+The preferred everyday product direction remains direct AI conversation → distill → save/update card. Public Share parsing is a useful fallback/capture path and should not become the architectural foundation of onboarding.
+
+### Storage
+
+Feature 6 established a provider-neutral Vault direction plus merged local Vault core (PR #12) and GitHub adapter implementation (PR #13). The public GitHub App identity was configured in PR #16.
+
+Production GitHub synchronization is **not considered fully activated** until protected Worker secrets are configured and a real private disposable-repository pair → sync → idempotent re-sync → disconnect smoke test passes. See `docs/github-storage-setup.md`.
+
+Google Drive, explicit Profile and broader provider portability remain future work and should receive dedicated scopes rather than being silently mixed into unrelated PRs.
+
+### MCP / ChatGPT App compatibility
+
+Current Worker/MCP still exposes legacy tool names such as `list_results`, `get_result`, `get_context_pack`, `prepare_result_import`, plus Semantic Dash support. Keep their literal names accurate in implementation documentation until a dedicated compatibility migration changes them.
+
+Public app submission remains an external release track under `f4-plugin-directory-submission`; implementation/submission artifacts are present, but public review/approval/publication/second-user acceptance are not complete merely because `/mcp` works.
+
+## Current branch/PR state at this reconciliation
+
+`develop` includes merged work through Feature 17 / PR #32.
+
+Open work that must **not** be described as shipped:
+
+- **PR #33** — Feature 18 `f18-unified-card-dashboard`, draft. It introduces the card-first `My Dash` shell/unified dashboard behavior on its branch.
+- **PR #34** — Feature 19 `f19-project-local-developer-memory`, open. It prototypes provider-neutral `.dashgpt` project memory and a Project State developer view on its branch.
+
+The OpenSpec directories for Features 18/19 are branch-local and correctly absent from `develop` until merge.
+
+## Documentation separation
 
 - `docs/product-summary.md` = WHAT DashGPT is and must do.
-- `docs/development-summary.md` = HOW the team/agents build it.
-- `docs/roadmap.md` = milestone ordering and current delivery intent.
-- OpenSpec changes/specs = detailed scoped work.
-- ADRs = durable architectural decisions and their rationale.
-- DashGPT Product Board = user-facing/product-facing delivery state derived from Result cards and a saved Semantic Dash.
-- `DASH.md` = short developer operational NOW / DONE / NEXT / BLOCKERS handoff; it is not the product-status source of truth.
+- `docs/product-conversation-guide.md` = product-evaluation/usability gate.
+- `docs/development-summary.md` = HOW it is built and verified.
+- `docs/roadmap.md` = merged/active/planned ordering and state.
+- `openspec/README.md` = how to interpret OpenSpec lifecycle/currentness.
+- OpenSpec changes = scoped implementation history/work.
+- ADRs = durable architectural decisions and rationale at the time made.
+- `DASH.md` = short developer operational NOW / DONE / NEXT / BLOCKERS handoff.
+- GitHub Issues = preferred durable handoff for future capability/PR proposals before implementation.
 
-## Published page implementation
+No one of these should silently replace the others.
 
-Standalone Result pages use one shared client-side renderer rather than copied per-Result HTML.
+## Handoff rule
 
-- Cloudflare Workers Static Assets serves the SPA shell for `/demo/result/<id>/` routes.
-- Dashboard and Result pages share the same `index.html`, JavaScript and CSS, so renderer/style updates apply to old pages automatically.
-- Published knowledge is a logical Result catalog. The historical catalog remains `demo/data/results.json`; Feature 9 adds repository-backed product Result shards `demo/data/product-results-a.json` and `demo/data/product-results-b.json` without rewriting old immutable Results.
-- `demo/catalog-bootstrap.js` exposes those static shards to the browser as one logical published catalog before the normal dashboard app starts.
-- `src/worker.js` exposes the same logical catalog to Worker/MCP consumers while retaining 404-compatible fallback when optional product shards are absent.
-- Published Results carry `schemaVersion`, `immutable`, `contentVersion` and `contentHash`.
-- The hash covers stable Result identity plus durable knowledge fields. Optional structured continuation fields such as goal, current state, facts, constraints, preferences, questions, links, related material and language participate when present; presentation/local state, product-delivery metadata and activity events are deliberately excluded.
-- `scripts/verify-results.mjs` protects the historical catalog; `scripts/verify-product-board.mjs` applies the deterministic SHA-256 contract to Product Board Results and verifies stable Dash membership and status semantics.
-- The browser independently recomputes the same digest and shows verified, unverified or mismatch state.
-- Corrections should become explicit new revisions rather than edits to old immutable Results.
+A handoff must distinguish:
 
-The durable architecture rationale is recorded in `docs/adr/0001-shared-renderer-immutable-results.md`.
+- what is verified on `develop`;
+- what exists only in an open branch/PR;
+- what is specified/planned but unimplemented;
+- what is blocked on an external/user action;
+- what verification evidence exists.
 
-## Structured chat continuation implementation
-
-`demo/continuation.js` owns the dependency-free Continuation Brief domain, RU/EN templates and the current target transport adapter. It projects only allowlisted Result fields, filters credential-shaped values and unsafe URLs, renders source content only as data, and appends trusted assistant instructions solely from DashGPT-owned templates.
-
-Every continuation action resolves the Result by id again before generation. The prepared transport explicitly selects full deeplink, priority-preserving compact deeplink or clipboard mode from encoded URL bytes; no path truncates the Markdown or falls back to the title. Preview edits are transient and transport success writes only a content-free `result.activity` event through the existing Vault boundary.
-
-The target adapter owns the deeplink, byte budget, encoding and fallback policy so future providers do not leak transport assumptions into the brief renderer. Browser code opens a blank target synchronously, isolates `opener`, and then either navigates it with the prepared payload or copies the exact brief with a truthful manual-paste message.
-
-## ChatGPT / Codex plugin implementation
-
-The plugin package lives under `plugins/dashgpt/` and uses the stable manifest identifier `dashgpt`. The repository also exposes it through `.agents/plugins/marketplace.json` for repo-scoped/local testing.
-
-The public-plugin implementation uses one **Universal MCP gateway** rather than assuming one MCP URL per user. The stable production endpoint is the deployment's `/mcp`; read/context tools accept an optional `siteUrl` to target another compatible DashGPT deployment.
-
-Current MCP tools:
-
-- `list_results`
-- `open_semantic_dash`
-- `get_result`
-- `get_context_pack`
-- `prepare_result_import`
-
-`list_results`, `open_semantic_dash`, `get_result` and `get_context_pack` are read-only but open-world because they may fetch a user-selected public DashGPT site. `open_semantic_dash` can reopen an intentionally exposed saved Dash, return ambiguity choices, or prepare an explicit `#dash-import=` temporary preview; it cannot inspect an unexposed private browser Vault. `prepare_result_import` remains non-mutating at tool-call time: it builds schema-v1 immutable Result data, computes the content hash and returns an explicit `/demo/#import=...` URL for the chosen site.
-
-A remote `siteUrl` is accepted only as HTTPS and is treated as DashGPT data only after compatible instance discovery. DashGPT instance protocol v1 exposes:
-
-- `GET /.well-known/dashgpt.json`
-- `GET /api/dashgpt/results`
-- `GET /api/dashgpt/results/<id>`
-- `GET /api/dashgpt/context/<id>`
-- `GET /api/dashgpt/dashes`
-
-This is intentionally a public/read-only MVP protocol. Private catalogs and automatic server-side writes will need a future authenticated protocol rather than weakening the current explicit-import boundary.
-
-The durable rationale is recorded in `docs/adr/0002-universal-mcp-instance-protocol.md`.
-
-## Public plugin submission implementation
-
-Public submission material lives with the plugin package in `plugins/dashgpt/SUBMISSION.md`. It keeps the portal-facing listing copy, production MCP configuration, domain-verification runbook, starter prompts, reviewer tests, availability decision slot and release notes reviewable in Git.
-
-The Worker exposes `/.well-known/openai-apps-challenge`; it returns exactly the configured `OPENAI_APPS_CHALLENGE` environment value when the submission portal provides a verification token.
-
-The repository does not invent or require a `plugin_asdk_app...` id for the public submission path. Local/private connection mappings may still use `.app.json` when a real registered connection exists, but the public submission is based on the production MCP URL scanned by the platform.
-
-## Project status surfaces
-
-There are now two deliberately different status surfaces:
-
-- **Product delivery state:** `dashgpt-product` saved Semantic Dash, rendered canonically at `/demo/dash/dashgpt-product/`. `/demo/dash/` is a compatibility route for that same board. It reads repository-backed Dash/Result catalogs and computes summary/status from cards.
-- **Developer operational handoff:** `DASH.md`, mirrored deterministically to `demo/data/dash.json` by `scripts/sync-dash.mjs` so CI can reject drift. This mirror is not rendered as a second product-status dataset.
-
-The Product Board renderer must not fetch `demo/data/dash.json`. Product changes are represented as Result cards with explicit delivery status, sources, current state and next action. GitHub/deployment evidence produces Review-mode proposals only; it never silently rewrites decisions or grants product verification.
-
-## Verification
-
-`.github/workflows/check.yml` runs the project checks on active feature branches and pull requests. `.github/workflows/openspec.yml` strictly validates only OpenSpec changes touched by the current PR, avoiding unrelated historical-change failures under newer CLI versions.
-
-`npm run check` currently covers:
-
-- JavaScript syntax
-- `DASH.md` ↔ developer mobile-mirror synchronization
-- immutable historical Result catalog hashes
-- immutable Product Board Result hashes, required product metadata and stable membership
-- Product Board status counts, route identity, reconciliation advancement/idempotence and manual-only product verification
-- Product Board structured continuation headings/sources and no legacy status-snapshot dependency
-- plugin manifest + repo marketplace identity
-- MCP initialization and tool discovery
-- tool annotations
-- local Result/context retrieval
-- public DashGPT instance discovery/read endpoints
-- deterministic remote-instance routing
-- explicit import-link generation for a selected DashGPT site
-- semantic Result ranking and saved/temporary Dash routing
-- Dash Review proposals, override precedence and inaccessible-Result redaction
-- Dash Vault/GitHub object round trips and backward-compatible Vault loading
-- public support/privacy/terms assets
-- Result deep-link routing
-- OpenAI domain-verification challenge behavior
-- Continuation Brief structure, localization, privacy filtering and encoded-size boundaries
-- current-Result rebuild, preview/edit/copy, transport fallback and content-free activity behavior
-
-`npm run test:browser` runs the Playwright continuation flows against the real demo in desktop and narrow mobile projects. CI installs its pinned Chromium runtime before that browser-level gate.
-
-Cloudflare branch previews are deployment verification. Production tracks `develop`; the stable UI entry point is `/demo/`, the canonical product board is `/demo/dash/dashgpt-product/`, `/demo/dash/` is its compatibility route, and the plugin endpoint is `/mcp`.
-
-## Current development state
-
-Feature 7 Semantic Dashes is merged via PR #18. Feature 8 Semantic Gallery UX is merged via PR #19.
-
-Structured Chat Continuation is merged via PR #20 under the validated `structured-chat-continuation` OpenSpec change. Its provider-safe new-chat transport, Continuation Brief, privacy boundary, content-free activity and desktop/mobile browser coverage remain part of the combined quality gate.
-
-Living Product Board is merged via PR #21: the `dashgpt-product` saved board, product Result cards, deterministic Review reconciliation and stable board route are now in `develop`. Feature 9 passed the mandatory strict OpenSpec gate before production-code edits and the combined current-`develop` repository and Chromium browser gates before merge. Stable production deployment and explicit product acceptance remain separate from merge state.
-
-External/manual release gates remain:
-
-- configure protected GitHub production-sync Worker secrets without putting them in chat/repository/Vault;
-- run one real disposable/private repository pair → sync → idempotent re-sync → disconnect smoke test before claiming GitHub production activation;
-- ensure the OpenAI Platform submitter has Apps Management write access and verified publisher identity;
-- create the public plugin draft, scan production `/mcp`, complete domain verification, fill the reviewed listing/tests/release notes and submit it when that track resumes;
-- after approval, publish the reviewed version and validate it from a second ChatGPT account against a separate DashGPT deployment;
-- perform physical/stable-production UX verification where a feature explicitly requires it rather than inferring `product_verified` from CI or merge state.
+Old timestamped handoffs may remain for history, but they must be visibly marked superseded when no longer current. `docs/handoff-dashgpt-v2.md` is such a historical artifact and should not be used as the current state source.

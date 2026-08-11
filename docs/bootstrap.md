@@ -1,14 +1,10 @@
-# DashGPT — Bootstrap Instructions
+# DashGPT — Contributor / OpenSpec Bootstrap
 
-This is the shortest path from a fresh clone to the first spec-driven implementation change.
+This is the shortest path from a fresh checkout to a correctly scoped DashGPT change **today**.
 
-## Why OpenSpec first
+The repository is already bootstrapped. Do not follow old instructions that treat the project as M0 or ask you to create the M1 change again.
 
-DashGPT must be developed by interchangeable providers/agents. OpenSpec is the initial SDD framework because one repository can be configured for multiple coding tools and the durable artifacts stay in the project rather than in one provider's chat history.
-
-This is a tooling choice, not a product dependency.
-
-## 1. Clone and inspect
+## 1. Clone current `develop`
 
 ```bash
 git clone git@github.com:bambuchastudent/dashgpt.git
@@ -16,116 +12,118 @@ cd dashgpt
 git checkout develop
 ```
 
-Read first:
+Use a current Node.js 22 environment, matching CI.
+
+Install dependencies with the package manager appropriate to the checkout. The current repository does not depend on a build step merely to inspect the docs/specs.
+
+## 2. Read current sources of truth
+
+Read in this order:
 
 ```text
 docs/product-summary.md
+docs/product-conversation-guide.md
 docs/development-summary.md
 docs/roadmap.md
+openspec/README.md
 AGENTS.md
 ```
 
-## 2. Install OpenSpec
+Then inspect the actual code and relevant OpenSpec/PR state for the capability you are touching.
 
-Prerequisite: Node.js 20.19.0+.
+Key terminology rule: **Card is the canonical product entity.** Existing `Result` identifiers are legacy implementation/compatibility names unless you are referring to a literal current contract.
+
+## 3. OpenSpec setup
+
+OpenSpec is already used by the repository. You normally need the CLI, not a new initialization:
 
 ```bash
-npm install -g @fission-ai/openspec@latest
+npm install --global @fission-ai/openspec@latest
 openspec --version
 ```
 
-## 3. Initialize for the agents we expect to use
+**Do not run `openspec init` on an existing DashGPT checkout as normal setup.** That old bootstrap instruction is obsolete and risks regenerating provider-specific files over an established repository.
 
-Start with the core profile and configure the same repository for the main clients:
-
-```bash
-openspec init --tools claude,codex,github-copilot,opencode --profile core
-```
-
-If one of those clients is not installed on the machine, either initialize interactively with only the tools present or rerun/update later.
-
-Useful inspection commands:
+Useful inspection commands depend on the installed OpenSpec version. The repository's CI contract for change validation is:
 
 ```bash
-openspec list
-openspec view
-openspec status --help
+openspec validate <change-id> --type change --strict --no-interactive
 ```
 
-After upgrading OpenSpec or changing tool/profile configuration:
+Read `.github/workflows/openspec.yml` before changing workflow assumptions.
+
+## 4. Before creating a production change
+
+First determine whether the work is:
+
+- already implemented on `develop`;
+- present only in an open PR/branch;
+- historical OpenSpec work;
+- a new capability;
+- an external activation/release step.
+
+`openspec/changes/` is not itself an active-work list. Read `openspec/README.md` and verify PR/repository state.
+
+For a future capability that is not already active, prefer a GitHub Issue as the durable handoff containing the full product/OpenSpec input before starting implementation.
+
+## 5. Create/use the dedicated OpenSpec change
+
+For one production capability:
+
+1. inspect overlapping changes/code;
+2. create or continue one dedicated change;
+3. prepare proposal;
+4. prepare spec delta;
+5. add `design.md` when behavior/data/UX/architecture changes;
+6. create verifiable `tasks.md`;
+7. add an Impact Manifest when blast radius matters;
+8. strictly validate the change;
+9. only then edit production code.
+
+If implementation scope changes, update and revalidate OpenSpec **before** widening production code.
+
+Historical merged change artifacts should not be mass-rewritten merely to replace old `Result` vocabulary with `Card`; they describe the implementation scope that existed at the time.
+
+## 6. Repository verification on current `develop`
+
+Current scripts available on `develop` are:
 
 ```bash
-openspec update
+npm run check
+npm run test:browser
 ```
 
-## 4. First agent interaction — explore before writing code
+Use focused checks during development. Before PR/merge, run the full applicable repository/browser gate required by the change.
 
-In a supported AI coding assistant chat, start with an exploration pass. Command syntax can differ by client; use the OpenSpec command exposed by that client.
+Open Feature 18 PR #33 introduces `verify:fast` and `verify:full` on its branch. Until that PR (or an equivalent change) merges, those scripts are **not** a valid command for a clean current `develop` checkout.
 
-Intent/prompt:
+Important UI changes also require verification in a production preview and a relevant mobile viewport; do not infer user-visible correctness from unit/static checks alone.
 
-```text
-/opsx:explore
-Read AGENTS.md, docs/product-summary.md, docs/development-summary.md and docs/roadmap.md.
-We are in M0 bootstrap and preparing M1.
-Identify contradictions, missing product decisions, risky assumptions and questions that must be answered before the first implementation change.
-Do not implement anything and do not redesign the product beyond the documented scope.
-```
+## 7. Code-intelligence tools
 
-Review the answer. Fix real contradictions in the repository before generating implementation work.
+When available:
 
-## 5. First implementation change — M1
+- use Graphify for dependency/repository understanding with reduced context;
+- use Serena for focused code navigation/modifications.
 
-Once the bootstrap review is satisfactory, create the first change:
+When unavailable, use narrow repository search/tree/symbol inspection and record the fallback where relevant. Do not block correctness on optional tooling.
 
-```text
-/opsx:propose m1-local-result-vertical-slice
-Build the first local-first DashGPT vertical slice defined in docs/roadmap.md.
-The user must be able to create/import a Result, persist it locally, browse and search Results, mark favorites, open Result details, and generate/copy/export a Context Pack for continuation in another chat or agent.
-The core must not require Cloudflare, GitHub APIs or a paid LLM API.
-Keep the implementation intentionally small and preserve provider/storage portability.
-Use docs/product-summary.md as product requirements and docs/development-summary.md as development constraints.
-```
+## 8. PR and handoff rules
 
-Before implementation, review the generated proposal/spec/design/tasks and resolve ambiguous architecture decisions explicitly.
+- Keep separate capabilities in separate PRs.
+- Link the PR to its OpenSpec change.
+- Add regression tests for changed behavior and escaped bugs.
+- Never claim a feature is merged/deployed/working without evidence for that exact state.
+- Update roadmap/tasks/current-state docs when the project state materially changes.
+- Keep credentials, private keys and secrets out of chat, repository and portable memory.
 
-Then implement the accepted change:
+## Current orientation
 
-```text
-/opsx:apply m1-local-result-vertical-slice
-```
+At the time of this reconciliation:
 
-When the change is complete and verified, sync/archive it according to the generated workflow:
+- `develop` contains merged work through Feature 17 / PR #32;
+- PR #33 (`f18-unified-card-dashboard`) is an open draft and is not in `develop`;
+- PR #34 (`f19-project-local-developer-memory`) is open and is not in `develop`;
+- Feature 4 public-app release and Feature 6 production GitHub activation still have external/manual gates.
 
-```text
-/opsx:sync m1-local-result-vertical-slice
-/opsx:archive m1-local-result-vertical-slice
-```
-
-## 6. When more control is needed
-
-The default `core` workflow is deliberately small. If we later want explicit incremental artifact creation and verification commands, configure the expanded workflow:
-
-```bash
-openspec config profile
-openspec update
-```
-
-Then use the generated commands such as `new`, `continue`, `ff` and `verify` where useful rather than adding a second SDD framework.
-
-## 7. Tooling policy for M1
-
-- Use the strongest available reasoning model to review product/spec/architecture decisions.
-- Implementation can be delegated to cheaper/local models when they can satisfy the same spec and tests.
-- Serena may be used for symbol-aware code work once a codebase exists.
-- Graphify/code-graph tooling is optional and should be added only when repository size/context cost justifies it.
-- Do not add Beads or another task system during M0/M1 unless parallel-agent task dependencies become a real problem.
-
-## Definition of a successful bootstrap
-
-M0 is complete when:
-
-- OpenSpec is initialized for the desired agents.
-- Agents can discover the same product/development/roadmap context from the repo.
-- The M1 OpenSpec change exists and has been reviewed.
-- No implementation decision depends solely on a previous chat conversation.
+Always re-check repository/PR state rather than treating this paragraph as permanent truth.
