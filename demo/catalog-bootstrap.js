@@ -28,6 +28,15 @@ function chatGptHistoryImportAllowed() {
   return local ? params.get("personal") === "1" : true;
 }
 
+function returnChatGptImportFocusToSource() {
+  const opener = window.opener;
+  if (!opener || opener.closed) return;
+  setTimeout(() => {
+    try { window.blur(); } catch {}
+    try { opener.focus(); } catch {}
+  }, 0);
+}
+
 function emptyCatalogResponse() {
   return new Response("[]", {
     status: 200,
@@ -92,6 +101,7 @@ if (!document.querySelector('link[data-dashgpt-unified-dashboard]')) {
   document.head.append(stylesheet);
 }
 
+const chatGptImportReceiverEntry = new URLSearchParams(window.location.search).get("chatgptImportReceiver") === "1";
 const feature20PersonalEntry = chatGptHistoryImportAllowed();
 let chatGptHistoryImport = null;
 if (feature20PersonalEntry) {
@@ -106,6 +116,12 @@ if (feature20PersonalEntry) {
   // bounded cross-window receiver before any ChatGPT source runner can connect.
   chatGptHistoryImport = await import("./chatgpt-history-import.js");
   chatGptHistoryImport.initializeChatGptHistoryImport({ phase: "pre-app" });
+
+  // Safari may sever the original DashGPT -> ChatGPT opener and require the
+  // source runner to open a replacement DashGPT receiver. Keep that receiver
+  // alive for postMessage/Vault ownership, but yield focus straight back to the
+  // ChatGPT source instead of making the user manually switch windows.
+  if (chatGptImportReceiverEntry) returnChatGptImportFocusToSource();
 }
 
 await import("./app.js");
