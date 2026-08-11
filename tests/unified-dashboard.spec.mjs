@@ -60,7 +60,9 @@ test("My Dash is one card surface and a search selection saves reference-only", 
   await page.locator("#unifiedDashContext .my-dashes-trigger").click();
   await expect(page.locator("#unifiedDashContext .my-dash-item").first()).toContainText("My Dash");
   await expect(page.locator("#unifiedDashContext .my-dash-item", { hasText: "Поездки" })).toBeVisible();
-  await page.locator("#unifiedDashContext .my-dashes-trigger").click();
+  const menu = page.locator("#unifiedDashContext .my-dashes-menu");
+  await menu.evaluate(node => { node.open = false; });
+  await expect(menu).not.toHaveAttribute("open", "");
 
   await page.locator("#searchInput").fill("лосось");
   await expect(page.locator("#resultsGrid .result-card")).toHaveCount(1);
