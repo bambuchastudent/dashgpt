@@ -21,6 +21,10 @@ function dashRouteId() {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
+function isHomeRoute() {
+  return /^\/demo\/?$/.test(window.location.pathname);
+}
+
 function params() {
   return new URLSearchParams(window.location.search);
 }
@@ -56,6 +60,14 @@ function allCardsUrl(dashId, query = "") {
 
 function activeCardCount() {
   return document.querySelectorAll("#resultsGrid .result-card[data-result-id]").length;
+}
+
+function ensureCanonicalHomeShell() {
+  if (!isHomeRoute() || document.querySelector("#unifiedDashContext")) return false;
+  const dashboard = document.querySelector("#dashboardView");
+  if (!dashboard || dashboard.hidden) return false;
+  window.location.replace(`${window.location.pathname}${window.location.search}${window.location.hash}`);
+  return true;
 }
 
 function ensureOriginScopeControl() {
@@ -132,8 +144,12 @@ function restoreSavedDashQuery() {
 }
 
 function syncRouteEnhancements() {
-  if (dashRouteId()) restoreSavedDashQuery();
-  else ensureOriginScopeControl();
+  if (dashRouteId()) {
+    restoreSavedDashQuery();
+    return;
+  }
+  if (ensureCanonicalHomeShell()) return;
+  ensureOriginScopeControl();
 }
 
 // The base unified controller owns the saved-Dash scope selector. Capture only the
