@@ -25,11 +25,15 @@ function applyUnifiedProductBoardShell() {
   const title = intro?.querySelector("h2");
   const eyebrow = intro?.querySelector(".eyebrow");
   if (header) header.classList.add("unified-dash-context", "product-board-unified-context");
-  if (eyebrow) eyebrow.textContent = t("savedDash");
+  const savedDashLabel = t("savedDash");
+  if (eyebrow && eyebrow.textContent !== savedDashLabel) eyebrow.textContent = savedDashLabel;
   if (title && !title.textContent.startsWith("Dash: ")) title.textContent = `Dash: ${title.textContent}`;
 
+  const backLabel = `← ${t("backToMyDash")}`;
   const backLinks = [...page.querySelectorAll('a[href="/demo/"]')];
-  for (const link of backLinks) link.textContent = `← ${t("backToMyDash")}`;
+  for (const link of backLinks) {
+    if (link.textContent !== backLabel) link.textContent = backLabel;
+  }
 
   const topicsHeading = [...page.querySelectorAll(".product-board-topics h2")]
     .find(node => node.textContent.trim() === "Tracked Results");
@@ -38,7 +42,8 @@ function applyUnifiedProductBoardShell() {
   const unavailable = page.querySelector(".dash-status-card");
   if (unavailable) {
     const fallbackBack = unavailable.querySelector('a[href="/demo/"]');
-    if (fallbackBack) fallbackBack.textContent = t("backToMyDash");
+    const fallbackLabel = t("backToMyDash");
+    if (fallbackBack && fallbackBack.textContent !== fallbackLabel) fallbackBack.textContent = fallbackLabel;
   }
 }
 
