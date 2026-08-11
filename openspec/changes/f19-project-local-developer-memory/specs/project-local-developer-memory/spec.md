@@ -1,6 +1,6 @@
 ## Purpose
 
-Project-local developer memory gives a software repository a portable `.dashgpt` knowledge layer whose canonical cards can be understood by humans and arbitrary AI agents, while a visual developer view explains how sessions, decisions and implementation evidence lead to outcomes.
+Project-local developer memory gives a software repository a portable `.dashgpt` knowledge layer whose canonical cards can be understood by humans and arbitrary AI agents, while a visual developer view explains current project state and how sessions, decisions and implementation evidence lead to outcomes.
 
 ## ADDED Requirements
 
@@ -44,12 +44,37 @@ The project memory SHALL support explicit stable-ID relationships among cards, i
 - **WHEN** the same cards and relationships are rendered again
 - **THEN** the semantic neighborhoods and relationship labels can be reconstructed without storing pixel coordinates as canonical knowledge
 
+### Requirement: Project State is the primary developer visualization
+The prototype SHALL make Project State the default developer view and SHALL explain current work before presenting archival card browsing. The view SHALL derive its active, shipped and next-state surfaces from canonical cards rather than introducing a separate project-task entity.
+
+#### Scenario: Active DashGPT work is understandable at a glance
+- **WHEN** the developer prototype opens with active cards in the fixture
+- **THEN** the initial viewport identifies what is being built now, the user-visible outcome of each active change and a compact progress/evidence state without requiring the user to open the card
+
+#### Scenario: Shipped and next work are distinguishable
+- **WHEN** the fixture contains shipped, active/prototype and planned cards
+- **THEN** the primary view visually distinguishes those stages and preserves one canonical card identity for each item
+
+### Requirement: Product spine explains how capabilities compose
+The Project State view SHALL render a compact product spine from project-memory data that explains how major DashGPT capability areas compose into user value.
+
+#### Scenario: Developer sees the product, not only isolated cards
+- **WHEN** the project defines product-spine steps such as capture, cards, semantic organization, continuation and developer memory
+- **THEN** the initial view presents those steps in an ordered readable flow before or alongside detailed workstreams
+
+### Requirement: Human workstreams organize project state
+The primary visualization SHALL organize cards by human project workstream such as Memory, Capture, Experience, Reliability or Developer Tools. Semantic color MAY remain a secondary cue but SHALL NOT be the only mechanism for understanding project structure.
+
+#### Scenario: Developer locates active work by project area
+- **WHEN** multiple cards share a workstream and have different stages
+- **THEN** the workstream surface shows those cards together with their stage and concise outcome
+
 ### Requirement: Developer visualization uses the same canonical cards
-The prototype SHALL render Project Map, Timeline, Results and Sessions views from one project-memory fixture. Results SHALL be derived from canonical cards and SHALL NOT introduce a second Result storage entity.
+The prototype SHALL render Project State, Timeline, Results and Sessions views from one project-memory fixture. Results SHALL be derived from canonical cards and SHALL NOT introduce a second Result storage entity.
 
 #### Scenario: Result appears across views
-- **WHEN** one completed engineering card is present in the fixture
-- **THEN** the same card identity can appear in Project Map, Timeline and Results views and its detail panel without duplication into another canonical entity
+- **WHEN** one engineering card is present in the fixture
+- **THEN** the same card identity can appear in Project State, Timeline and Results views and its detail panel without duplication into another canonical entity
 
 #### Scenario: Session view remains secondary
 - **WHEN** the Sessions view lists a contributing AI session
@@ -69,12 +94,23 @@ The prototype SHALL describe session history as local/private evidence by defaul
 - **WHEN** the user opens Sessions
 - **THEN** the UI labels session information as evidence and does not expose a control or status claiming that automatic IDE capture is already active
 
+### Requirement: Project-state labels do not overclaim implementation
+The fixture and visualization SHALL distinguish verified repository state from planned or prototype state and SHALL NOT present an unmerged or unimplemented capability as shipped.
+
+#### Scenario: Open PR is shown as active rather than shipped
+- **WHEN** an item corresponds to an open pull request
+- **THEN** the card presents the PR/prototype stage and any verified checks without labeling the capability as merged or shipped
+
+#### Scenario: Future adapter remains planned
+- **WHEN** a card represents a future IDE/capture adapter not implemented by this change
+- **THEN** it is visibly marked as next/planned and is not counted as shipped
+
 ### Requirement: Prototype is usable on desktop and mobile
 The standalone developer view SHALL remain readable and operable at desktop and 390px mobile widths without horizontal page overflow.
 
-#### Scenario: Mobile project map
+#### Scenario: Mobile project state
 - **WHEN** the developer prototype is opened at a 390px viewport
-- **THEN** navigation, semantic cards and detail content reflow vertically and the document does not overflow horizontally
+- **THEN** product spine, active work, workstreams, navigation and detail content reflow vertically and the document does not overflow horizontally
 
 ### Requirement: Existing DashGPT product behavior is unchanged
 This prototype SHALL remain isolated from the current main dashboard, Semantic Dashes, Semantic Gallery controller, search, storage providers, continuation and MCP runtime behavior.
