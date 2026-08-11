@@ -60,6 +60,7 @@ test("My Dash is one card surface and a search selection saves reference-only", 
   await page.locator("#unifiedDashContext .my-dashes-trigger").click();
   await expect(page.locator("#unifiedDashContext .my-dash-item").first()).toContainText("My Dash");
   await expect(page.locator("#unifiedDashContext .my-dash-item", { hasText: "Поездки" })).toBeVisible();
+  await page.locator("#unifiedDashContext .my-dashes-trigger").click();
 
   await page.locator("#searchInput").fill("лосось");
   await expect(page.locator("#resultsGrid .result-card")).toHaveCount(1);
@@ -99,7 +100,7 @@ test("saved Dash keeps context, searches its cards, and returns to My Dash", asy
   await expect(page.locator(".dash-result-card")).toHaveCount(2);
   await expect(page.locator("#savedDashSearchScope")).toHaveValue("dash");
 
-  await page.locator("#savedDashSearch").fill("Марокко");
+  await page.locator("#savedDashSearch").fill("девять дней");
   await expect(page.locator(".dash-result-card:not([hidden])")).toHaveCount(1);
   await expect(page.locator(".dash-result-card:not([hidden])")).toContainText("Марокко");
 
