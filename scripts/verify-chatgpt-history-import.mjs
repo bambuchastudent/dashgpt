@@ -25,7 +25,11 @@ const {
   seedDefaultChatGptImportCard
 } = await import("../demo/chatgpt-history-import.js");
 const { applyChatGptImportBatchFast } = await import("../demo/chatgpt-history-import-batch.js");
-const { buildChatGptHistorySourceRunner } = await import("../demo/chatgpt-history-source-runner.js");
+const {
+  MAX_CHATGPT_IMPORT_ACTION_CHARS,
+  buildChatGptHistoryImportAction,
+  buildChatGptHistorySourceRunner
+} = await import("../demo/chatgpt-history-source-runner.js");
 
 class MemoryStorage {
   constructor() { this.values = new Map(); }
@@ -208,4 +212,29 @@ assert.throws(() => chatGptImportedResultId("https://evil.invalid/x"));
   assert.doesNotMatch(runner, /localStorage/);
 }
 
-console.log("ChatGPT history import verifier: seed, idempotent upsert, batch fast path, freshness, bounded projection, privacy, storage budget and adaptive-runner contracts passed.");
+// Feature 23 packages the same final runner as one reusable browser action.
+// Per-run bridge identity is created only when the action executes, so saving
+// the bookmark never stores a durable session/nonce or ChatGPT credential.
+{
+  const action = buildChatGptHistoryImportAction({
+    receiverOrigin: "https://dashgpt.example",
+    receiverPath: "/demo/"
+  });
+  assert.ok(action.startsWith("javascript:"));
+  assert.ok(action.length < MAX_CHATGPT_IMPORT_ACTION_CHARS, `Import action is ${action.length} chars`);
+  assert.match(action, /https:\/\/dashgpt\.example/);
+  assert.match(action, /https:\/\/chatgpt\.com/);
+  assert.match(action, /randomUUID/);
+  assert.match(action, /const sessionId=makeId\("session"\)/);
+  assert.match(action, /const nonce=makeId\("nonce"\)/);
+  assert.match(action, /connect\.click\(\)/);
+  assert.match(action, /postMessage/);
+  assert.match(action, /scheduler\.throttled/);
+  assert.doesNotMatch(action, /__DASHGPT_ACTION_SESSION__/);
+  assert.doesNotMatch(action, /__DASHGPT_ACTION_NONCE__/);
+  assert.doesNotMatch(action, /session-test|nonce-test|SECRET_ACCESS_TOKEN_SHOULD_NOT_SURVIVE|acct-secret/);
+  assert.doesNotMatch(action, /fetch\([^\n]*dashgpt\.example/);
+  assert.doesNotMatch(action, /localStorage/);
+}
+
+console.log("ChatGPT history import verifier: seed, idempotent upsert, batch fast path, freshness, bounded projection, privacy, storage budget, adaptive-runner and reusable browser-action contracts passed.");
