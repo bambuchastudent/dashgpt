@@ -42,28 +42,6 @@ function seedVault() {
   };
 }
 
-async function searchVisibilitySnapshot(page) {
-  return page.locator("#searchInput").evaluate(input => {
-    const chain = [];
-    for (let node = input; node; node = node.parentElement) {
-      const style = getComputedStyle(node);
-      const rect = node.getBoundingClientRect();
-      chain.push({
-        tag: node.tagName,
-        id: node.id,
-        className: typeof node.className === "string" ? node.className : "",
-        hidden: Boolean(node.hidden),
-        display: style.display,
-        visibility: style.visibility,
-        opacity: style.opacity,
-        width: rect.width,
-        height: rect.height
-      });
-    }
-    return chain;
-  });
-}
-
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(({ key, vault }) => localStorage.setItem(key, JSON.stringify(vault)), {
     key: VAULT_KEY,
@@ -76,6 +54,8 @@ test("My Dash is one card surface and a search selection saves reference-only", 
 
   await expect(page.locator("#unifiedDashContext")).toBeVisible();
   await expect(page.locator("#dashContextTitle")).toHaveText("My Dash");
+  await expect(page.locator("#unifiedPrimarySearch")).toBeVisible();
+  await expect(page.locator("#unifiedPrimarySearch #searchInput")).toBeVisible();
   await expect(page.locator(".semantic-dashes")).toBeHidden();
   await expect(page.locator("#resultsGrid .result-card")).toHaveCount(4);
 
@@ -86,10 +66,7 @@ test("My Dash is one card surface and a search selection saves reference-only", 
   await menu.evaluate(node => { node.open = false; });
   await expect(menu).not.toHaveAttribute("open", "");
 
-  const searchInput = page.locator("#searchInput");
-  if (!(await searchInput.isVisible())) {
-    console.log("UNIFIED_SEARCH_VISIBILITY", JSON.stringify(await searchVisibilitySnapshot(page)));
-  }
+  const searchInput = page.locator("#unifiedPrimarySearch #searchInput");
   await expect(searchInput).toBeVisible();
   await searchInput.fill("лосось");
   await expect(page.locator("#resultsGrid .result-card")).toHaveCount(1);
@@ -147,7 +124,7 @@ test("360px mobile flow keeps search, My Dashes, active context, and gallery on 
   await page.goto("/demo/?personal=1");
 
   await expect(page.locator("#dashContextTitle")).toBeVisible();
-  await expect(page.locator("#searchInput")).toBeVisible();
+  await expect(page.locator("#unifiedPrimarySearch #searchInput")).toBeVisible();
   await expect(page.locator("#unifiedDashContext .my-dashes-trigger")).toBeVisible();
   await expect(page.locator("#resultsGrid .result-card").first()).toBeVisible();
 
