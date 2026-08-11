@@ -4,6 +4,7 @@ import { resolveUnifiedDashLocale, unifiedDashText } from "./unified-dashboard.j
 
 const ORIGIN_DASH_PARAM = "fromDash";
 const SEARCH_SCOPE_PARAM = "scope";
+const ORIGIN_SESSION_KEY = "dashgpt.unified.search-origin.v1";
 const ROUTE_SYNC_DELAYS = [0, 40, 160];
 
 function locale() {
@@ -34,8 +35,53 @@ function params() {
   return new URLSearchParams(window.location.search);
 }
 
+function readOriginSession() {
+  try {
+    const parsed = JSON.parse(globalThis.sessionStorage?.getItem?.(ORIGIN_SESSION_KEY) || "null");
+    if (!parsed || parsed.scope !== "all" || !parsed.dashId) return null;
+    return {
+      dashId: String(parsed.dashId),
+      scope: "all",
+      query: String(parsed.query || "")
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeOriginSession({ dashId, query = "" }) {
+  try {
+    globalThis.sessionStorage?.setItem?.(ORIGIN_SESSION_KEY, JSON.stringify({
+      dashId,
+      scope: "all",
+      query: String(query || "")
+    }));
+  } catch {
+    // URL state remains the primary source when sessionStorage is unavailable.
+  }
+}
+
+function clearOriginSession() {
+  try {
+    globalThis.sessionStorage?.removeItem?.(ORIGIN_SESSION_KEY);
+  } catch {
+    // Best-effort cleanup only.
+  }
+}
+
+function originState() {
+  const search = params();
+  const dashId = search.get(ORIGIN_DASH_PARAM);
+  const scope = search.get(SEARCH_SCOPE_PARAM);
+  if (dashId && scope === "all") {
+    return { dashId, scope: "all", query: search.get("q") || "" };
+  }
+  if (isHomeRoute()) return readOriginSession();
+  return null;
+}
+
 function originDashId() {
-  return params().get(ORIGIN_DASH_PARAM) || "";
+  return originState()?.dashId || "";
 }
 
 function revisionById(dashId) {
@@ -92,8 +138,9 @@ function ensureCanonicalHomeShell() {
 
 function ensureOriginScopeControl() {
   if (dashRouteId()) return;
-  const dashId = originDashId();
-  if (!dashId || params().get(SEARCH_SCOPE_PARAM) !== "all") return;
+  const origin = originState();
+  if (!origin?.dashId || origin.scope !== "all") return;
+  const { dashId } = origin;
   const context = document.querySelector("#unifiedDashContext");
   const actions = document.querySelector("#unifiedContextActions");
   const input = document.querySelector("#searchInput");
@@ -106,7 +153,7 @@ function ensureOriginScopeControl() {
   const title = context.querySelector("#dashContextTitle");
   const eyebrow = context.querySelector("#dashContextEyebrow");
   const meta = context.querySelector("#dashContextMeta");
-  const query = input.value.trim();
+  const query = input.value.trim() || origin.query;
   setText(eyebrow, t("notSaved"));
   setText(title, `${t("selection")}: ${query || t("allCards")}`);
   setText(meta, `${t("selectionMeta", { count: activeCardCount() })} · Dash: ${dashTitle}`);
@@ -136,7 +183,9 @@ function ensureOriginScopeControl() {
     group.append(hidden, select);
     actions.prepend(group);
     select.addEventListener("change", () => {
-      if (select.value === "dash") window.location.href = savedDashUrl(dashId, input.value);
+      if (select.value !== "dash") return;
+      clearOriginSession();
+      window.location.href = savedDashUrl(dashId, input.value || origin.query);
     });
   }
   const select = group.querySelector("#originDashSearchScope");
@@ -149,6 +198,7 @@ function ensureOriginScopeControl() {
     back.id = "originDashBackButton";
     back.className = "button ghost";
     back.href = savedDashUrl(dashId);
+    back.addEventListener("click", () => clearOriginSession());
     actions.append(back);
   }
   setText(back, `← Dash: ${dashTitle}`);
@@ -161,6 +211,7 @@ function restoreSavedDashQuery() {
   if (!query) return;
   const input = document.querySelector("#savedDashSearch");
   if (!input || input.dataset.restoredQuery === query) return;
+  clearOriginSession();
   input.dataset.restoredQuery = query;
   input.value = query;
   input.dispatchEvent(new Event("input", { bubbles: true }));
@@ -181,9 +232,6 @@ function scheduleRouteSync() {
   for (const delay of ROUTE_SYNC_DELAYS) setTimeout(syncRouteEnhancements, delay);
 }
 
-// The base unified controller owns the saved-Dash scope selector. Capture only the
-// "All cards" transition so the query moves to the existing My Dash gallery while
-// retaining the source Dash as reversible context instead of creating a second renderer.
 document.addEventListener("change", event => {
   const select = event.target;
   if (!(select instanceof HTMLSelectElement) || select.id !== "savedDashSearchScope" || select.value !== "all") return;
@@ -192,17 +240,20 @@ document.addEventListener("change", event => {
   event.preventDefault();
   event.stopImmediatePropagation();
   const query = document.querySelector("#savedDashSearch")?.value || "";
+  writeOriginSession({ dashId, query });
   window.location.href = allCardsUrl(dashId, query);
 }, true);
 
 document.addEventListener("input", event => {
   if (!(event.target instanceof HTMLInputElement) || event.target.id !== "searchInput") return;
-  const dashId = originDashId();
-  if (!dashId || params().get(SEARCH_SCOPE_PARAM) !== "all") return;
+  const origin = originState();
+  if (!origin?.dashId || origin.scope !== "all") return;
   if (!event.target.value.trim()) {
-    window.location.href = savedDashUrl(dashId);
+    clearOriginSession();
+    window.location.href = savedDashUrl(origin.dashId);
     return;
   }
+  writeOriginSession({ dashId: origin.dashId, query: event.target.value.trim() });
   scheduleRouteSync();
 });
 
