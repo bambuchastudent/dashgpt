@@ -18,7 +18,11 @@ function t(key, values = {}) {
 function applyEmptyMyDashContext() {
   if (!isPersonalHome()) return;
   const welcome = document.querySelector("#publicWelcome");
-  if (!welcome || document.querySelector("#emptyMyDashContext")) return;
+  // Feature 20 makes the canonical dashboard visible for a clean user because
+  // the default ChatGPT-import operation is itself a card. In that case the
+  // unified dashboard already owns the My Dash context; do not render a second
+  // empty-shell header inside onboarding.
+  if (!welcome || document.querySelector("#unifiedDashContext") || document.querySelector("#emptyMyDashContext")) return;
 
   const context = document.createElement("section");
   context.id = "emptyMyDashContext";
