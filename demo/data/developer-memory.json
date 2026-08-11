@@ -1,0 +1,259 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "id": "dashgpt",
+    "title": "DashGPT",
+    "summary": "Card-first memory for useful AI conversation outcomes, now explored as project-local developer memory.",
+    "branch": "develop",
+    "updatedAt": "2026-08-11T11:20:00+02:00",
+    "memoryPath": ".dashgpt/"
+  },
+  "cards": [
+    {
+      "id": "project-local-memory",
+      "title": "Project-local developer memory",
+      "summary": "Give the repository a portable AI-readable memory that survives switching between coding agents.",
+      "kind": "architecture",
+      "status": "in-progress",
+      "topic": "Developer memory",
+      "semanticHue": 266,
+      "createdAt": "2026-08-11T10:58:00+02:00",
+      "updatedAt": "2026-08-11T11:20:00+02:00",
+      "problem": "Useful engineering context is fragmented across Copilot, OpenCode, Cline, local models and chat sessions.",
+      "decision": "Use a provider-neutral .dashgpt contract where cards are canonical memory and sessions are optional evidence.",
+      "outcome": "A portable contract and visual developer prototype are being built without coupling the core to one agent.",
+      "files": [
+        "openspec/changes/f19-project-local-developer-memory/",
+        "demo/developer/"
+      ],
+      "evidence": [
+        { "type": "openspec", "label": "F19 strict OpenSpec change" },
+        { "type": "test", "label": "Desktop + mobile browser coverage" }
+      ],
+      "sessionIds": ["session-chatgpt-memory", "session-opencode-handoff"],
+      "tags": [".dashgpt", "memory", "developer", "portable"]
+    },
+    {
+      "id": "developer-visual-history",
+      "title": "Visual developer history",
+      "summary": "Render project work as semantic neighborhoods, outcomes, timeline events and session evidence.",
+      "kind": "feature",
+      "status": "in-progress",
+      "topic": "Developer memory",
+      "semanticHue": 282,
+      "createdAt": "2026-08-11T11:05:00+02:00",
+      "updatedAt": "2026-08-11T11:20:00+02:00",
+      "problem": "A directory of transcripts does not show what was achieved or why the code changed.",
+      "decision": "Visualize the same canonical cards through Project Map, Timeline, Results and Sessions views.",
+      "outcome": "One renderer can later live in a browser or IDE WebView while keeping storage separate.",
+      "files": ["demo/developer/index.html", "demo/developer/developer.js", "demo/developer/developer.css"],
+      "evidence": [
+        { "type": "prototype", "label": "Standalone /demo/developer/ route" }
+      ],
+      "sessionIds": ["session-chatgpt-memory"],
+      "tags": ["visualization", "ide", "webview"]
+    },
+    {
+      "id": "unified-card-dashboard",
+      "title": "Unified Card Dashboard",
+      "summary": "Use canonical cards directly for My Dash and saved semantic views instead of parallel result surfaces.",
+      "kind": "feature",
+      "status": "in-progress",
+      "topic": "Product UX",
+      "semanticHue": 318,
+      "createdAt": "2026-08-11T08:20:00+02:00",
+      "updatedAt": "2026-08-11T09:18:00+02:00",
+      "problem": "Separate result-like surfaces make the product model harder to understand.",
+      "decision": "Keep cards canonical and make My Dash the virtual home view with saved Dashes as semantic views.",
+      "outcome": "The dashboard work remains an independent capability and does not own developer-memory rendering.",
+      "files": ["demo/unified-dashboard.js", "demo/unified-dashboard.css"],
+      "evidence": [
+        { "type": "pull-request", "label": "PR #33" }
+      ],
+      "sessionIds": ["session-copilot-dashboard"],
+      "tags": ["cards", "dash", "ux"]
+    },
+    {
+      "id": "share-safety-net",
+      "title": "Share import regression safety net",
+      "summary": "Turn provider format drift into CI signals instead of user-reported breakage.",
+      "kind": "bug-fix",
+      "status": "shipped",
+      "topic": "Reliability",
+      "semanticHue": 14,
+      "createdAt": "2026-08-10T23:40:00+02:00",
+      "updatedAt": "2026-08-11T02:06:00+02:00",
+      "problem": "Public share import could regress when upstream page formats or resolver behavior changed.",
+      "decision": "Keep deterministic parser coverage, browser flows and recurring production smoke fixtures together.",
+      "outcome": "Share import regressions now have a permanent automated safety net.",
+      "files": ["scripts/verify-shared-chat-parser.mjs", ".github/workflows/shared-chat-live.yml"],
+      "evidence": [
+        { "type": "pull-request", "label": "PR #32" },
+        { "type": "ci", "label": "Recurring live smoke" }
+      ],
+      "sessionIds": ["session-cline-regression"],
+      "tags": ["share", "regression", "tests"]
+    },
+    {
+      "id": "fresh-share-resolver",
+      "title": "Fresh share backend resolver",
+      "summary": "Read current public share JSON while preserving the existing normalized DashGPT chat contract.",
+      "kind": "bug-fix",
+      "status": "shipped",
+      "topic": "Reliability",
+      "semanticHue": 28,
+      "createdAt": "2026-08-10T22:56:00+02:00",
+      "updatedAt": "2026-08-10T23:17:00+02:00",
+      "problem": "A fresh public share was readable but DashGPT still classified it as unreadable.",
+      "decision": "Resolve current public share JSON and follow current-node ancestry before legacy fallbacks.",
+      "outcome": "Fresh share links use the same normalized conversation contract without mixing regenerated siblings.",
+      "files": ["src/shared-chat.js"],
+      "evidence": [
+        { "type": "pull-request", "label": "PR #31" }
+      ],
+      "sessionIds": ["session-cline-regression"],
+      "tags": ["share", "parser", "backend"]
+    },
+    {
+      "id": "chat-first-onboarding",
+      "title": "Chat-first onboarding",
+      "summary": "Show value from the current AI conversation before asking users to understand storage infrastructure.",
+      "kind": "feature",
+      "status": "shipped",
+      "topic": "Capture",
+      "semanticHue": 49,
+      "createdAt": "2026-08-10T21:55:00+02:00",
+      "updatedAt": "2026-08-10T22:28:00+02:00",
+      "problem": "Public share scraping was too fragile to be the first-value path for a new user.",
+      "decision": "Start from the current ChatGPT conversation and locally parse a portable distilled card envelope.",
+      "outcome": "A clean user can create a first private card without relying on a public share URL.",
+      "files": ["demo/public-onboarding.js"],
+      "evidence": [
+        { "type": "pull-request", "label": "PR #28" }
+      ],
+      "sessionIds": ["session-local-model-capture"],
+      "tags": ["capture", "onboarding", "mobile"]
+    },
+    {
+      "id": "structured-continuation",
+      "title": "Structured Chat Continuation",
+      "summary": "Continue work with enough state for another AI instead of passing only a card title.",
+      "kind": "feature",
+      "status": "shipped",
+      "topic": "AI context",
+      "semanticHue": 218,
+      "createdAt": "2026-08-10T14:20:00+02:00",
+      "updatedAt": "2026-08-10T16:00:00+02:00",
+      "problem": "A new AI chat could not continue useful work from a card title alone.",
+      "decision": "Transfer a Structured Continuation Brief with goal, facts, decisions, constraints, current state and open questions.",
+      "outcome": "Saved work can be resumed across AI clients without reconstructing the original conversation.",
+      "files": ["demo/continuation.js"],
+      "evidence": [
+        { "type": "test", "label": "Continuation integration verification" }
+      ],
+      "sessionIds": ["session-opencode-handoff"],
+      "tags": ["context", "continuation", "agents"]
+    },
+    {
+      "id": "semantic-gallery",
+      "title": "Semantic Gallery UX",
+      "summary": "Keep related cards visually coherent while allowing density changes without changing selection.",
+      "kind": "feature",
+      "status": "shipped",
+      "topic": "Visualization",
+      "semanticHue": 176,
+      "createdAt": "2026-08-10T13:30:00+02:00",
+      "updatedAt": "2026-08-10T15:10:00+02:00",
+      "problem": "Static storage-order cards did not feel like a memorable map of work.",
+      "decision": "Group by stable semantic signature and change density independently of selection.",
+      "outcome": "Related work forms stable visual neighborhoods that remain understandable on mobile and desktop.",
+      "files": ["demo/semantic-gallery.js", "demo/gallery.css"],
+      "evidence": [
+        { "type": "openspec", "label": "F8 Semantic Gallery UX" }
+      ],
+      "sessionIds": ["session-copilot-dashboard"],
+      "tags": ["gallery", "semantic", "visualization"]
+    },
+    {
+      "id": "semantic-dashes",
+      "title": "Semantic Dashes",
+      "summary": "Save useful semantic views over canonical cards without duplicating card content.",
+      "kind": "architecture",
+      "status": "shipped",
+      "topic": "Memory model",
+      "semanticHue": 252,
+      "createdAt": "2026-08-10T12:40:00+02:00",
+      "updatedAt": "2026-08-10T14:40:00+02:00",
+      "problem": "Cards from different chats needed to connect by meaning rather than conversation boundaries.",
+      "decision": "A Dash is a saved semantic view/group of canonical cards.",
+      "outcome": "Search-generated semantic views can be saved and reopened without creating parallel result objects.",
+      "files": ["demo/semantic-dashes.js", "demo/semantic-dash-ui.js"],
+      "evidence": [
+        { "type": "openspec", "label": "F7 Semantic Dashes" }
+      ],
+      "sessionIds": ["session-chatgpt-memory"],
+      "tags": ["dash", "semantic", "memory"]
+    }
+  ],
+  "relations": [
+    { "from": "fresh-share-resolver", "to": "share-safety-net", "kind": "validated-by" },
+    { "from": "semantic-dashes", "to": "unified-card-dashboard", "kind": "enables" },
+    { "from": "semantic-gallery", "to": "unified-card-dashboard", "kind": "renders" },
+    { "from": "structured-continuation", "to": "project-local-memory", "kind": "informs" },
+    { "from": "semantic-gallery", "to": "developer-visual-history", "kind": "informs" },
+    { "from": "project-local-memory", "to": "developer-visual-history", "kind": "implements" },
+    { "from": "chat-first-onboarding", "to": "project-local-memory", "kind": "capture-pattern" }
+  ],
+  "sessions": [
+    {
+      "id": "session-chatgpt-memory",
+      "client": "ChatGPT",
+      "model": "GPT-5.6 Sol",
+      "startedAt": "2026-08-11T10:50:00+02:00",
+      "endedAt": "2026-08-11T11:20:00+02:00",
+      "messageCount": 18,
+      "summary": "Explored project-local .dashgpt memory, client-neutral agent access and developer visualization.",
+      "cardIds": ["project-local-memory", "developer-visual-history", "semantic-dashes"]
+    },
+    {
+      "id": "session-opencode-handoff",
+      "client": "OpenCode",
+      "model": "Provider-neutral agent",
+      "startedAt": "2026-08-11T09:30:00+02:00",
+      "endedAt": "2026-08-11T10:05:00+02:00",
+      "messageCount": 42,
+      "summary": "Example coding-agent session showing how a future adapter could consume project context and contribute evidence.",
+      "cardIds": ["structured-continuation", "project-local-memory"]
+    },
+    {
+      "id": "session-copilot-dashboard",
+      "client": "GitHub Copilot",
+      "model": "Coding agent",
+      "startedAt": "2026-08-11T08:20:00+02:00",
+      "endedAt": "2026-08-11T09:18:00+02:00",
+      "messageCount": 63,
+      "summary": "Example IDE session contributing product/dashboard implementation evidence.",
+      "cardIds": ["unified-card-dashboard", "semantic-gallery"]
+    },
+    {
+      "id": "session-cline-regression",
+      "client": "Cline",
+      "model": "Coding agent",
+      "startedAt": "2026-08-10T22:50:00+02:00",
+      "endedAt": "2026-08-11T00:05:00+02:00",
+      "messageCount": 71,
+      "summary": "Example cross-client debugging trail for share parsing and regression coverage.",
+      "cardIds": ["fresh-share-resolver", "share-safety-net"]
+    },
+    {
+      "id": "session-local-model-capture",
+      "client": "Local agent",
+      "model": "Qwen-family local model",
+      "startedAt": "2026-08-10T21:40:00+02:00",
+      "endedAt": "2026-08-10T22:25:00+02:00",
+      "messageCount": 37,
+      "summary": "Example local-model session proving the project memory contract is not tied to a cloud provider.",
+      "cardIds": ["chat-first-onboarding"]
+    }
+  ]
+}
