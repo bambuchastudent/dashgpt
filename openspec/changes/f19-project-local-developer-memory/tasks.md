@@ -3,7 +3,7 @@
 - [x] 1.1 Inspect current card, Semantic Dash, Semantic Gallery, continuation, storage and active dashboard changes.
 - [x] 1.2 Keep the prototype isolated from the concurrent Unified Card Dashboard capability.
 - [x] 1.3 Define the provider-neutral `.dashgpt` contract and privacy boundaries.
-- [ ] 1.4 Strictly validate this OpenSpec change before production-code work.
+- [x] 1.4 Strictly validate this OpenSpec change before production-code work.
 
 ## 2. Prototype fixture and renderer
 
