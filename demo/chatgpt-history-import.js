@@ -773,7 +773,13 @@ function updateVisibleProgressCard() {
 function installCardObserver() {
   if (cardObserver) return;
   const root = document.querySelector("#dashboardView") || document.body;
-  cardObserver = new MutationObserver(() => queueMicrotask(updateVisibleProgressCard));
+  cardObserver = new MutationObserver(records => {
+    const externalMutation = records.some(record => {
+      const target = record.target instanceof Element ? record.target : record.target?.parentElement;
+      return !target?.closest?.(".chatgpt-import-card");
+    });
+    if (externalMutation) queueMicrotask(updateVisibleProgressCard);
+  });
   cardObserver.observe(root, { childList: true, subtree: true });
   queueMicrotask(updateVisibleProgressCard);
 }
