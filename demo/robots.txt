@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /demo/
+Disallow: /api/
+Disallow: /mcp
+Disallow: /.well-known/
+Disallow: /demo/result/
+Disallow: /demo/dashes/
+Disallow: /demo/dash/

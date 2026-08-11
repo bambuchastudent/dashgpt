@@ -11,7 +11,8 @@ const types = {
   ".json": "application/json; charset=utf-8",
   ".mjs": "text/javascript; charset=utf-8",
   ".png": "image/png",
-  ".svg": "image/svg+xml"
+  ".svg": "image/svg+xml",
+  ".webmanifest": "application/manifest+json; charset=utf-8"
 };
 
 function safePath(pathname) {
