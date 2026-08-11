@@ -76,8 +76,17 @@ if (!document.querySelector('link[data-dashgpt-onboarding]')) {
   document.head.append(stylesheet);
 }
 
+if (!document.querySelector('link[data-dashgpt-unified-dashboard]')) {
+  const stylesheet = document.createElement("link");
+  stylesheet.rel = "stylesheet";
+  stylesheet.href = "/demo/unified-dashboard.css";
+  stylesheet.dataset.dashgptUnifiedDashboard = "true";
+  document.head.append(stylesheet);
+}
+
 await import("./app.js");
 await import("./share-link-compat.js");
 await import("./public-onboarding.js");
 await import("./anonymous-share-onboarding.js");
 await import("./product-board-discovery.js");
+await import("./unified-dashboard.js");
