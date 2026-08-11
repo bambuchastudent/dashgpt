@@ -25,10 +25,8 @@ jobs:
           set -euo pipefail
 
           # Keep both fixtures public: one older conversation and one fresh/current-format conversation.
-          FIXTURES=(
-            "https://chatgpt.com/share/6a7a445b-a420-83ea-9c36-3c10fd1ce85f"
-            "https://chatgpt.com/share/6a7a59e3-c9d4-83ea-bb8d-88c57f00b491"
-          )
+          OLDER_SHARE="https://chatgpt.com/share/6a7a445b-a420-83ea-9c36-3c10fd1ce85f"
+          FRESH_SHARE="https://chatgpt.com/share/6a7a59e3-c9d4-83ea-bb8d-88c57f00b491"
 
           # Push-triggered runs can start before the external production deploy has propagated.
           if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
@@ -38,6 +36,7 @@ jobs:
           resolve_one() {
             local share="$1"
             local label="$2"
+            local needle="$3"
             local encoded
             local url
             local status
@@ -48,20 +47,26 @@ jobs:
               echo "${label}: attempt ${attempt}"
               status=$(curl -L --silent --show-error --max-time 45 -o /tmp/share.json -w '%{http_code}' "$url" || true)
 
-              if [ "$status" = "200" ] && python3 - "$share" <<'PY'
+              if [ "$status" = "200" ] && python3 - "$share" "$needle" <<'PY'
           import json
           import sys
 
           expected = sys.argv[1]
+          needle = sys.argv[2].lower()
+          expected_id = expected.rstrip('/').split('/')[-1]
           payload = json.load(open('/tmp/share.json'))
           replies = payload.get('replies') or []
+          transcript = '\n'.join(str(r.get('statement') or '') for r in replies).lower()
 
           assert payload.get('sourceUrl') == expected, (payload.get('sourceUrl'), expected)
+          assert payload.get('shareId') == expected_id, (payload.get('shareId'), expected_id)
           assert payload.get('retrieval'), payload
           assert payload.get('title'), payload
           assert len(replies) >= 2, len(replies)
           assert any(r.get('type') == 'user' and r.get('statement') for r in replies), replies
           assert any(r.get('type') == 'assistant' and r.get('statement') for r in replies), replies
+          assert needle in transcript, (needle, transcript[:1000])
+          assert 'just a moment' not in transcript
           assert not payload.get('error'), payload
           print('LIVE_OK', payload.get('retrieval'), payload.get('title'), len(replies))
           PY
@@ -81,5 +86,5 @@ jobs:
             return 1
           }
 
-          resolve_one "${FIXTURES[0]}" "older public fixture"
-          resolve_one "${FIXTURES[1]}" "fresh public fixture"
+          resolve_one "$OLDER_SHARE" "older public fixture" "Ratatron"
+          resolve_one "$FRESH_SHARE" "fresh public fixture" "DashGPT. Подготовь полезный итог"
