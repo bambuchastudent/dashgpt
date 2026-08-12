@@ -1,4 +1,4 @@
-export const CHATGPT_HISTORY_SOURCE_VERSION = 2;
+export const CHATGPT_HISTORY_SOURCE_VERSION = 3;
 
 const SOURCE_CONFIG = Object.freeze({
   chatGptOrigin: "https://chatgpt.com",
@@ -10,10 +10,36 @@ const SOURCE_CONFIG = Object.freeze({
   initialConcurrency: 2,
   maxConcurrency: 3,
   successStreakToIncrease: 50,
+  maxDetailRateLimitAttempts: 8,
   maxDiagnosticEvents: 80
 });
 
-function sourceRuntime(config) {
+export function computeChatGptDetailRetryDelay(rawRetryAfter, attempt = 0, sourceId = "", now = Date.now()) {
+  const current = Number.isFinite(Number(now)) ? Number(now) : Date.now();
+  let minimumDelay = null;
+  const raw = typeof rawRetryAfter === "string" ? rawRetryAfter.trim() : "";
+  if (raw) {
+    const seconds = Number(raw);
+    if (Number.isFinite(seconds) && seconds >= 0) minimumDelay = seconds * 1000;
+    else {
+      const at = Date.parse(raw);
+      if (Number.isFinite(at)) minimumDelay = Math.max(0, at - current);
+    }
+  }
+  const exponent = Math.min(7, Math.max(0, Math.floor(Number(attempt) || 0)));
+  const fallback = Math.min(120_000, 1_200 * (2 ** exponent));
+  const base = minimumDelay == null ? fallback : minimumDelay;
+  const key = `${String(sourceId || "")}:${exponent}`;
+  let hash = 2166136261;
+  for (let index = 0; index < key.length; index += 1) {
+    hash ^= key.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  const stagger = (hash >>> 0) % 751;
+  return Math.max(0, Math.round(base)) + stagger;
+}
+
+function sourceRuntime(config, computeDetailRetryDelay) {
   "use strict";
 
   const {
@@ -31,6 +57,7 @@ function sourceRuntime(config) {
     initialConcurrency,
     maxConcurrency,
     successStreakToIncrease,
+    maxDetailRateLimitAttempts,
     maxDiagnosticEvents
   } = config;
   const retryableStatuses = new Set([429, 500, 502, 503, 504]);
@@ -51,6 +78,8 @@ function sourceRuntime(config) {
   let importedThisRun = 0;
   let skippedCurrent = 0;
   let unresolved = 0;
+  let deferredCurrent = 0;
+  let receiverState = "";
   const abortController = new AbortController();
   const diagnostics = [];
 
@@ -89,10 +118,15 @@ function sourceRuntime(config) {
       this.active = Math.max(0, this.active - 1);
       this.wake();
     },
-    throttled(delayMs) {
+    rateLimited() {
+      this.limit = Math.max(1, this.limit - 1);
+      this.successStreak = 0;
+      this.wake();
+    },
+    serviceThrottled(delayMs) {
       this.limit = 1;
       this.successStreak = 0;
-      this.cooldownUntil = Math.max(this.cooldownUntil, Date.now() + delayMs);
+      this.cooldownUntil = Math.max(this.cooldownUntil, Date.now() + Math.max(0, Number(delayMs) || 0));
       this.wake();
     },
     succeeded() {
@@ -140,7 +174,7 @@ function sourceRuntime(config) {
     return Number.isFinite(date.getTime()) ? date.toISOString() : null;
   }
 
-  function retryDelay(headers, attempt) {
+  function serviceRetryDelay(headers, attempt) {
     const raw = headers?.get?.("retry-after");
     if (raw) {
       const seconds = Number(raw);
@@ -150,6 +184,15 @@ function sourceRuntime(config) {
     }
     const base = Math.min(30_000, 900 * (2 ** Math.min(attempt, 5)));
     return Math.round(base * (0.8 + Math.random() * 0.4));
+  }
+
+  function detailDeferredError(sourceId, retryAfterMs) {
+    const error = new Error("ChatGPT conversation detail deferred after HTTP 429");
+    error.name = "ChatGptDetailDeferredError";
+    error.status = 429;
+    error.sourceId = String(sourceId || "");
+    error.retryAfterMs = Math.max(0, Number(retryAfterMs) || 0);
+    return error;
   }
 
   function sameOriginUrl(path) {
@@ -177,7 +220,12 @@ function sourceRuntime(config) {
     return text ? JSON.parse(text) : {};
   }
 
-  async function requestJson(path, auth, { retries = 5, detail = false } = {}) {
+  async function requestJson(path, auth, {
+    retries = 5,
+    detail = false,
+    rateLimitAttempt = 0,
+    sourceId = ""
+  } = {}) {
     let attempt = 0;
     while (!cancelled) {
       if (detail) await scheduler.acquire();
@@ -196,9 +244,9 @@ function sourceRuntime(config) {
         if (detail) scheduler.release();
         if (error?.name === "AbortError") throw error;
         if (attempt >= retries) throw error;
-        const delay = retryDelay(null, attempt);
+        const delay = serviceRetryDelay(null, attempt);
         attempt += 1;
-        if (detail) scheduler.throttled(delay);
+        if (detail) scheduler.serviceThrottled(delay);
         await sleep(delay);
         continue;
       }
@@ -206,6 +254,7 @@ function sourceRuntime(config) {
       if (detail) scheduler.release();
       if (response.ok) {
         if (detail) scheduler.succeeded();
+        if (receiverState === "rate_limited") publishReceiverState("running", deferredCurrent);
         return parseJson(response);
       }
 
@@ -213,10 +262,22 @@ function sourceRuntime(config) {
       log("request-http", { status, detail, attempt: attempt + 1 });
       if (!retryableStatuses.has(status)) throw new Error(`HTTP ${status}`);
 
-      const delay = retryDelay(response.headers, attempt);
-      if (status === 429 || status === 503) {
-        scheduler.throttled(delay);
-        setSourceState("waiting", `ChatGPT ограничил скорость. Общая пауза ${Math.ceil(delay / 1000)} сек…`);
+      if (detail && status === 429) {
+        const delay = computeDetailRetryDelay(
+          response.headers?.get?.("retry-after") || "",
+          rateLimitAttempt,
+          sourceId,
+          Date.now()
+        );
+        scheduler.rateLimited();
+        throw detailDeferredError(sourceId, delay);
+      }
+
+      const delay = serviceRetryDelay(response.headers, attempt);
+      if (status === 503 || status === 429) {
+        scheduler.serviceThrottled(delay);
+        publishReceiverState("rate_limited", deferredCurrent, delay);
+        setSourceState("waiting", `ChatGPT временно ограничил сервис. Общая пауза ${Math.ceil(delay / 1000)} сек…`);
       }
       const maxAttempts = status === 429 || status === 503 ? 12 : retries;
       if (attempt >= maxAttempts) throw new Error(`HTTP ${status}`);
@@ -452,6 +513,17 @@ function sourceRuntime(config) {
     return true;
   }
 
+  function publishReceiverState(kind, deferred = deferredCurrent, retryAfterMs = 0) {
+    if (receiverState === kind) return;
+    receiverState = kind;
+    postToReceiver({
+      type: "SOURCE_STATE",
+      state: kind,
+      deferred: Math.max(0, Number(deferred) || 0),
+      retryAfterMs: Math.max(0, Math.round(Number(retryAfterMs) || 0))
+    });
+  }
+
   function validReceiverMessage(event) {
     const data = event.data;
     return event.origin === receiverOrigin
@@ -509,7 +581,8 @@ function sourceRuntime(config) {
         processed: processedCurrent,
         importedThisRun,
         skipped: skippedCurrent,
-        unresolved
+        unresolved,
+        deferred: deferredCurrent
       }
     };
 
@@ -538,6 +611,7 @@ function sourceRuntime(config) {
 
   async function runImport() {
     setSourceState("running", "Подключено к DashGPT. Получаю историю…");
+    publishReceiverState("running", 0);
     const auth = await selectAuth();
     const active = await listConversations(auth, false);
     let archived = [];
@@ -563,9 +637,55 @@ function sourceRuntime(config) {
     processedCurrent = skippedCurrent;
     setSourceState("running", `Найдено ${discoveredTotal}. Уже актуальны: ${skippedCurrent}. Осталось: ${pending.length}`);
 
-    let next = 0;
+    const ready = pending.map(item => ({
+      item,
+      attempt: 0,
+      nextRetryAt: 0,
+      lastStatus: null,
+      lastErrorClass: null
+    }));
+    const deferred = [];
+    const running = new Set();
     const completed = [];
     let flushChain = Promise.resolve();
+
+    function refreshDeferredCount() {
+      deferredCurrent = deferred.length;
+    }
+
+    function sortDeferred() {
+      deferred.sort((left, right) =>
+        left.nextRetryAt - right.nextRetryAt
+        || String(left.item?.id || "").localeCompare(String(right.item?.id || ""))
+      );
+      refreshDeferredCount();
+    }
+
+    function promoteDeferred() {
+      const now = Date.now();
+      let promoted = 0;
+      while (deferred.length && deferred[0].nextRetryAt <= now) {
+        const task = deferred.shift();
+        task.nextRetryAt = 0;
+        ready.push(task);
+        promoted += 1;
+      }
+      if (promoted) refreshDeferredCount();
+      return promoted;
+    }
+
+    function updateQueueState(retryAfterMs = 0) {
+      refreshDeferredCount();
+      if (deferred.length && ready.length === 0 && running.size === 0) {
+        const delay = retryAfterMs || Math.max(0, deferred[0].nextRetryAt - Date.now());
+        setSourceState("waiting", `${processedCurrent}/${discoveredTotal} обработано · ${deferred.length} ждут следующей попытки`);
+        publishReceiverState("rate_limited", deferred.length, delay);
+        return;
+      }
+      const waiting = deferred.length ? ` · ${deferred.length} ждут повтора` : "";
+      setSourceState("running", `${processedCurrent}/${discoveredTotal} обработано${waiting} · ${unresolved} на следующий запуск`);
+      publishReceiverState("running", deferred.length);
+    }
 
     async function flush(force = false) {
       if (!force && completed.length < batchSize) return;
@@ -575,32 +695,79 @@ function sourceRuntime(config) {
       await flushChain;
     }
 
-    async function worker() {
-      while (!cancelled) {
-        const index = next;
-        next += 1;
-        if (index >= pending.length) return;
-        const item = pending[index];
-        try {
-          const raw = await requestJson(`/backend-api/conversation/${encodeURIComponent(item.id)}`, auth, { retries: 5, detail: true });
-          completed.push(projectConversation(raw, item));
-        } catch (error) {
-          if (error?.name === "AbortError") throw error;
-          unresolved += 1;
-          log("conversation-unresolved", { reason: String(error?.message || "detail-failed").slice(0, 80) });
-        } finally {
-          processedCurrent += 1;
-          setSourceState("running", `${processedCurrent}/${discoveredTotal} обработано · ${unresolved} ждут повтора`);
-        }
+    async function processTask(task) {
+      try {
+        const raw = await requestJson(`/backend-api/conversation/${encodeURIComponent(task.item.id)}`, auth, {
+          retries: 5,
+          detail: true,
+          rateLimitAttempt: task.attempt,
+          sourceId: task.item.id
+        });
+        completed.push(projectConversation(raw, task.item));
+        processedCurrent += 1;
         await flush(false);
+      } catch (error) {
+        if (error?.name === "AbortError") throw error;
+        if (error?.name === "ChatGptDetailDeferredError" && error.status === 429) {
+          task.attempt += 1;
+          task.lastStatus = 429;
+          task.lastErrorClass = "rate_limited";
+          if (task.attempt <= maxDetailRateLimitAttempts) {
+            task.nextRetryAt = Date.now() + Math.max(0, Number(error.retryAfterMs) || 0);
+            deferred.push(task);
+            sortDeferred();
+            log("conversation-deferred", {
+              attempt: task.attempt,
+              deferred: deferred.length,
+              retryAfterMs: Math.max(0, Math.round(Number(error.retryAfterMs) || 0))
+            });
+            return;
+          }
+        }
+        unresolved += 1;
+        processedCurrent += 1;
+        log("conversation-unresolved", {
+          status: Number(error?.status || 0) || undefined,
+          reason: String(error?.message || "detail-failed").slice(0, 80)
+        });
       }
     }
 
-    await Promise.all(Array.from({ length: maxConcurrency }, () => worker()));
+    function launch(task) {
+      let promise;
+      promise = processTask(task).finally(() => {
+        running.delete(promise);
+      });
+      running.add(promise);
+    }
+
+    while (!cancelled) {
+      promoteDeferred();
+      while (ready.length && running.size < maxConcurrency && !cancelled) {
+        launch(ready.shift());
+      }
+      updateQueueState();
+
+      if (running.size) {
+        await Promise.race([...running]);
+        continue;
+      }
+      if (ready.length) continue;
+      if (deferred.length) {
+        const waitMs = Math.max(0, deferred[0].nextRetryAt - Date.now());
+        updateQueueState(waitMs);
+        await sleep(Math.min(Math.max(1, waitMs), 60_000));
+        continue;
+      }
+      break;
+    }
+
+    await Promise.all([...running]);
     await flush(true);
     await flushChain;
     if (cancelled) throw abortError();
 
+    deferredCurrent = 0;
     postToReceiver({ type: "COMPLETE", total: discoveredTotal, skipped: skippedCurrent, unresolved });
     try {
       await waitForReply("COMPLETE_ACK", () => true, 8000);
@@ -655,7 +822,14 @@ function sourceRuntime(config) {
     cancelled = true;
     abortController.abort();
     scheduler.wake();
-    postToReceiver({ type: "PAUSED", discovered: discoveredTotal, processed: processedCurrent, unresolved, reason });
+    postToReceiver({
+      type: "PAUSED",
+      discovered: discoveredTotal,
+      processed: processedCurrent,
+      unresolved,
+      deferred: deferredCurrent,
+      reason
+    });
     setSourceState("paused", "Остановлено. Уже сохранённые карточки останутся в DashGPT; продолжить можно позже.");
     stop.disabled = true;
   }
@@ -669,6 +843,7 @@ function sourceRuntime(config) {
 
   async function connectAndRun(targetWindow) {
     receiverWindow = targetWindow;
+    receiverState = "";
     setSourceState("connecting", "Подключаю локальный Vault DashGPT…");
     try {
       await handshake();
@@ -710,5 +885,5 @@ export function buildChatGptHistorySourceRunner({ receiverOrigin, receiverPath =
     sessionId: String(sessionId),
     nonce: String(nonce)
   };
-  return `(${sourceRuntime.toString()})(${JSON.stringify(config)});`;
+  return `(${sourceRuntime.toString()})(${JSON.stringify(config)}, ${computeChatGptDetailRetryDelay.toString()});`;
 }
