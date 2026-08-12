@@ -8,7 +8,7 @@ const shortcut = buildChatGptHistorySafariShortcutScript({
 
 assert.doesNotMatch(shortcut, /^javascript:/);
 assert.match(shortcut, /https:\/\/dashgpt\.example/);
-assert.match(shortcut, /chatgpt-progressive-import-source/);
+assert.match(shortcut, /dashgpt-progressive-import-source/);
 assert.match(shortcut, /connect\.click\(\)/);
 assert.match(shortcut, /completion\(\)/);
 assert.doesNotMatch(shortcut, /__DASHGPT_ACTION_SESSION__|__DASHGPT_ACTION_NONCE__/);
