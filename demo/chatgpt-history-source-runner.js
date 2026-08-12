@@ -74,3 +74,11 @@ export function buildChatGptHistoryImportAction({ receiverOrigin, receiverPath =
   }
   return action;
 }
+
+export function buildChatGptHistorySafariShortcutScript({ receiverOrigin, receiverPath = "/demo/" }) {
+  const action = buildChatGptHistoryImportAction({ receiverOrigin, receiverPath });
+  const prefix = "javascript:";
+  if (!action.startsWith(prefix)) throw new Error("ChatGPT import bookmark action prefix is missing");
+  const runtime = action.slice(prefix.length);
+  return `${runtime};if(typeof completion===\"function\")completion();`;
+}
