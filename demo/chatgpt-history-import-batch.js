@@ -57,8 +57,17 @@ function validEnvelope(event) {
   if (data.type === "SOURCE_STATE") {
     if (!SOURCE_STATES.has(data.state)) return null;
     const retryAfterMs = Number(data.retryAfterMs || 0);
-    if (!Number.isFinite(retryAfterMs) || retryAfterMs < 0 || retryAfterMs > 60_000) return null;
-    return { config, data: { ...data, retryAfterMs: Math.floor(retryAfterMs) } };
+    const deferred = Number(data.deferred || 0);
+    if (!Number.isFinite(retryAfterMs) || retryAfterMs < 0) return null;
+    if (!Number.isFinite(deferred) || deferred < 0 || deferred > 100_000) return null;
+    return {
+      config,
+      data: {
+        ...data,
+        retryAfterMs: Math.floor(retryAfterMs),
+        deferred: Math.floor(deferred)
+      }
+    };
   }
 
   return null;
@@ -170,30 +179,38 @@ function handleBatch(event, config, data) {
   }
 }
 
-function humanizedSourceState(current, state) {
+function humanizedSourceState(current, data) {
   const progress = current?.result;
   if (!progress || progress.kind !== "chatgpt-history-import-progress") return null;
   if (!["running", "rate_limited"].includes(progress.state)) return null;
+  const state = data.state;
   const discovered = Math.max(0, Number(progress.discovered || 0));
   const imported = Math.max(0, Number(progress.imported || 0));
+  const deferred = Math.max(0, Math.floor(Number(data.deferred || 0)));
   const remaining = discovered ? Math.max(0, discovered - imported) : 0;
   const ru = current.language === "ru";
   const rateLimited = state === "rate_limited";
   const summary = rateLimited
     ? (ru
-      ? `Импортировано ${imported}${discovered ? ` из ${discovered}` : ""}. Жду, пока ChatGPT снова разрешит запросы.`
-      : `Imported ${imported}${discovered ? ` of ${discovered}` : ""}. Waiting for ChatGPT to allow more requests.`)
+      ? `Импортировано ${imported}${discovered ? ` из ${discovered}` : ""}. Жду ChatGPT${deferred ? `, чтобы повторить ${deferred} разговоров` : ", пока снова разрешатся запросы"}.`
+      : `Imported ${imported}${discovered ? ` of ${discovered}` : ""}. Waiting for ChatGPT${deferred ? ` to retry ${deferred} conversations` : " to allow more requests"}.`)
     : (ru
-      ? `Импортировано ${imported}${discovered ? ` из ${discovered}` : ""}. Можно пользоваться DashGPT, пока исходная страница ChatGPT доступна.`
-      : `Imported ${imported}${discovered ? ` of ${discovered}` : ""}. You can keep using DashGPT while the source page stays available.`);
+      ? `Импортировано ${imported}${discovered ? ` из ${discovered}` : ""}.${deferred ? ` ${deferred} ждут повтора, остальные разговоры продолжают импортироваться.` : " Можно пользоваться DashGPT, пока исходная страница ChatGPT доступна."}`
+      : `Imported ${imported}${discovered ? ` of ${discovered}` : ""}.${deferred ? ` ${deferred} waiting to retry; other conversations continue.` : " You can keep using DashGPT while the source page stays available."}`);
+  const facts = Array.isArray(current.facts)
+    ? current.facts.filter(fact => !/^(Waiting\/retry:|Ждут повтора:)/.test(String(fact || "")))
+    : [];
+  if (deferred) facts.push(ru ? `Ждут повтора: ${deferred}` : `Waiting/retry: ${deferred}`);
   return {
     ...current,
     summary,
+    facts,
     status: rateLimited ? (ru ? "Жду ChatGPT" : "Waiting for ChatGPT") : (ru ? "Импорт идёт" : "Importing"),
     next: remaining ? `${remaining} ${ru ? "осталось" : "remaining"}` : "",
     result: {
       ...progress,
       state,
+      deferred,
       updatedAt: new Date().toISOString()
     }
   };
@@ -202,7 +219,7 @@ function humanizedSourceState(current, state) {
 function handleSourceState(event, config, data) {
   const loaded = loadBrowserVault(globalThis.localStorage);
   const current = materializeResults(loaded.vault).find(result => result.id === CHATGPT_IMPORT_RESULT_ID);
-  const updated = humanizedSourceState(current, data.state);
+  const updated = humanizedSourceState(current, data);
   if (!updated) return;
   try {
     putResult(loaded.vault, updated);
