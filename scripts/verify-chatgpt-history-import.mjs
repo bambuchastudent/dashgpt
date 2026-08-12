@@ -25,6 +25,9 @@ const {
   seedDefaultChatGptImportCard
 } = await import("../demo/chatgpt-history-import.js");
 const { applyChatGptImportBatchFast } = await import("../demo/chatgpt-history-import-batch.js");
+const {
+  computeChatGptDetailRetryDelay
+} = await import("../demo/chatgpt-history-source-runner-core.js");
 const { buildChatGptHistorySourceRunner } = await import("../demo/chatgpt-history-source-runner.js");
 
 class MemoryStorage {
@@ -84,25 +87,52 @@ function candidate(sourceId, updatedAt, overrides = {}) {
 assert.equal(chatGptImportedResultId("abc-123"), "chatgpt-conversation-abc-123");
 assert.throws(() => chatGptImportedResultId("https://evil.invalid/x"));
 
-// Canonical single-card path remains idempotent and freshness-aware.
+// Per-conversation 429 retry timing honors Retry-After, grows with attempts,
+// stays bounded for fallback backoff, and deterministically staggers sources.
+{
+  const now = Date.parse("2026-08-12T10:00:00.000Z");
+  const secondsDelay = computeChatGptDetailRetryDelay("3", 0, "conversation-a", now);
+  assert.ok(secondsDelay >= 3000, `Retry-After seconds retried too early: ${secondsDelay}`);
+
+  const retryAt = new Date(now + 5000).toUTCString();
+  const dateDelay = computeChatGptDetailRetryDelay(retryAt, 0, "conversation-a", now);
+  assert.ok(dateDelay >= 5000, `Retry-After date retried too early: ${dateDelay}`);
+
+  const first = computeChatGptDetailRetryDelay("", 0, "conversation-a", now);
+  const second = computeChatGptDetailRetryDelay("", 1, "conversation-a", now);
+  const capped = computeChatGptDetailRetryDelay("", 7, "conversation-a", now);
+  const stillCapped = computeChatGptDetailRetryDelay("", 20, "conversation-a", now);
+  assert.ok(second > first, `Fallback backoff did not grow: ${first} -> ${second}`);
+  assert.ok(capped <= 120_750, `Fallback backoff exceeded bound: ${capped}`);
+  assert.equal(stillCapped, capped);
+
+  const sameMinimumA = computeChatGptDetailRetryDelay("3", 0, "conversation-a", now);
+  const sameMinimumB = computeChatGptDetailRetryDelay("3", 0, "conversation-b", now);
+  assert.notEqual(sameMinimumA, sameMinimumB, "Different source IDs should not re-enter on the same millisecond");
+}
+
+// Canonical single-card path remains idempotent and freshness-aware, and its
+// bounded progress projection carries a mixed-work deferred count.
 {
   const vault = createVault({ vaultId: "vault_batch", createdAt: "2026-08-11T00:00:00.000Z" });
-  const first = applyChatGptImportBatch(vault, [candidate("same-id", "2026-08-10T10:00:00.000Z")], { discovered: 1, unresolved: 0 });
+  const first = applyChatGptImportBatch(vault, [candidate("same-id", "2026-08-10T10:00:00.000Z")], { discovered: 1, unresolved: 0, deferred: 2 });
   assert.equal(first.accepted, 1);
   assert.equal(first.updated, 0);
   assert.equal(first.skipped, 0);
+  assert.equal(materializeResults(vault).find(result => result.id === CHATGPT_IMPORT_RESULT_ID)?.result?.deferred, 2);
+  assert.equal(materializeResults(vault).find(result => result.id === CHATGPT_IMPORT_RESULT_ID)?.result?.state, "running");
 
-  const replay = applyChatGptImportBatch(vault, [candidate("same-id", "2026-08-10T10:00:00.000Z")], { discovered: 1, unresolved: 0 });
+  const replay = applyChatGptImportBatch(vault, [candidate("same-id", "2026-08-10T10:00:00.000Z")], { discovered: 1, unresolved: 0, deferred: 1 });
   assert.equal(replay.accepted, 0);
   assert.equal(replay.updated, 0);
   assert.equal(replay.skipped, 1);
   assert.equal(materializeResults(vault).filter(result => result.source?.sourceId === "same-id").length, 1);
 
-  const newer = applyChatGptImportBatch(vault, [candidate("same-id", "2026-08-11T10:00:00.000Z", { summary: "Newer source state" })], { discovered: 1, unresolved: 0 });
+  const newer = applyChatGptImportBatch(vault, [candidate("same-id", "2026-08-11T10:00:00.000Z", { summary: "Newer source state" })], { discovered: 1, unresolved: 0, deferred: 0 });
   assert.equal(newer.updated, 1);
   assert.equal(materializeResults(vault).find(result => result.source?.sourceId === "same-id").summary, "Newer source state");
 
-  applyChatGptImportBatch(vault, [candidate("different-id", "2026-08-11T10:00:00.000Z", { title: "Imported conversation" })], { discovered: 2, unresolved: 0 });
+  applyChatGptImportBatch(vault, [candidate("different-id", "2026-08-11T10:00:00.000Z", { title: "Imported conversation" })], { discovered: 2, unresolved: 0, deferred: 0 });
   assert.equal(materializeResults(vault).filter(result => result.source?.provider === "chatgpt").length, 2);
 
   const known = new Map(knownChatGptFreshness(vault));
@@ -111,19 +141,20 @@ assert.throws(() => chatGptImportedResultId("https://evil.invalid/x"));
 }
 
 // The import receiver fast path performs one in-memory batch upsert while
-// preserving the same deterministic replay/update semantics.
+// preserving the same deterministic replay/update semantics and deferred count.
 {
   const vault = createVault({ vaultId: "vault_fast_batch", createdAt: "2026-08-11T00:00:00.000Z" });
   const batch = Array.from({ length: 32 }, (_, index) => candidate(`fast-${index}`, "2026-08-11T10:00:00.000Z"));
-  const first = applyChatGptImportBatchFast(vault, batch, { discovered: 32, unresolved: 0 });
+  const first = applyChatGptImportBatchFast(vault, batch, { discovered: 32, unresolved: 0, deferred: 3 });
   assert.deepEqual({ accepted: first.accepted, updated: first.updated, skipped: first.skipped }, { accepted: 32, updated: 0, skipped: 0 });
   assert.equal(first.imported, 32);
+  assert.equal(materializeResults(vault).find(result => result.id === CHATGPT_IMPORT_RESULT_ID)?.result?.deferred, 3);
 
-  const replay = applyChatGptImportBatchFast(vault, batch, { discovered: 32, unresolved: 0 });
+  const replay = applyChatGptImportBatchFast(vault, batch, { discovered: 32, unresolved: 0, deferred: 2 });
   assert.deepEqual({ accepted: replay.accepted, updated: replay.updated, skipped: replay.skipped }, { accepted: 0, updated: 0, skipped: 32 });
   assert.equal(materializeResults(vault).filter(result => result.source?.provider === "chatgpt").length, 32);
 
-  const update = applyChatGptImportBatchFast(vault, [candidate("fast-7", "2026-08-11T11:00:00.000Z", { summary: "Fast path newer state" })], { discovered: 32, unresolved: 0 });
+  const update = applyChatGptImportBatchFast(vault, [candidate("fast-7", "2026-08-11T11:00:00.000Z", { summary: "Fast path newer state" })], { discovered: 32, unresolved: 0, deferred: 0 });
   assert.equal(update.updated, 1);
   assert.equal(materializeResults(vault).find(result => result.source?.sourceId === "fast-7")?.summary, "Fast path newer state");
 }
@@ -187,7 +218,9 @@ assert.throws(() => chatGptImportedResultId("https://evil.invalid/x"));
   assert.ok(observedHistoryEstimate < 5_100_000, `Observed 2,123-chat worst-case estimate is ${observedHistoryEstimate} bytes; projection needs tightening`);
 }
 
-// The source runner encodes one shared adaptive scheduler and local postMessage bridge; it does not contain a DashGPT upload fetch.
+// The source runner encodes a bounded adaptive network scheduler plus a
+// separate ready/deferred conversation queue. Conversation-detail 429s must
+// not enter the shared cooldown path; service-level 503s still may.
 {
   const runner = buildChatGptHistorySourceRunner({
     receiverOrigin: "https://dashgpt.example",
@@ -195,17 +228,36 @@ assert.throws(() => chatGptImportedResultId("https://evil.invalid/x"));
     sessionId: "session-test",
     nonce: "nonce-test"
   });
+  assert.match(runner, /"sourceVersion":3/);
   assert.match(runner, /"initialConcurrency":2/);
   assert.match(runner, /"maxConcurrency":3/);
   assert.match(runner, /"batchSize":32/);
+  assert.match(runner, /"maxDetailRateLimitAttempts":8/);
   assert.match(runner, /limit: initialConcurrency/);
-  assert.match(runner, /scheduler\.throttled/);
-  assert.match(runner, /retry-after/);
+  assert.match(runner, /scheduler\.rateLimited\(\)/);
+  assert.match(runner, /scheduler\.serviceThrottled\(delay\)/);
+  assert.match(runner, /ChatGptDetailDeferredError/);
+  assert.match(runner, /const ready = pending\.map/);
+  assert.match(runner, /const deferred = \[\]/);
+  assert.match(runner, /nextRetryAt/);
+  assert.match(runner, /deferred: deferredCurrent/);
   assert.match(runner, /CONTROL_PAUSE/);
   assert.match(runner, /postMessage/);
   assert.match(runner, /https:\/\/chatgpt\.com/);
+  assert.doesNotMatch(runner, /scheduler\.throttled/);
   assert.doesNotMatch(runner, /fetch\([^\n]*dashgpt\.example/);
   assert.doesNotMatch(runner, /localStorage/);
+
+  const detail429Start = runner.indexOf("if (detail && status === 429)");
+  const detail429End = runner.indexOf("const delay = serviceRetryDelay", detail429Start);
+  assert.ok(detail429Start >= 0 && detail429End > detail429Start, "Detail 429 branch not found");
+  const detail429Block = runner.slice(detail429Start, detail429End);
+  assert.match(detail429Block, /scheduler\.rateLimited\(\)/);
+  assert.doesNotMatch(detail429Block, /serviceThrottled|await sleep/);
+
+  const serviceBlock = runner.slice(detail429End, runner.indexOf("function extractItems", detail429End));
+  assert.match(serviceBlock, /status === 503/);
+  assert.match(serviceBlock, /scheduler\.serviceThrottled\(delay\)/);
 }
 
-console.log("ChatGPT history import verifier: seed, idempotent upsert, batch fast path, freshness, bounded projection, privacy, storage budget and adaptive-runner contracts passed.");
+console.log("ChatGPT history import verifier: seed, idempotent upsert, per-conversation 429 deferral, batch fast path, freshness, bounded projection, privacy, storage budget and adaptive-runner contracts passed.");
