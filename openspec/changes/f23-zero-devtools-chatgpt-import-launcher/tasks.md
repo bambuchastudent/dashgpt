@@ -25,7 +25,7 @@
 - [x] Generate fresh session/nonce values for every Safari Shortcut execution through the shared action runtime.
 - [x] Invoke Apple's required `completion()` promptly after bootstrap rather than waiting for full migration.
 - [x] Verify Safari payload contains no `javascript:` prefix and inherits the shared action credential/session safety boundary.
-- [ ] Stack/rebase the launcher on Feature 24 / PR #49 and preserve F24 ready/deferred per-conversation 429 scheduling in both generated adapters.
+- [x] Stack/rebase the launcher on Feature 24 / PR #49 and preserve F24 ready/deferred per-conversation 429 scheduling in both generated adapters. PR #48 now targets the F24 feature branch and its merge commit has both F23 and F24 heads as parents; the resolved runner wrapper builds bookmark/Shortcut adapters from the F24 core rather than restoring the old Feature 20 throttle injection.
 
 ## 3. Product UX
 
@@ -39,10 +39,10 @@
 - [x] Mention Apple's `Allow Running Scripts` prerequisite as a setup state, not an error dump.
 - [x] Keep raw runner copy out of normal flow.
 - [x] Ensure launcher styles cover 360px/390px layouts without horizontal overflow.
-- [ ] Seed/restore the operational import card in a populated existing Vault when no current progress card and no explicit dismissal exist.
-- [ ] Seed its displayed imported count from canonical ChatGPT conversation cards without creating a second checkpoint.
-- [ ] Preserve explicit Remove/dismiss as authoritative so the card does not auto-resurrect after user removal.
-- [ ] Keep the operational card visually promoted at the front of the gallery without abusing user Favorites.
+- [x] Seed/restore the operational import card in a populated existing Vault when no current progress card and no explicit dismissal exist.
+- [x] Seed its displayed imported count from canonical ChatGPT conversation cards without creating a second checkpoint.
+- [x] Preserve explicit Remove/dismiss as authoritative so the card does not auto-resurrect after user removal.
+- [x] Keep the operational card visually promoted at the front of the gallery without abusing user Favorites.
 
 ## 4. Deterministic verification
 
@@ -55,19 +55,19 @@
 - [x] Verify Safari Shortcut payload is plain JavaScript and targets configured receiver origin/path.
 - [x] Verify Safari Shortcut payload uses the shared fresh runtime IDs and calls `completion()`.
 - [x] Verify Safari payload reuses the same final runner hooks and shared privacy boundary.
-- [ ] Add existing-Vault discoverability regression: non-empty Vault with no dismissal gets exactly one import card.
-- [ ] Add dismissal regression: explicitly removed card stays absent until restore.
-- [ ] After stacking on F24, verify both launcher adapters retain task-local detail 429 deferral and do not contain the old global 429 throttle path.
+- [x] Add existing-Vault discoverability regression: non-empty Vault with no dismissal gets exactly one import card.
+- [x] Add dismissal regression: explicitly removed card stays absent until restore.
+- [ ] After stacking on F24, execute verification proving both launcher adapters retain task-local detail 429 deferral and do not contain the old global 429 throttle path. The assertions are committed in `scripts/verify-chatgpt-history-import.mjs`; executable integrated gate remains pending because the Cloudflare `verify:fast` build did not produce a conclusion and GitHub Actions cannot start.
 
 ## 5. Browser regression coverage
 
 - [x] Ready/paused/partial import actions open zero-DevTools setup.
 - [x] Android/desktop copy action returns complete bookmark action rather than raw runner.
-- [ ] Execute the iPhone-like Safari Playwright regression proving Shortcut-specific copy/instructions and no JavaScript-bookmark guidance once the full browser runner is available.
+- [x] Add the iPhone-like Safari Playwright regression proving Shortcut-specific copy/instructions and no JavaScript-bookmark guidance; execution remains pending with the browser gate.
 - [x] Android-like UA keeps bookmark-specific instructions in the existing browser contract.
 - [x] Mobile dialog controls have 360px/390px no-horizontal-overflow assertions.
 - [x] Existing simulated valid source/receiver regression covers progressive durable persistence and duplicate-safe replay.
-- [ ] Add populated-Vault browser regression proving the import card is immediately visible/promoted without requiring the top-bar restore action.
+- [x] Add populated-Vault browser regression proving the import card is immediately visible/promoted without requiring the top-bar restore action.
 - [ ] Add/confirm popup-blocked `Connect DashGPT` fallback assertion.
 
 ## 6. Verification and acceptance
@@ -76,8 +76,8 @@
 - [x] Run `npm run verify:fast` on original implementation head through temporary Cloudflare preview `postinstall`; deployment succeeded and hook was removed.
 - [x] Re-run targeted deterministic verification after Safari adapter implementation; the Safari payload generator and adapter-specific contract pass.
 - [x] Re-run `npm run verify:fast` after Safari adapter implementation through a temporary Cloudflare preview `postinstall`; deployment succeeded and the hook was removed.
-- [ ] Run targeted verification after existing-Vault discoverability fix and F24 stacking.
-- [ ] Run `npm run verify:fast` on the integrated implementation lineage.
+- [ ] Run targeted verification after existing-Vault discoverability fix and F24 stacking. A dedicated integrated `npm run verify:fast` Cloudflare build was started from commit `5f81f7c5...` but remained `in_progress` without a conclusion; its temporary `postinstall` hook was removed immediately afterward.
+- [ ] Run `npm run verify:fast` on the integrated implementation lineage with a conclusive result.
 - [ ] Run canonical `npm run verify:full` once before merge while repository CI/browser infrastructure is runnable.
 - [ ] Verify deployed preview on an existing populated Vault: the import card is visible immediately.
 - [ ] Verify deployed preview on iPhone Safari with authenticated ChatGPT using the Shortcut adapter: create/run Shortcut, connect, persist at least one card, close/re-run and confirm duplicate-free resume.
