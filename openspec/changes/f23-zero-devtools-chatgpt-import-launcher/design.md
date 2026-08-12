@@ -2,65 +2,88 @@
 
 ## Context
 
-Feature 20 already has the hard parts of migration: authenticated same-origin ChatGPT reads, bounded projection, adaptive fetching, local `postMessage` bridge, durable batch ACKs, deterministic `conversationId` upserts, resume from current Vault state, and one progress card.
+Feature 20 already provides authenticated same-origin ChatGPT reads, bounded projection, adaptive fetching, local `postMessage` bridge, durable batch ACKs, deterministic `conversationId` upserts, resume from current Vault state and one progress card.
 
-The remaining launcher problem is narrower: how to get the source runtime to execute inside `https://chatgpt.com` without asking a normal user to open DevTools.
+The remaining problem is only how to execute that source runtime inside `https://chatgpt.com` without DevTools.
 
-A DashGPT page cannot programmatically evaluate code in a cross-origin ChatGPT page. The new design therefore keeps one explicit user gesture on the ChatGPT origin and makes that gesture reusable.
+A DashGPT page cannot programmatically evaluate code in a cross-origin ChatGPT page. The launcher therefore keeps one explicit user gesture on the ChatGPT origin and reuses the same Feature 20 runtime behind platform-specific execution adapters.
 
-## Chosen mechanism: reusable browser action
+## Acceptance finding that changes the design
 
-The launcher exposes one generated `javascript:` bookmark action named **DashGPT Import**.
+The first F23 implementation used one long `javascript:` bookmark action everywhere. Real iPhone Safari acceptance showed a saved bookmark with the expected `javascript:` URL but the importer did not execute reliably. That path is therefore not considered supported on iPhone/iPad Safari.
 
-The action is generated from the same Feature 20 source runtime rather than maintaining a second importer implementation.
+Apple officially supports running custom JavaScript against the active Safari webpage through Shortcuts using `Run JavaScript on Web Page`, invoked from the Safari Share Sheet. F23 now uses that native mechanism for iPhone/iPad Safari while retaining bookmark actions on Android/desktop.
 
-Properties:
+## Shared product concept, platform adapters
 
-- static with respect to the current DashGPT receiver origin/path;
-- creates fresh random `sessionId` and `nonce` every time it is executed;
-- only runs successfully when `location.origin === https://chatgpt.com` because the source runtime already enforces that boundary;
-- contains no ChatGPT credentials or conversation content;
-- opens/connects a DashGPT receiver using the current action's receiver origin;
-- falls back to the existing `Connect DashGPT` source overlay if popup/receiver opening is blocked;
-- can be reused for resume because receiver freshness comes from durable imported cards, not from action state.
+The user-facing concept remains **DashGPT Import**.
 
-## Why not a remote script loader
+```text
+DashGPT -> set up DashGPT Import once -> open chatgpt.com -> run DashGPT Import -> existing F20 import
+```
 
-A tiny bookmarklet that downloads/evals a remote DashGPT script would be visually attractive but creates avoidable CSP/`eval`/external-script uncertainty on `chatgpt.com`. The first implementation therefore packages the existing bounded runtime directly in the saved browser action.
+Only the final same-origin execution adapter differs:
 
-Verification SHALL impose a conservative maximum action length and fail if the generated action unexpectedly becomes huge. If real-device browser limits make the inline action impractical, the OpenSpec scope must be revised before switching to a remote-loader architecture.
+- iPhone/iPad Safari: Apple Shortcut using `Run JavaScript on Web Page`;
+- Android Chrome: saved `javascript:` bookmark action;
+- desktop Safari/Chromium: saved bookmark/favorite action where supported.
 
-## Source-runner reuse
+No adapter may implement its own history-fetching, projection, batching or Vault semantics.
 
-`demo/chatgpt-history-source-runner.js` already post-processes the core runner to add Feature 20 receiver-state hooks and handshake recovery. The action generator SHALL reuse that final generated runner, not bypass it.
+## Shared source-runner reuse
 
-Implementation direction:
+`demo/chatgpt-history-source-runner.js` remains the single composition point around the final Feature 20 runner. Both adapters are generated from that same final runner after Feature 20 bridge-state/handshake hooks are applied.
 
-1. Build the normal final runner with unique sentinel strings for `sessionId` and `nonce`.
-2. Replace the quoted sentinel values in the generated config with runtime variable references.
-3. Wrap the runner in a `javascript:` IIFE that creates fresh random IDs.
-4. Execute the final runner on the current ChatGPT page.
+Every adapter SHALL:
 
-This keeps one source-runtime implementation and avoids copy/paste drift.
+1. create fresh random `sessionId` and `nonce` at execution time;
+2. target the DashGPT receiver origin/path from which the adapter was copied;
+3. run only on `https://chatgpt.com` because the source runtime enforces that origin;
+4. contain no ChatGPT credentials or conversation data;
+5. preserve the existing `Connect DashGPT` fallback;
+6. reuse receiver freshness for duplicate-safe resume.
+
+## Android/desktop bookmark adapter
+
+The existing bounded `javascript:` action remains the supported adapter for Android Chrome and desktop browsers where real-device acceptance confirms saved JavaScript actions work.
+
+The action directly embeds the final bounded source runtime rather than remotely downloading/evaluating code. Verification keeps the current conservative action size ceiling.
+
+## iPhone/iPad Safari Shortcut adapter
+
+DashGPT detects iPhone/iPad Safari and does not instruct the user to create a JavaScript bookmark.
+
+Instead the setup dialog provides:
+
+- `Copy Safari Shortcut script`;
+- `Open ChatGPT`;
+- compact one-time instructions to create a Shortcut named `DashGPT Import`;
+- instruction to add Apple's `Run JavaScript on Web Page` action;
+- instruction to enable `Show in Share Sheet` and accept only Safari webpages;
+- instruction to run the shortcut from the Share Sheet while authenticated on `chatgpt.com`.
+
+The copied script is normal JavaScript for the Shortcuts action, not a `javascript:` URL.
+
+### Shortcut completion behavior
+
+Apple requires the script to invoke `completion(...)`, and the Shortcut action has a short execution limit. The generated Safari script SHALL therefore bootstrap the existing Feature 20 runner and invoke `completion()` promptly after source setup is scheduled/mounted; it SHALL NOT hold the Shortcut open until thousands of conversations finish importing.
+
+This remains subject to real-device acceptance because Playwright cannot prove Safari Shortcuts lifecycle behavior.
 
 ## Receiver connection
 
-Normal action launch should attempt to connect to DashGPT without requiring a second technical step.
-
-Directionally, the generated action/source runtime may enable an `autoOpenReceiver` launch option:
+Both adapters create receiver connection from the explicit user gesture where the browser permits it:
 
 ```text
 user runs DashGPT Import on chatgpt.com
  -> source overlay mounts
- -> source opens receiver URL with transient session/nonce
+ -> receiver URL opens with transient session/nonce
  -> receiver stores transient launch config
  -> source handshakes through existing protocol
  -> import starts
 ```
 
-If the popup/open is blocked, source state remains visible and the existing `Connect DashGPT` button is the fallback. No browser setting is silently weakened.
-
-The receiver URL continues to use transient query parameters only long enough for DashGPT to place them in session storage and strip them from the visible URL.
+If popup/open is blocked, the source overlay keeps the existing human `Connect DashGPT` retry action. No browser setting is silently weakened.
 
 ## DashGPT launcher UX
 
@@ -68,68 +91,21 @@ The import progress card remains the product entry point.
 
 For `ready`, `paused`, `partial`, and source-unavailable states, the primary action opens a compact setup/resume dialog rather than telling the user to open a console.
 
-Dialog content:
+### iPhone/iPad copy
 
-- title: `Import ChatGPT history` / localized equivalent;
-- short explanation: save `DashGPT Import` once, then run it on ChatGPT;
-- `Copy import action` button;
-- `Open ChatGPT` button;
-- small browser-specific setup instructions;
-- optional troubleshooting disclosure containing the old raw-runner copy only as diagnostic fallback if retained.
+The dialog SHALL explicitly identify `Safari Shortcut` as the launch adapter and SHALL NOT tell the user to edit a Safari bookmark URL.
 
-The dialog SHALL not claim the action has been installed automatically. Copying the action and saving/running it are separate explicit user gestures.
+### Android/desktop copy
 
-## Browser-specific instructions, one product concept
+The dialog continues to offer the generated bookmark action and platform-appropriate bookmark instructions.
 
-Capability detection may inspect user agent/platform only to choose instructions. The underlying action format and import protocol remain the same.
-
-### iPhone/iPad Safari
-
-Explain how to create/edit a Safari bookmark named `DashGPT Import`, replace its address with the copied action, open ChatGPT, then run that bookmark.
-
-Do not call this a plugin or extension.
-
-Apple's native Shortcuts `Run JavaScript on Web Page` is a possible future alternate adapter, but it is not required by this PR and must not create a parallel import model.
-
-### Android Chrome
-
-Explain how to save/edit a bookmark named `DashGPT Import`, open ChatGPT, type/select that bookmark from the address bar/bookmark suggestions, and run it.
-
-### Desktop
-
-Explain bookmarks/favorites/bookmarks-bar use. Do not lead with DevTools.
+All paths show the target DashGPT host so preview-vs-develop local-storage ownership is understandable.
 
 ## Resume semantics
 
-The browser action is intentionally stateless across runs.
+Both adapters are stateless across runs.
 
-Every run:
-
-- creates a new transient session/nonce;
-- opens/connects the same DashGPT origin;
-- receiver returns `known sourceId -> publishedAt` freshness from the current local Vault;
-- source skips already-current conversations;
-- missing/stale conversations continue.
-
-Therefore the same installed action supports both `Start import` and `Continue import` without storing a giant checkpoint in the action.
-
-## Origin and Vault semantics
-
-A generated action targets the DashGPT origin from which it was copied. This is necessary because browser local storage is origin-scoped.
-
-The setup dialog SHALL show the target DashGPT host in compact form so preview testing is understandable. If a user moves from a branch preview to the canonical develop/production origin, the action must be regenerated/saved for that origin; cards do not magically migrate between browser origins.
-
-## Action size bound
-
-The deterministic verifier SHALL generate the action and assert:
-
-- it begins with `javascript:`;
-- it contains no credential-shaped fixture values;
-- it contains the expected receiver origin/path;
-- it creates fresh runtime session/nonce values rather than embedding one fixed pair;
-- it remains below a conservative configured size ceiling (initial target: 64 KiB, tighten if real devices require it).
-
-A failing size guard blocks merge rather than silently shipping an action that mobile browsers cannot store reliably.
+Every run creates new transient session/nonce values. The receiver returns `known sourceId -> publishedAt` freshness from the current local Vault, so already-current conversations are skipped and stale/missing conversations continue without duplicates.
 
 ## Security
 
@@ -137,64 +113,65 @@ Preserved Feature 20 boundaries:
 
 - runtime refuses to run outside the supported ChatGPT origin;
 - source requests remain same-origin;
-- receiver messages still validate exact source origin, protocol/version, session/nonce and payload bounds;
+- receiver validates exact source origin, protocol/version, session/nonce and payload bounds;
 - credentials remain transient inside ChatGPT;
-- imported data still crosses only the local browser bridge;
-- no private conversation is POSTed to a DashGPT server to make launch easier.
+- imported data crosses only the local browser bridge;
+- no private conversation is POSTed to a DashGPT server to simplify launch.
 
-New action-specific boundaries:
+Adapter-specific boundaries:
 
-- action copies only generated runtime code and receiver location;
-- action setup text clearly says it should be run only on ChatGPT;
-- no arbitrary user-supplied code is interpolated into the action;
-- receiver origin is normalized and HTTPS outside local development.
+- generated payloads contain only runtime logic plus configured receiver location;
+- no arbitrary user-supplied code is interpolated;
+- receiver origin is HTTPS outside local development;
+- Safari Shortcut script calls only the documented `completion` handler in addition to the shared source runtime.
 
 ## Failure states
 
-### Action copied but not saved
-DashGPT remains in a setup/waiting state and offers `Copy import action` again.
+### Safari bookmark action saved but does not execute
+Treat this as unsupported iPhone Safari behavior and direct the user to the Safari Shortcut adapter; do not ask them to keep retrying or disable security.
+
+### Safari Shortcut not configured yet
+DashGPT remains in setup/waiting state and offers the script copy and concise setup instructions again.
+
+### `Allow Running Scripts` is disabled in Shortcuts
+Show a human setup note pointing to the Apple Shortcuts setting; do not claim import is running.
 
 ### Action run on the wrong page
-The source runtime refuses to proceed and surfaces a safe error/alert; no DashGPT Vault mutation occurs.
+The source runtime refuses to perform ChatGPT history requests and no Vault mutation occurs.
 
 ### Receiver popup blocked
-The ChatGPT overlay provides `Connect DashGPT` and explains that the browser blocked the receiver window.
+The source overlay exposes `Connect DashGPT` and explains that the browser blocked the receiver window.
 
 ### ChatGPT app opens instead of browser
-The setup dialog instructs the user to keep the flow in the browser. No claim is made that the native ChatGPT app can execute the browser action.
-
-### Browser does not support JavaScript bookmark actions
-Show a clear unsupported/fallback product state and retain diagnostic desktop runner copy only where actually usable. Do not ask the user to disable browser security.
+The setup dialog instructs the user to keep the flow in Safari/Chrome browser. The native ChatGPT app is not claimed as supported execution context.
 
 ## Verification strategy
 
 ### Deterministic tests
 
-- action generation reuses the final Feature 20 runner hooks;
-- sentinel session/nonce values are replaced by runtime-generated IDs;
+- both adapters reuse the final Feature 20 runner hooks;
+- fixed session/nonce sentinels are replaced by runtime-generated IDs;
 - receiver origin/path are normalized;
-- action length is bounded;
-- credentials/session fixtures are absent;
-- resume action is stateless and uses durable receiver freshness.
+- bookmark action remains below size ceiling;
+- Safari Shortcut payload is plain JavaScript, not `javascript:`;
+- Safari payload invokes `completion()` promptly;
+- credentials/session fixtures are absent from both adapters;
+- existing Feature 20 duplicate-safe resume and scheduler contracts remain green.
 
 ### Browser tests
 
-- ready import card opens action setup rather than DevTools instructions;
-- copy action writes a `javascript:` payload;
-- mobile-sized dialog has no horizontal overflow;
-- iPhone-like and Android-like user agents receive understandable platform instructions but the same product action;
-- opening ChatGPT remains a user gesture;
-- simulated action runner/receiver handshake still adds progressive cards;
-- existing Feature 20 pause/resume/idempotency tests remain green.
+- ready import card opens zero-DevTools setup;
+- iPhone-like Safari UA receives Shortcut instructions and copied plain-JS payload;
+- Android-like UA receives bookmark instructions and copied `javascript:` payload;
+- 360/390px setup UI has no horizontal overflow;
+- existing receiver persistence/replay/update/pause behavior remains green.
 
 ### Real-device acceptance
 
-Before merge, verify the actual generated action on:
+Before merge verify:
 
-1. iPhone Safari;
-2. Android Chrome;
-3. desktop Safari or Chromium as regression.
+1. iPhone Safari: create `DashGPT Import` Shortcut, run from authenticated ChatGPT Share Sheet, connect receiver, persist at least one card, close/re-run and confirm duplicate-free resume;
+2. Android Chrome: save/run bookmark action with the same acceptance path;
+3. desktop Safari/Chromium regression.
 
-For each device verify: save action, run from authenticated ChatGPT page, receiver connection, at least one durable card, pause/close/re-run resume, and no duplicate card for an already-current source.
-
-Real-device acceptance is required because bookmark execution/popup behavior cannot be proven fully by Playwright alone.
+The failed iPhone bookmarklet attempt is recorded as evidence for the adapter switch, not as a user setup failure.
