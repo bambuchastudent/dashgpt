@@ -64,7 +64,8 @@ function candidate(sourceId, updatedAt, overrides = {}) {
   assert.equal(parsedAgain.results.filter(result => result.id === CHATGPT_IMPORT_RESULT_ID).length, 1);
 }
 
-// Existing populated Vaults are not silently seeded on deployment.
+// Existing populated Vaults get the same operational card unless the user
+// explicitly dismissed it. Existing imported cards seed the displayed count.
 {
   const storage = new MemoryStorage();
   const vault = createVault({ vaultId: "vault_existing", createdAt: "2026-08-11T00:00:00.000Z" });
@@ -77,6 +78,44 @@ function candidate(sourceId, updatedAt, overrides = {}) {
     decisions: [],
     immutable: false,
     contentVersion: 1
+  });
+  putResult(vault, sanitizeChatGptCardCandidate(candidate("already-imported", "2026-08-11T10:00:00.000Z")));
+  saveBrowserVault(storage, vault);
+
+  const seeded = seedDefaultChatGptImportCard(storage);
+  assert.equal(seeded.seeded, true);
+  const parsed = JSON.parse(storage.getItem("dashgpt.demo.vault.v1"));
+  const progress = parsed.results.find(result => result.id === CHATGPT_IMPORT_RESULT_ID)?.result;
+  assert.equal(parsed.results.filter(result => result.id === CHATGPT_IMPORT_RESULT_ID).length, 1);
+  assert.equal(progress?.state, "ready");
+  assert.equal(progress?.imported, 1);
+
+  const replay = seedDefaultChatGptImportCard(storage);
+  assert.equal(replay.seeded, false);
+  assert.equal(JSON.parse(storage.getItem("dashgpt.demo.vault.v1")).results.filter(result => result.id === CHATGPT_IMPORT_RESULT_ID).length, 1);
+}
+
+// Explicit dismissal remains authoritative and prevents automatic resurrection.
+{
+  const storage = new MemoryStorage();
+  const vault = createVault({ vaultId: "vault_dismissed", createdAt: "2026-08-11T00:00:00.000Z" });
+  putResult(vault, {
+    id: "existing-card",
+    schemaVersion: 1,
+    title: "Existing",
+    summary: "Existing user content",
+    tags: [],
+    decisions: [],
+    immutable: false,
+    contentVersion: 1
+  });
+  vault.events.push({
+    schemaVersion: 1,
+    eventId: "evt_import_dismissed",
+    type: "system.card.dismissed",
+    resultId: CHATGPT_IMPORT_RESULT_ID,
+    value: true,
+    createdAt: "2026-08-11T01:00:00.000Z"
   });
   saveBrowserVault(storage, vault);
   const seeded = seedDefaultChatGptImportCard(storage);
@@ -237,4 +276,4 @@ assert.throws(() => chatGptImportedResultId("https://evil.invalid/x"));
   assert.doesNotMatch(action, /localStorage/);
 }
 
-console.log("ChatGPT history import verifier: seed, idempotent upsert, batch fast path, freshness, bounded projection, privacy, storage budget, adaptive-runner and reusable browser-action contracts passed.");
+console.log("ChatGPT history import verifier: new/existing/dismissed card discoverability, idempotent upsert, batch fast path, freshness, bounded projection, privacy, storage budget, adaptive-runner and reusable browser-action contracts passed.");
