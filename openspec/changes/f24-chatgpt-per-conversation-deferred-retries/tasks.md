@@ -29,12 +29,12 @@
 - [x] Add deterministic retry-policy tests for delta-seconds `Retry-After`, HTTP-date `Retry-After`, increasing fallback backoff, upper bounds and per-source stagger.
 - [x] Add generated-runner/static contracts proving conversation 429 no longer routes through shared cooldown while 503 still can.
 - [x] Add/extend a source-runtime or browser regression proving a later ready conversation can complete while an earlier conversation is deferred.
-- [ ] Re-run existing identity, freshness, batch persistence, privacy, storage-budget, pause/resume and browser import regressions.
-- [ ] Run `npm run verify:fast` during implementation.
-- [ ] Run canonical `npm run verify:full` once on the final implementation head before merge while repository infrastructure permits.
+- [ ] Re-run existing identity, freshness, batch persistence, privacy, storage-budget, pause/resume and browser import regressions. The deterministic identity/freshness/batch/privacy/storage subset plus new F24 contracts passed in the targeted Cloudflare build for commit `2f7f62e52236c87e6c29a1b3af9bbaa82725cb02`; executable browser regressions remain pending.
+- [ ] Run `npm run verify:fast` during implementation. A dedicated Cloudflare validation build was started on commit `9c6bd47d59f3fb78139a755a0950728f5b7fa6a5` but remained `in_progress` without a conclusion; the temporary `postinstall` hook was removed and this gate is not claimed as passed.
+- [ ] Run canonical `npm run verify:full` once on the final implementation head before merge while repository infrastructure permits. GitHub Actions currently refuses to start repository jobs because of the account billing/spending-limit blocker.
 
 ## 5. Acceptance and handoff
 
-- [ ] Verify a production preview or equivalent served browser build has no import-progress/mobile regression.
+- [ ] Verify a production preview or equivalent served browser build has no import-progress/mobile regression. The clean final head `6c8c086a08f2418d83b7bb921a7a0a69ecb63038` deployed successfully to the Cloudflare preview alias, but visual desktop/mobile acceptance has not been claimed.
 - [ ] Run a real authenticated ChatGPT import acceptance where practical: observe at least one 429/defer, continued progress on other conversations, and duplicate-free resume.
-- [ ] Update this task list and current-state handoff/PR description with exact verification evidence and any infrastructure blocker.
+- [x] Update this task list and PR description with exact implementation/verification evidence, the Cloudflare preview, the pending browser/full/real acceptance gates, and the GitHub Actions billing/spending-limit blocker.
