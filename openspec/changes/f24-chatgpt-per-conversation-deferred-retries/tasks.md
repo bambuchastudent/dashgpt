@@ -9,26 +9,26 @@
 
 ## 2. Retry policy and task queue
 
-- [ ] Add a directly testable per-conversation 429 delay policy that honors valid `Retry-After`, otherwise uses bounded exponential backoff, and staggers retries by source/attempt.
-- [ ] Refactor conversation-detail 429 handling so the request layer returns a safe task-local defer signal instead of sleeping/global-cooling the whole queue.
-- [ ] Add transient ready/in-flight/deferred/unresolved task scheduling with `nextRetryAt` promotion and no busy loop when all remaining tasks are deferred.
-- [ ] Ensure one deferred task immediately frees a worker for unrelated ready tasks.
-- [ ] Keep adaptive concurrency bounded and let individual 429 lower concurrency without setting global 429 cooldown.
-- [ ] Preserve a conservative service-wide cooldown path for HTTP 503.
-- [ ] Ensure Pause/cancel aborts in-flight requests and all-deferred sleeps and prevents new retries.
+- [x] Add a directly testable per-conversation 429 delay policy that honors valid `Retry-After`, otherwise uses bounded exponential backoff, and staggers retries by source/attempt.
+- [x] Refactor conversation-detail 429 handling so the request layer returns a safe task-local defer signal instead of sleeping/global-cooling the whole queue.
+- [x] Add transient ready/in-flight/deferred/unresolved task scheduling with `nextRetryAt` promotion and no busy loop when all remaining tasks are deferred.
+- [x] Ensure one deferred task immediately frees a worker for unrelated ready tasks.
+- [x] Keep adaptive concurrency bounded and let individual 429 lower concurrency without setting global 429 cooldown.
+- [x] Preserve a conservative service-wide cooldown path for HTTP 503.
+- [x] Ensure Pause/cancel aborts in-flight requests and all-deferred sleeps and prevents new retries.
 
 ## 3. Progress integration
 
-- [ ] Extend bounded import progress with a deferred/waiting count without persisting per-source retry timers.
-- [ ] Keep mixed ready/deferred work in `running`; expose global `rate_limited` / `Waiting for ChatGPT` only when ready and in-flight work are empty while deferred work remains.
-- [ ] Preserve `partial`/unresolved semantics for conversations left for a later resumable run.
-- [ ] Avoid per-retry whole-Vault writes; use bounded batch progress plus coarse state-transition messages.
+- [x] Extend bounded import progress with a deferred/waiting count without persisting per-source retry timers.
+- [x] Keep mixed ready/deferred work in `running`; expose global `rate_limited` / `Waiting for ChatGPT` only when ready and in-flight work are empty while deferred work remains.
+- [x] Preserve `partial`/unresolved semantics for conversations left for a later resumable run.
+- [x] Avoid per-retry whole-Vault writes; use bounded batch progress plus coarse state-transition messages.
 
 ## 4. Regression verification
 
-- [ ] Add deterministic retry-policy tests for delta-seconds `Retry-After`, HTTP-date `Retry-After`, increasing fallback backoff, upper bounds and per-source stagger.
-- [ ] Add generated-runner/static contracts proving conversation 429 no longer routes through shared cooldown while 503 still can.
-- [ ] Add/extend a source-runtime or browser regression proving a later ready conversation can complete while an earlier conversation is deferred.
+- [x] Add deterministic retry-policy tests for delta-seconds `Retry-After`, HTTP-date `Retry-After`, increasing fallback backoff, upper bounds and per-source stagger.
+- [x] Add generated-runner/static contracts proving conversation 429 no longer routes through shared cooldown while 503 still can.
+- [x] Add/extend a source-runtime or browser regression proving a later ready conversation can complete while an earlier conversation is deferred.
 - [ ] Re-run existing identity, freshness, batch persistence, privacy, storage-budget, pause/resume and browser import regressions.
 - [ ] Run `npm run verify:fast` during implementation.
 - [ ] Run canonical `npm run verify:full` once on the final implementation head before merge while repository infrastructure permits.
