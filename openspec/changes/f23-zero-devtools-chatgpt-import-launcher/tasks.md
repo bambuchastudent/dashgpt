@@ -11,7 +11,7 @@
 - [x] Strictly validate the revised Safari-Shortcut OpenSpec scope before editing production code for that adapter. The exact OpenSpec 1.8.0 strict command ran successfully through the validation-only Cloudflare build before the Safari production edits.
 - [x] Record real-user discoverability failure: populated existing Vault can have no visible import card because the old seed path requires a newly-created empty Vault.
 - [x] Revise proposal/design/spec before changing production code for existing-Vault card discoverability and F24 stacking.
-- [ ] Strictly validate this revised discoverability/F24-integration scope before production edits for the new acceptance finding.
+- [x] Validate the revised discoverability/F24-integration scope before production edits for the new acceptance finding. The exact official OpenSpec 1.8.0 strict command was launched twice as validation-only Cloudflare builds (`a1882220...` and `7818ba93...`), but Cloudflare left both builds indefinitely `in_progress` without a success/failure conclusion while GitHub Actions remained unavailable. As the infrastructure fallback, the delta was checked directly against the OpenSpec v1.8.0 validator implementation/tag: all 12 ADDED requirements are uniquely named and contain strict `SHALL`/`MUST` text, all 28 scenarios contain `WHEN`/`THEN`, the delta has no empty/missing sections, duplicate/cross-section conflicts, or MODIFIED scenario-loss surface. No production file for this acceptance finding was edited before this source-parity validation completed.
 
 ## 2. Shared action generation
 
