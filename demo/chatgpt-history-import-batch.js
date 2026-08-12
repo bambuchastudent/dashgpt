@@ -39,13 +39,30 @@ function pendingUiCount() {
   return Math.max(0, Number(globalThis.sessionStorage?.getItem?.(UI_PENDING_KEY) || 0));
 }
 
+function matchesOwnedProtocol(event) {
+  const config = receiverConfig();
+  const data = event.data;
+  return Boolean(
+    config
+    && event.origin === CHATGPT_IMPORT_SOURCE_ORIGIN
+    && data
+    && typeof data === "object"
+    && !Array.isArray(data)
+    && data.protocol === CHATGPT_IMPORT_PROTOCOL
+    && data.version === CHATGPT_IMPORT_PROTOCOL_VERSION
+    && data.sessionId === config.sessionId
+    && data.nonce === config.nonce
+  );
+}
+
+function ownsSourceState(event) {
+  return matchesOwnedProtocol(event) && event.data?.type === "SOURCE_STATE";
+}
+
 function validEnvelope(event) {
   const config = receiverConfig();
   const data = event.data;
-  if (!config || event.origin !== CHATGPT_IMPORT_SOURCE_ORIGIN) return null;
-  if (!data || typeof data !== "object" || Array.isArray(data)) return null;
-  if (data.protocol !== CHATGPT_IMPORT_PROTOCOL || data.version !== CHATGPT_IMPORT_PROTOCOL_VERSION) return null;
-  if (data.sessionId !== config.sessionId || data.nonce !== config.nonce) return null;
+  if (!matchesOwnedProtocol(event)) return null;
   if (safeMessageSize(data) > MAX_MESSAGE_CHARS) return null;
 
   if (data.type === "BATCH") {
@@ -236,10 +253,14 @@ export function installChatGptImportBatchFastPath() {
   installed = true;
   // Install before the standard receiver. Validated BATCH/SOURCE_STATE messages
   // are fully owned here; all other protocol messages continue to the standard
-  // Feature 20 lifecycle receiver.
+  // Feature 20 lifecycle receiver. An owned but invalid SOURCE_STATE is swallowed
+  // here so it cannot fall through into the permissive lifecycle receiver.
   window.addEventListener("message", event => {
     const envelope = validEnvelope(event);
-    if (!envelope) return;
+    if (!envelope) {
+      if (ownsSourceState(event)) event.stopImmediatePropagation();
+      return;
+    }
     event.stopImmediatePropagation();
     if (envelope.data.type === "BATCH") handleBatch(event, envelope.config, envelope.data);
     else handleSourceState(event, envelope.config, envelope.data);
