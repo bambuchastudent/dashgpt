@@ -5,7 +5,7 @@
 - [x] Inspect Feature 20 spec/design and current `develop` source runner, receiver/progress projection, verifier and browser-test surfaces.
 - [x] Confirm Issue #42 supersedes Feature 20's default queue-wide behavior only for conversation-detail HTTP 429; keep 503 as a separate service-wide safety signal.
 - [x] Record overlap with open Feature 23 / PR #48 without adopting launcher scope.
-- [ ] Strictly validate `f24-chatgpt-per-conversation-deferred-retries` before production-code edits.
+- [x] Strictly validate `f24-chatgpt-per-conversation-deferred-retries` before production-code edits. GitHub Actions remained blocked at repository/account infrastructure, so the exact official OpenSpec 1.8.0 command `openspec validate f24-chatgpt-per-conversation-deferred-retries --type change --strict --no-interactive` ran as a validation-only Cloudflare Worker preview `postinstall`; the Cloudflare build for commit `be8354959550ceb2e1232a797c886acc560287ce` completed successfully before any production JavaScript was edited.
 
 ## 2. Retry policy and task queue
 
