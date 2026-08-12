@@ -313,8 +313,9 @@ function writeProgress(vault, patch = {}) {
 
 export function seedDefaultChatGptImportCard(storage = globalThis.localStorage) {
   const loaded = loadBrowserVault(storage);
-  if (!loaded.created || loaded.vault.results.length || latestDismissed(loaded.vault)) return { ...loaded, seeded: false };
-  putResult(loaded.vault, humanizedProgressResult({ state: "ready", discovered: 0, imported: 0, failed: 0 }));
+  if (currentProgressResult(loaded.vault) || latestDismissed(loaded.vault)) return { ...loaded, seeded: false };
+  const imported = importedCards(loaded.vault).length;
+  putResult(loaded.vault, humanizedProgressResult({ state: "ready", discovered: 0, imported, failed: 0 }));
   saveBrowserVault(storage, loaded.vault);
   return { ...loaded, seeded: true };
 }
