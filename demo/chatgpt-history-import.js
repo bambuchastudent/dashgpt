@@ -66,8 +66,8 @@ const COPY = {
     title: "Import ChatGPT history",
     ready: "Bring useful parts of your previous ChatGPT conversations into this DashGPT Vault. Cards appear progressively and repeated runs do not create duplicates.",
     waiting: "Open ChatGPT in this browser and run your saved “DashGPT Import” action. DashGPT will save cards progressively after it connects.",
-    running: ({ imported, discovered }) => `Imported ${imported}${discovered ? ` of ${discovered}` : ""}. You can keep using DashGPT while the source page stays available.`,
-    limited: ({ imported, discovered }) => `Imported ${imported}${discovered ? ` of ${discovered}` : ""}. Waiting for ChatGPT to allow more requests.`,
+    running: ({ imported, discovered, deferred }) => `Imported ${imported}${discovered ? ` of ${discovered}` : ""}.${deferred ? ` ${deferred} waiting to retry; other conversations continue.` : " You can keep using DashGPT while the source page stays available."}`,
+    limited: ({ imported, discovered, deferred }) => `Imported ${imported}${discovered ? ` of ${discovered}` : ""}. Waiting for ChatGPT${deferred ? ` to retry ${deferred} conversations` : " to allow more requests"}.`,
     paused: ({ imported, discovered }) => `Imported ${imported}${discovered ? ` of ${discovered}` : ""}. Import is paused; continue later without starting over.`,
     partial: ({ imported, discovered, failed }) => `Imported ${imported}${discovered ? ` of ${discovered}` : ""}. ${failed} conversations still need another attempt.`,
     completed: ({ imported }) => `Imported ${imported} ChatGPT conversations. The imported cards are independent from this progress card.`,
@@ -99,8 +99,8 @@ const COPY = {
     title: "Импортировать историю ChatGPT",
     ready: "Перенеси полезное из прошлых разговоров ChatGPT в этот Vault DashGPT. Карточки появляются постепенно, а повторный запуск не создаёт дублей.",
     waiting: "Открой ChatGPT в этом браузере и запусти сохранённое действие «DashGPT Import». После подключения карточки будут сохраняться постепенно.",
-    running: ({ imported, discovered }) => `Импортировано ${imported}${discovered ? ` из ${discovered}` : ""}. Можно пользоваться DashGPT, пока исходная страница ChatGPT доступна.`,
-    limited: ({ imported, discovered }) => `Импортировано ${imported}${discovered ? ` из ${discovered}` : ""}. Жду, пока ChatGPT снова разрешит запросы.`,
+    running: ({ imported, discovered, deferred }) => `Импортировано ${imported}${discovered ? ` из ${discovered}` : ""}.${deferred ? ` ${deferred} ждут повтора, остальные разговоры продолжают импортироваться.` : " Можно пользоваться DashGPT, пока исходная страница ChatGPT доступна."}`,
+    limited: ({ imported, discovered, deferred }) => `Импортировано ${imported}${discovered ? ` из ${discovered}` : ""}. Жду ChatGPT${deferred ? `, чтобы повторить ${deferred} разговоров` : ", пока снова разрешатся запросы"}.`,
     paused: ({ imported, discovered }) => `Импортировано ${imported}${discovered ? ` из ${discovered}` : ""}. Импорт приостановлен — позже продолжится без старта с нуля.`,
     partial: ({ imported, discovered, failed }) => `Импортировано ${imported}${discovered ? ` из ${discovered}` : ""}. Ещё ${failed} разговоров нужно повторить.`,
     completed: ({ imported }) => `Импортировано ${imported} разговоров ChatGPT. Эти карточки уже независимы от карточки прогресса.`,
@@ -143,6 +143,7 @@ function progressFromResult(result) {
     discovered: Math.max(0, Number(state.discovered || 0)),
     imported: Math.max(0, Number(state.imported || 0)),
     failed: Math.max(0, Number(state.failed || 0)),
+    deferred: Math.max(0, Number(state.deferred || 0)),
     updatedAt: String(state.updatedAt || ""),
     lastSuccessAt: String(state.lastSuccessAt || "")
   };
@@ -175,9 +176,10 @@ function humanizedProgressResult(progress = {}) {
   const imported = Math.max(0, Number(progress.imported || 0));
   const discovered = Math.max(0, Number(progress.discovered || 0));
   const failed = Math.max(0, Number(progress.failed || 0));
+  const deferred = Math.max(0, Number(progress.deferred || 0));
   const updatedAt = progress.updatedAt || nowIso();
   const lastSuccessAt = progress.lastSuccessAt || "";
-  const values = { imported, discovered, failed };
+  const values = { imported, discovered, failed, deferred };
   const stateCopy = {
     ready: ["ready", "statusReady"],
     waiting_for_source: ["waiting", "statusWaiting"],
@@ -197,6 +199,12 @@ function humanizedProgressResult(progress = {}) {
         ? (importLocale() === "ru" ? "Запусти DashGPT Import в ChatGPT" : "Run DashGPT Import in ChatGPT")
         : t(state === "ready" ? "start" : "continue");
 
+  const facts = discovered ? [
+    importLocale() === "ru" ? `Найдено разговоров: ${discovered}` : `Conversations discovered: ${discovered}`,
+    importLocale() === "ru" ? `Импортировано: ${imported}` : `Imported: ${imported}`
+  ] : [];
+  if (deferred) facts.push(importLocale() === "ru" ? `Ждут повтора: ${deferred}` : `Waiting/retry: ${deferred}`);
+
   return {
     id: CHATGPT_IMPORT_RESULT_ID,
     schemaVersion: 1,
@@ -205,10 +213,7 @@ function humanizedProgressResult(progress = {}) {
     category: importLocale() === "ru" ? "Импорт" : "Import",
     tags: ["chatgpt", "import"],
     decisions: [],
-    facts: discovered ? [
-      importLocale() === "ru" ? `Найдено разговоров: ${discovered}` : `Conversations discovered: ${discovered}`,
-      importLocale() === "ru" ? `Импортировано: ${imported}` : `Imported: ${imported}`
-    ] : [],
+    facts,
     next,
     source: {
       type: "system-operation",
@@ -226,6 +231,7 @@ function humanizedProgressResult(progress = {}) {
       discovered,
       imported,
       failed,
+      deferred,
       updatedAt,
       lastSuccessAt
     }
@@ -301,7 +307,7 @@ function currentProgressResult(vault) {
 
 function writeProgress(vault, patch = {}) {
   const existing = currentProgressResult(vault);
-  const current = progressFromResult(existing) || { state: "ready", discovered: 0, imported: 0, failed: 0 };
+  const current = progressFromResult(existing) || { state: "ready", discovered: 0, imported: 0, failed: 0, deferred: 0 };
   const next = {
     ...current,
     ...patch,
@@ -315,7 +321,7 @@ export function seedDefaultChatGptImportCard(storage = globalThis.localStorage) 
   const loaded = loadBrowserVault(storage);
   if (currentProgressResult(loaded.vault) || latestDismissed(loaded.vault)) return { ...loaded, seeded: false };
   const imported = importedCards(loaded.vault).length;
-  putResult(loaded.vault, humanizedProgressResult({ state: "ready", discovered: 0, imported, failed: 0 }));
+  putResult(loaded.vault, humanizedProgressResult({ state: "ready", discovered: 0, imported, failed: 0, deferred: 0 }));
   saveBrowserVault(storage, loaded.vault);
   return { ...loaded, seeded: true };
 }
@@ -325,7 +331,7 @@ function restoreImportCard() {
   addDismissEvent(loaded.vault, false);
   const imported = importedCards(loaded.vault).length;
   const existing = progressFromResult(currentProgressResult(loaded.vault));
-  putResult(loaded.vault, humanizedProgressResult(existing || { state: "ready", imported, discovered: 0, failed: 0 }));
+  putResult(loaded.vault, humanizedProgressResult(existing || { state: "ready", imported, discovered: 0, failed: 0, deferred: 0 }));
   saveBrowserVault(globalThis.localStorage, loaded.vault);
 }
 
@@ -398,7 +404,24 @@ function persistDiscovered(total) {
     state: "running",
     discovered: numeric(total),
     imported,
-    failed: 0
+    failed: 0,
+    deferred: 0
+  });
+  saveBrowserVault(globalThis.localStorage, loaded.vault);
+  updateVisibleProgressCard();
+}
+
+function persistSourceState(data = {}) {
+  const state = data.state === "rate_limited" ? "rate_limited" : data.state === "running" ? "running" : "";
+  if (!state) return;
+  const loaded = loadBrowserVault(globalThis.localStorage);
+  const current = progressFromResult(currentProgressResult(loaded.vault)) || {};
+  writeProgress(loaded.vault, {
+    state,
+    discovered: numeric(current.discovered),
+    imported: importedCards(loaded.vault).length,
+    failed: numeric(current.failed),
+    deferred: numeric(data.deferred ?? current.deferred)
   });
   saveBrowserVault(globalThis.localStorage, loaded.vault);
   updateVisibleProgressCard();
@@ -411,7 +434,8 @@ function persistPause(data = {}) {
     state: "paused",
     discovered: numeric(data.discovered ?? current.discovered),
     imported: importedCards(loaded.vault).length,
-    failed: numeric(data.unresolved ?? current.failed)
+    failed: numeric(data.unresolved ?? current.failed),
+    deferred: numeric(data.deferred ?? current.deferred)
   });
   saveBrowserVault(globalThis.localStorage, loaded.vault);
   updateVisibleProgressCard();
@@ -451,6 +475,7 @@ export function applyChatGptImportBatch(vault, candidates, progress = {}) {
     discovered,
     imported,
     failed: numeric(progress.unresolved),
+    deferred: numeric(progress.deferred),
     lastSuccessAt: accepted || updated ? nowIso() : (progressFromResult(currentProgressResult(vault))?.lastSuccessAt || "")
   });
   return { accepted, updated, skipped, imported };
@@ -478,7 +503,8 @@ function handleBatch(event, config, data) {
         state: "paused",
         discovered: current.discovered || numeric(data.progress?.discovered),
         imported: importedCards(loaded.vault).length,
-        failed: current.failed || numeric(data.progress?.unresolved)
+        failed: current.failed || numeric(data.progress?.unresolved),
+        deferred: current.deferred || numeric(data.progress?.deferred)
       });
       saveBrowserVault(globalThis.localStorage, loaded.vault);
     } catch {
@@ -499,6 +525,7 @@ function handleComplete(event, config, data) {
     discovered: total,
     imported,
     failed: unresolved,
+    deferred: 0,
     lastSuccessAt: progressFromResult(currentProgressResult(loaded.vault))?.lastSuccessAt || nowIso()
   });
   saveBrowserVault(globalThis.localStorage, loaded.vault);
@@ -519,7 +546,8 @@ function installReceiver() {
       writeProgress(loaded.vault, {
         state: "running",
         imported: importedCards(loaded.vault).length,
-        failed: 0
+        failed: 0,
+        deferred: 0
       });
       saveBrowserVault(globalThis.localStorage, loaded.vault);
       postReply(event.source, active, {
@@ -528,6 +556,10 @@ function installReceiver() {
         limits: { maxBatchCards: MAX_BATCH_CARDS, maxMessageChars: MAX_MESSAGE_CHARS }
       });
       updateVisibleProgressCard();
+      return;
+    }
+    if (data.type === "SOURCE_STATE") {
+      persistSourceState(data);
       return;
     }
     if (data.type === "DISCOVERED") {
@@ -584,13 +616,13 @@ function actionInstructions() {
   if (family === "ios") return ru
     ? [
         "Нажми «Скопировать DashGPT Import».",
-        "В Safari создай закладку, открой Закладки → Изменить, назови её «DashGPT Import» и замени адрес на скопированное действие.",
-        "Открой chatgpt.com и запусти закладку «DashGPT Import»."
+        "На iPhone/iPad используй действие DashGPT Import в Командах Safari; не вставляй JavaScript в адресную строку.",
+        "Открой chatgpt.com в Safari и запусти DashGPT Import из меню Поделиться."
       ]
     : [
         "Tap “Copy DashGPT Import”.",
-        "In Safari create a bookmark, open Bookmarks → Edit, name it “DashGPT Import”, and replace its address with the copied action.",
-        "Open chatgpt.com and run the “DashGPT Import” bookmark."
+        "On iPhone/iPad use the DashGPT Import Safari Shortcut; do not paste JavaScript into the address bar.",
+        "Open chatgpt.com in Safari and run DashGPT Import from the Share Sheet."
       ];
   if (family === "android") return ru
     ? [
@@ -695,7 +727,8 @@ function launchImport() {
     state: "waiting_for_source",
     discovered: current.discovered || 0,
     imported: importedCards(loaded.vault).length,
-    failed: current.failed || 0
+    failed: current.failed || 0,
+    deferred: 0
   });
   saveBrowserVault(globalThis.localStorage, loaded.vault);
   updateVisibleProgressCard();
