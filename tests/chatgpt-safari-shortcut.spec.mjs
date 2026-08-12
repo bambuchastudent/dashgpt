@@ -37,7 +37,7 @@ test("iPhone Safari uses Shortcut setup instead of a JavaScript bookmark", async
   const copied = await page.evaluate(() => window.__dashgptCopied);
   expect(copied.startsWith("javascript:")).toBe(false);
   expect(copied).toContain("completion");
-  expect(copied).toContain("chatgpt-progressive-import-source");
+  expect(copied).toContain("dashgpt-progressive-import-source");
   expect(copied).toContain("connect.click()");
   expect(copied).toContain(locationOriginForTest(page.url()));
 
