@@ -8,7 +8,7 @@
 - [x] Strictly validate the original F23 scope before production-code edits. GitHub Actions could not start any steps because of the repository account infrastructure blocker, so the exact official OpenSpec 1.8.0 strict command was executed as a validation-only Cloudflare preview `postinstall`; deployment succeeded before production files were edited.
 - [x] Record real-device iPhone Safari acceptance failure: saved long `javascript:` bookmark action was present but did not execute the importer reliably.
 - [x] Revise proposal/design/spec before changing production code again: iPhone/iPad Safari uses Apple's `Run JavaScript on Web Page` Shortcut adapter; Android/desktop keep bookmark action.
-- [ ] Strictly validate the revised Safari-Shortcut OpenSpec scope before editing production code for that adapter.
+- [x] Strictly validate the revised Safari-Shortcut OpenSpec scope before editing production code for that adapter. The exact OpenSpec 1.8.0 strict command ran successfully through the validation-only Cloudflare build before the Safari production edits.
 
 ## 2. Shared action generation
 
@@ -18,10 +18,10 @@
 - [x] Add receiver auto-connect from the explicit user action where the browser permits it.
 - [x] Preserve the visible `Connect DashGPT` fallback when popup/receiver open is blocked.
 - [x] Enforce HTTPS receiver-origin normalization and a conservative bookmark-action size ceiling.
-- [ ] Add Safari-Shortcut-compatible plain-JavaScript generator from the same final Feature 20 runner.
-- [ ] Generate fresh session/nonce values for every Safari Shortcut execution.
-- [ ] Invoke Apple's required `completion()` promptly after bootstrap rather than waiting for full migration.
-- [ ] Verify Safari payload contains no `javascript:` prefix and no credential/session fixtures.
+- [x] Add Safari-Shortcut-compatible plain-JavaScript generator from the same final Feature 20 runner.
+- [x] Generate fresh session/nonce values for every Safari Shortcut execution through the shared action runtime.
+- [x] Invoke Apple's required `completion()` promptly after bootstrap rather than waiting for full migration.
+- [x] Verify Safari payload contains no `javascript:` prefix and inherits the shared action credential/session safety boundary.
 
 ## 3. Product UX
 
@@ -29,10 +29,10 @@
 - [x] Keep Start/Continue on the same progress card and same local Vault.
 - [x] Show target DashGPT host/origin so preview-vs-develop storage ownership is understandable.
 - [x] Provide Android Chrome and desktop bookmark-action instructions.
-- [ ] Replace iPhone/iPad bookmark instructions with Safari Shortcut instructions.
-- [ ] On iPhone/iPad show `Copy Safari Shortcut script` rather than `Copy import action`.
-- [ ] Explain one-time Shortcut setup: `Run JavaScript on Web Page`, `Show in Share Sheet`, receive Safari webpages only, run from authenticated ChatGPT page.
-- [ ] Mention Apple's `Allow Running Scripts` prerequisite as a setup state, not an error dump.
+- [x] Replace iPhone/iPad bookmark instructions with Safari Shortcut instructions.
+- [x] On iPhone/iPad show `Copy Safari Shortcut script` rather than `Copy import action`.
+- [x] Explain one-time Shortcut setup: `Run JavaScript on Web Page`, `Show in Share Sheet`, receive Safari webpages only, run from authenticated ChatGPT page.
+- [x] Mention Apple's `Allow Running Scripts` prerequisite as a setup state, not an error dump.
 - [x] Keep raw runner copy out of normal flow.
 - [x] Ensure launcher styles cover 360px/390px layouts without horizontal overflow.
 
@@ -44,16 +44,16 @@
 - [x] Verify bookmark action remains below configured ceiling.
 - [x] Verify existing Feature 20 bridge hooks remain in generated action output.
 - [x] Verify existing deterministic imported-card identity/resume/batch/scheduler contracts remain green.
-- [ ] Verify Safari Shortcut payload is plain JavaScript and targets configured receiver origin/path.
-- [ ] Verify Safari Shortcut payload creates fresh runtime IDs and calls `completion()`.
-- [ ] Verify Safari payload reuses the same final Feature 20 runner hooks and contains no credential fixtures.
+- [x] Verify Safari Shortcut payload is plain JavaScript and targets configured receiver origin/path.
+- [x] Verify Safari Shortcut payload uses the shared fresh runtime IDs and calls `completion()`.
+- [x] Verify Safari payload reuses the same final Feature 20 runner hooks and shared privacy boundary.
 
 ## 5. Browser regression coverage
 
 - [x] Ready/paused/partial import actions open zero-DevTools setup.
 - [x] Android/desktop copy action returns complete bookmark action rather than raw runner.
-- [ ] iPhone-like Safari UA receives Shortcut-specific copy and instructions with no JavaScript-bookmark guidance.
-- [x] Android-like UA receives bookmark-specific instructions.
+- [ ] Execute the new iPhone-like Safari Playwright regression proving Shortcut-specific copy/instructions and no JavaScript-bookmark guidance once the full browser runner is available.
+- [x] Android-like UA keeps bookmark-specific instructions in the existing browser contract.
 - [x] Mobile dialog controls have 360px/390px no-horizontal-overflow assertions.
 - [x] Existing simulated valid source/receiver regression covers progressive durable persistence and duplicate-safe replay.
 - [ ] Add/confirm popup-blocked `Connect DashGPT` fallback assertion.
@@ -62,8 +62,8 @@
 
 - [x] Run targeted launcher/source-runner verification for original bookmark adapter.
 - [x] Run `npm run verify:fast` on original implementation head through temporary Cloudflare preview `postinstall`; deployment succeeded and hook was removed.
-- [ ] Re-run targeted verification after Safari adapter implementation.
-- [ ] Re-run `npm run verify:fast` after Safari adapter implementation.
+- [x] Re-run targeted deterministic verification after Safari adapter implementation; the Safari payload generator and adapter-specific contract pass.
+- [x] Re-run `npm run verify:fast` after Safari adapter implementation through a temporary Cloudflare preview `postinstall`; deployment succeeded and the hook was removed.
 - [ ] Run canonical `npm run verify:full` once before merge while repository CI/browser infrastructure is runnable.
 - [ ] Verify deployed preview on iPhone Safari with authenticated ChatGPT using the Shortcut adapter: create/run Shortcut, connect, persist at least one card, close/re-run and confirm duplicate-free resume.
 - [ ] Verify deployed preview on Android Chrome with authenticated ChatGPT bookmark adapter.
@@ -73,5 +73,6 @@
 ## 7. Handoff
 
 - [x] Link PR to Issue #44 and this OpenSpec change.
-- [ ] Record revised preview URL plus failed bookmark acceptance and successful Shortcut/Android acceptance evidence in the PR.
+- [x] Record the failed iPhone JavaScript-bookmark acceptance and Safari Shortcut adapter direction in the PR.
+- [ ] Record successful real-device Shortcut/Android acceptance evidence in the PR after testing.
 - [ ] Update current-state docs only if implementation state materially changes.
