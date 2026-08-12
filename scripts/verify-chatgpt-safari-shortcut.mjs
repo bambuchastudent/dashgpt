@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { buildChatGptHistorySafariShortcutScript } from "../demo/chatgpt-history-source-runner.js";
 
 const shortcut = buildChatGptHistorySafariShortcutScript({
@@ -5,4 +6,11 @@ const shortcut = buildChatGptHistorySafariShortcutScript({
   receiverPath: "/demo/"
 });
 
-console.log(`Safari Shortcut payload generated: ${shortcut.length} chars`);
+assert.doesNotMatch(shortcut, /^javascript:/);
+assert.match(shortcut, /https:\/\/dashgpt\.example/);
+assert.match(shortcut, /chatgpt-progressive-import-source/);
+assert.match(shortcut, /connect\.click\(\)/);
+assert.match(shortcut, /completion\(\)/);
+assert.doesNotMatch(shortcut, /__DASHGPT_ACTION_SESSION__|__DASHGPT_ACTION_NONCE__/);
+
+console.log("Safari Shortcut import verifier: plain-JS adapter, receiver target, shared source runner and completion contracts passed.");
