@@ -131,7 +131,7 @@ test("Start import opens zero-DevTools setup, copies one reusable action, and tr
   expect(progress?.state).toBe("waiting_for_source");
 });
 
-test("iPhone Safari gets bookmark instructions for the same DashGPT Import action", async ({ page }) => {
+test("iPhone Safari gets Shortcut instructions for DashGPT Import", async ({ page }) => {
   await emulateNavigator(page, {
     userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 Version/18.6 Mobile/15E148 Safari/604.1",
     platform: "iPhone",
@@ -142,10 +142,12 @@ test("iPhone Safari gets bookmark instructions for the same DashGPT Import actio
   await page.locator(`[data-result-id="${IMPORT_ID}"] .open-button`).click();
 
   const dialog = page.locator("#chatgptImportLaunchDialog");
+  await expect(dialog).toHaveAttribute("data-launch-adapter", "safari-shortcut");
   await expect(dialog).toContainText(/Safari/);
-  await expect(dialog).toContainText(/Закладки|Bookmarks/);
+  await expect(dialog).toContainText(/Run JavaScript on Web Page|Выполнить JavaScript на веб-странице/);
+  await expect(dialog).toContainText(/Share|Поделиться/);
   await expect(dialog).toContainText(/DashGPT Import/);
-  await expect(dialog).not.toContainText(/Web Inspector|Console/);
+  await expect(dialog).not.toContainText(/Bookmarks|Закладки|Web Inspector|Console/);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);
 });
@@ -281,8 +283,6 @@ test("receiver persists progressively, exposes durable cards before completion, 
   expect(results.filter(result => result.id === "chatgpt-conversation-browser-conversation-1")).toHaveLength(1);
   expect(results.find(result => result.id === "chatgpt-conversation-browser-conversation-1")?.summary).toBe("First imported outcome");
 
-  // COMPLETE has not been received yet. A canonical refresh must already make
-  // the durable imported card visible/searchable.
   await page.reload();
   await expect(page.locator("[data-result-id='chatgpt-conversation-browser-conversation-1']")).toBeVisible();
   const search = page.locator("#searchInput");
@@ -290,7 +290,6 @@ test("receiver persists progressively, exposes durable cards before completion, 
   await expect(page.locator("#resultsGrid [data-result-id='chatgpt-conversation-browser-conversation-1']")).toBeVisible();
   await search.fill("");
 
-  // Replay the same durable source after a hypothetical lost ACK: no duplicate.
   await dispatchSourceMessage(page, envelope("BATCH", {
     sequence: 2,
     cards: [importedCandidate()],
@@ -299,7 +298,6 @@ test("receiver persists progressively, exposes durable cards before completion, 
   results = await storedResults(page);
   expect(results.filter(result => result.id === "chatgpt-conversation-browser-conversation-1")).toHaveLength(1);
 
-  // A newer provider update replaces the same deterministic mutable card.
   await dispatchSourceMessage(page, envelope("BATCH", {
     sequence: 3,
     cards: [importedCandidate("2026-08-11T11:00:00.000Z", "Newer imported outcome")],
