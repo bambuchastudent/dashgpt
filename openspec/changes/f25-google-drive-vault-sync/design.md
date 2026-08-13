@@ -24,7 +24,18 @@ The user-visible problem is not “add another cloud database.” It is: let the
 - syncing arbitrary user-selected Drive files;
 - raw transcript backup;
 - merging unrelated Vaults without a user decision;
-- replacing GitHub sync or export/import.
+- replacing GitHub sync or export/import;
+- automatic mirroring to Google Drive and GitHub at the same time;
+- general provider switching/mirroring UX, which remains Feature 6 Slice E.
+
+## Remote-provider exclusivity for Slice C
+
+F25 permits at most one active remote sync adapter per browser Vault session. This avoids silently turning the Google Drive slice into multi-provider mirroring.
+
+- If GitHub is already paired, Google Drive Connect is disabled with a human message asking the user to disconnect GitHub first.
+- If Google Drive binding exists, the GitHub Connect control is disabled on that browser until Google Drive is disconnected.
+- Existing local Vault data is never deleted by either disconnect operation.
+- Provider switching/mirroring beyond this explicit disconnect/connect flow remains Slice E.
 
 ## Authorization architecture
 
@@ -107,12 +118,14 @@ Network access is dependency-injected through `fetchFn` for deterministic tests.
 Browser UI/controller:
 
 - read deployment config;
+- inspect GitHub pairing before enabling Google Drive Connect;
 - lazy-load GIS script;
 - request token on user click;
 - call pure adapter sync;
 - ask explicit confirmation when different non-empty Vault IDs require migration;
 - save merged/adopted local Vault;
 - render configured / reconnect / connected / syncing / unsynced states;
+- disable the GitHub Connect control while Google Drive binding exists;
 - schedule debounced session sync after local Vault changes while token is valid;
 - disconnect without deleting either data copy.
 
@@ -185,6 +198,7 @@ Storage dialog adds a Google Drive provider card next to GitHub:
 
 - unconfigured: “Google Drive sync is not configured on this deployment yet.”
 - ready: `Connect Google Drive`;
+- blocked by GitHub: “Disconnect GitHub sync before connecting Google Drive.”
 - bound but no token: `Reconnect Google Drive` + “local changes are safe; reconnect to sync”;
 - authorized: `Sync now`, `Disconnect`;
 - synced status includes local + Google Drive;
