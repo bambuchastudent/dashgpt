@@ -95,9 +95,12 @@ if (!document.querySelector('link[data-dashgpt-unified-dashboard]')) {
 const feature20PersonalEntry = chatGptHistoryImportAllowed();
 let chatGptHistoryImport = null;
 if (feature20PersonalEntry) {
-  // Install the import-only batch fast path before the regular lifecycle
-  // receiver. It owns validated BATCH messages and leaves HELLO/discovery/
-  // pause/completion to the canonical Feature 20 controller.
+  // F28 observes enrichment-aware HELLO/BATCH first. The established Feature 20
+  // fast path remains installed behind it for source-state handling and as a
+  // compatibility fallback for older source runners.
+  const semanticBridge = await import("./chatgpt-semantic-import-bridge.js");
+  semanticBridge.installChatGptSemanticImportBridge();
+
   const chatGptBatchFastPath = await import("./chatgpt-history-import-batch.js");
   chatGptBatchFastPath.installChatGptImportBatchFastPath();
 
