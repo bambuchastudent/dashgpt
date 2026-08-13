@@ -2,9 +2,9 @@
 
 ## Affected surfaces
 
-ChatGPT history source runner and importer; optional Result usage metadata; Vault profile revisions; topbar profile UI; profile CSS; regression tests and verification scripts.
+ChatGPT history source runner and import batch fast path; existing canonical Card `result.usage` metadata; Vault profile revisions; topbar profile UI; profile CSS; regression tests and verification scripts.
 
-Existing Vault object layout should not need behavior changes because profile revisions are already serialized under `profile/`; this behavior requires regression coverage.
+The Vault Result field allowlist does not change: usage reuses the existing portable `result` envelope. Existing Vault object layout also does not need behavior changes because profile revisions are already serialized under `profile/`; both portability paths require regression coverage.
 
 ## Compatibility constraints
 
@@ -12,4 +12,4 @@ Do not regress canonical Card IDs, re-import idempotency, My Dash, saved Dashes,
 
 ## Data boundary
 
-Profile metrics store aggregate numeric values and usage provenance only. Raw conversation text is not copied into profile revisions.
+Cards store numeric token usage plus provenance only. Profile revisions store aggregate spent/donated amounts and currency only. Raw conversation text is not copied into profile revisions and no financial credentials are stored.
