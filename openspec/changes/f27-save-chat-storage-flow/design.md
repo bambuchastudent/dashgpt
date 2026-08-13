@@ -4,11 +4,13 @@
 
 `demo/app.js` owns the generic add-result button and manual Result form. `demo/public-onboarding.js` changes that button's label on the personal root and already contains the structured ChatGPT command, Result-envelope parser, review UI, and local Result creation used for a visitor's first card. Google Drive and GitHub synchronization already have canonical controllers and the existing Storage dialog remains the detailed settings surface.
 
-## Request boundary
+## Personal action interception
 
-Before the generic app opens its manual form, it dispatches one cancelable `dashgpt:add-result-request` event. On ordinary routes nobody cancels it and existing behavior remains unchanged. On the personal root, the onboarding layer cancels it and opens the dedicated Save-chat dialog.
+F27 does not change the generic app controller.
 
-This avoids branching core app behavior on translated display text and keeps the generic manual Result form available outside the personal Save-chat experience.
+On the personal root, `public-onboarding.js` installs a document-level capture-phase click handler for `#addResultButton`. Because that handler runs before the target/bubble listener owned by `app.js`, it can stop the personal click and open the dedicated Save-chat dialog. On non-personal routes the interception module is inactive, so the generic manual Add Result form keeps its existing behavior.
+
+This keeps the change local to personal onboarding and avoids branching core app behavior on translated display text.
 
 ## Save-chat dialog
 
