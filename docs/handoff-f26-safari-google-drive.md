@@ -1,27 +1,31 @@
-# DashGPT — F26 Safari Google Drive handoff
+# DashGPT — Safari + Save chat handoff
 
 ## Goal
 
-Finish and verify the Safari-on-macOS regression fix for `Connect Google Drive`, then keep future browser-sensitive launch changes from repeating the same mistake.
+Continue from the current `develop` state after fixing the macOS Safari Google Drive launch regression and replacing the misleading personal `Сохранить чат` action with a coherent local-first capture flow.
 
 ## Repository state
 
 - Repository: `bambuchastudent/dashgpt`
-- Base: `develop`
-- Feature branch: `feature/f26-safari-safe-google-drive-connect`
-- Issue: #59 — `Feature 26: Safari-safe Google Drive connect`
-- OpenSpec: `openspec/changes/f26-safari-safe-google-drive-connect/`
-- F25 Google Drive sync is already merged into `develop`.
+- Base/source of truth: `develop`
+- F26 Issue #59 — Safari-safe Google Drive connect — **merged**
+- F26 PR #60 — **merged**, squash commit `a1d9f6da6e62a8e625db175f4ec6b357b11ccfde`
+- F27 Issue #62 — coherent Save chat flow with storage choices — **merged**
+- F27 PR #64 — **merged**, squash commit `0b695da7d437974f861d477f32c59d0c40ac0cd1`
+- F26 OpenSpec: `openspec/changes/f26-safari-safe-google-drive-connect/`
+- F27 OpenSpec: `openspec/changes/f27-save-chat-storage-flow/`
 
-## User-visible bug
+## What F26 fixed
 
-In Chrome, `Storage → Connect Google Drive` can work. In Safari on macOS the same button can appear to do nothing.
+### User-visible bug
 
-## Root cause
+`Storage → Connect Google Drive` could work in Chrome while appearing inert in Safari on macOS.
 
-The F25 controller performed an asynchronous GitHub-provider status request before asking the Google browser library to open the account window. Safari is stricter about the lifetime of the original user click. By the time the account request happened, the browser could consider that click finished.
+### Root cause
 
-The important lesson is ordering, not a Safari-specific workaround:
+The F25 controller awaited remote/provider work before asking the Google browser library to open its account window. Safari is stricter about the lifetime of the original user click, so the account request could happen after browser user activation was lost.
+
+The reusable rule is:
 
 ```text
 WRONG
@@ -31,100 +35,98 @@ RIGHT
 preload dependency -> click -> account window immediately -> await result -> fresh provider check -> sync
 ```
 
-## Decisions already made
+### Implemented behavior
 
-- Google browser library is preloaded after configuration/provider state is known.
-- While it is unavailable, the UI shows `Preparing Google sign-in…` and does not present a falsely ready Connect action.
-- The Connect handler requests the Google account window in the original click task with no awaited networking first.
-- After Google returns, GitHub provider state is refreshed before Drive synchronization.
-- If GitHub became active, stop before Drive synchronization.
-- Existing Drive scope, Vault schema, Drive file location, provider exclusivity, merge rules, and memory-only browser session behavior stay unchanged.
-- Real macOS Safari acceptance is a required gate for this browser-sensitive behavior; Chromium automation alone must not be reported as full Safari verification.
+- Google browser library preloads before Connect becomes actionable.
+- Preparing/retry states are truthful.
+- `requestAccessToken()` runs in the original click task before awaited provider networking.
+- GitHub provider state is refreshed after Google returns and before Drive synchronization.
+- A provider conflict stops before remote writes.
+- Google access remains session-memory-only.
+- Drive scope, Vault schema, Drive file layout, provider exclusivity, and merge rules are unchanged.
 
-## Implemented files
+### Regression coverage
 
-### Production
+`tests/google-drive-sync.spec.mjs` records `navigator.userActivation?.isActive` at the exact Google account request while provider networking is deliberately delayed.
 
-`demo/google-drive-sync.js`
+Engineering guidance lives in:
 
-Key changes:
-- `googleSignInReady()`
-- `gisLoadError`
-- `prepareGoogleSignIn()`
-- truthful preparing/retry rendering
-- non-async `connectGoogleDrive()` with immediate account request
-- post-account provider refresh before sync
+`docs/browser-flow-regression-guide.md`
 
-### Regression test
+## What F27 fixed
 
-`tests/google-drive-sync.spec.mjs`
+### User-visible bug
 
-The fake Google library records:
+The personal dashboard displayed `+ Сохранить чат`, but the click still opened the generic manual `Add Result` form. Google Drive and GitHub were hidden in a separate Storage surface, so the action did not match the product promise.
 
-```js
-navigator.userActivation?.isActive
-```
+### Implemented behavior
 
-at the exact moment the account request is made. The provider-status route can be deliberately delayed. The regression test requires user activation to remain true and then confirms the remote Vault can still be adopted.
+`Сохранить чат` now opens a dedicated capture dialog which:
 
-### Documentation
+- explains that the card is saved to the local browser Vault first;
+- shows `This device`, Google Drive, and GitHub in one understandable storage section;
+- treats Google Drive and GitHub as optional sync providers for the **same** cards/Vault;
+- keeps one-remote-provider-at-a-time semantics;
+- reuses the existing structured ChatGPT command → Result envelope → review → local save flow;
+- delegates Google Drive synchronously to the canonical F26-safe Connect control;
+- sends GitHub setup to the canonical repository/folder Storage flow instead of duplicating it;
+- attempts canonical provider synchronization after local save when a usable provider session is already active;
+- keeps the generic manual Result form unchanged outside personal Save-chat mode.
 
-- `docs/browser-flow-regression-guide.md`
-- this handoff
+### Production files
 
-## OpenSpec artifacts
+- `demo/public-onboarding.js`
+- `demo/onboarding.css`
 
-Already created before production edits:
+Core `demo/app.js`, `demo/google-drive-sync.js`, and `demo/github-sync.js` were intentionally not changed by F27.
 
-- `.openspec.yaml`
-- `proposal.md`
-- `design.md`
-- `specs/google-drive-vault-sync/spec.md`
-- `tasks.md`
-- `impact-manifest.md`
+### Regression coverage
 
-The spec adds requirements for:
-- direct user-click ordering;
-- truthful Google-library readiness;
-- provider exclusivity recheck before synchronization;
-- real Safari acceptance for browser-sensitive changes;
-- reusable browser-flow regression guidance.
+`tests/save-chat-flow.spec.mjs` covers:
 
-## Constraints
+- existing user Save chat opens the dedicated dialog rather than generic Add Result;
+- local save creates one ChatGPT-handoff Result without requiring a remote account;
+- Google Drive + GitHub choices are visible as sync providers;
+- Save-chat Google delegation preserves active browser user activation;
+- GitHub setup opens/focuses canonical Storage controls;
+- 360px flow has no horizontal overflow.
 
-- Do not broaden Google Drive access.
-- Do not persist the short-lived Google browser session value.
-- Do not add automatic GitHub + Google mirroring.
-- Do not change Vault identity or merge semantics.
-- Do not silently mix the separate `Сохранить чат` UX redesign into F26.
+## Verification state
 
-## Remaining work
+Do **not** convert missing infrastructure evidence into a green claim.
 
-1. Inspect the final branch diff for accidental scope widening.
-2. Update F26 `tasks.md` to mark completed implementation/test/docs work.
-3. Run available targeted verification and OpenSpec validation.
-4. Run `npm run verify:fast` and the canonical `npm run verify:full` if the environment allows it; report infrastructure blockers explicitly if it does not.
-5. Create/deploy the PR preview.
-6. On a real Mac Safari: open Storage, wait until Connect is ready, press `Connect Google Drive`, and verify the Google account UI opens from that one click.
-7. Run a Chrome smoke.
-8. Merge to `develop` only with the actual verification state recorded accurately.
+Known evidence:
 
-## Separate follow-up capability
+- F26 PR Cloudflare preview build succeeded before merge.
+- F27 PR Cloudflare preview build succeeded for the production code before merge.
+- GitHub `check` / OpenSpec jobs have repeatedly been prevented from starting project steps by the repository/account Actions infrastructure state. Therefore `npm run verify:fast`, `npm run verify:full`, and executable OpenSpec validation are not claimed as passed from those runs.
+- Structural OpenSpec review was completed before production edits for both F26 and F27.
 
-The user also reported that `+ Сохранить чат` currently leads to an unclear generic flow and does not make storage destinations/providers understandable.
+Still required for real browser acceptance:
 
-That should be a separate OpenSpec change/PR after F26. Product direction for it:
+1. On the production/develop origin in **macOS Safari**, open Storage and press `Connect Google Drive`; verify Google account UI opens from the first click once the control says it is ready.
+2. In macOS Safari, press `Сохранить чат`; verify the dedicated local/Google/GitHub capture dialog opens and the old Add Result form does not.
+3. From that Save-chat dialog, press Google Drive and verify the Google account UI still opens directly.
+4. Save one card while Google Drive is connected; verify the same card appears after sync on a second device.
+5. Run a Chrome smoke and relevant mobile viewport acceptance.
+6. Run canonical automated verification once GitHub Actions or another trusted execution environment is available.
 
-- `Сохранить чат` should open one coherent capture flow rather than a generic `Add Result` form or confusing navigation.
-- The flow should make clear that the card is saved to the local Vault first.
-- It should show current remote state and offer direct `Connect Google Drive` / GitHub setup when appropriate.
-- Google/GitHub are sync destinations for the same canonical cards, not separate card types.
-- Keep value-first language; do not expose storage implementation details as onboarding.
+## Constraints to preserve
 
-Do not implement that follow-up by modifying F26 scope retroactively.
+- Card remains the canonical user-facing entity.
+- Local browser Vault remains the primary working copy.
+- Google Drive/GitHub synchronize the same Vault/cards; they are not card types.
+- One remote provider at a time unless a future OpenSpec change explicitly redesigns that contract.
+- No broad Google Drive access.
+- Do not persist short-lived Google browser access values.
+- Browser user-gesture flows must follow `docs/browser-flow-regression-guide.md`.
+- Any new production capability must get its own OpenSpec change before code.
 
 ## Useful links
 
-- Issue: `https://github.com/bambuchastudent/dashgpt/issues/59`
-- Current user-facing site: `https://dashgpt.dimkashir.workers.dev/demo/?personal=1`
-- Google config status: `https://dashgpt.dimkashir.workers.dev/api/storage/google/config`
+- Production: `https://dashgpt.dimkashir.workers.dev/demo/?personal=1`
+- Google config: `https://dashgpt.dimkashir.workers.dev/api/storage/google/config`
+- F26 Issue: `https://github.com/bambuchastudent/dashgpt/issues/59`
+- F26 PR: `https://github.com/bambuchastudent/dashgpt/pull/60`
+- F27 Issue: `https://github.com/bambuchastudent/dashgpt/issues/62`
+- F27 PR: `https://github.com/bambuchastudent/dashgpt/pull/64`
