@@ -2,26 +2,23 @@
 
 ## Why
 
-DashGPT preserves useful AI work as portable cards, but it has no compact profile view for project-wide usage and money totals.
+DashGPT preserves useful AI work as portable cards, but it has no compact profile view for project-wide usage and project money totals. The requested surface should be small, local-first and honest about what DashGPT can actually measure.
 
-## Product decision
+ChatGPT history import can see visible conversation text, but it does not expose authoritative provider token billing or trustworthy per-conversation cost. The product must therefore distinguish estimates from provider-reported usage and must not fabricate money values from token estimates.
 
-Add a compact Profile / Профиль disclosure to the personal top bar. Inside it, a collapsible project-metrics header shows estimated tokens consumed, money spent, and money donated/received. These metrics are profile data, not Cards, Dashes, search results, or a separate analytics dashboard.
+## What Changes
 
-## Truthfulness decision
+- Add a compact Profile / Профиль disclosure to the personal top bar.
+- Add a hideable metrics header with estimated token usage, spent total and donated total.
+- Estimate ChatGPT history tokens from the selected visible user/assistant message text before card distillation and persist explicit estimator provenance on the canonical card.
+- Aggregate token usage from current materialized canonical cards so re-importing a stable mutable conversation does not double-count it.
+- Store spent/donated values as explicit user-maintained project-metrics revisions in existing Vault v1 `profileRevisions`.
+- Store money in integer minor units with an explicit three-letter currency; do not perform FX conversion.
+- Keep collapse/expanded state as a device-local presentation preference rather than a Vault revision.
+- Add RU/EN copy, accessibility behavior, responsive 360px styling and regression coverage.
 
-ChatGPT history import exposes visible conversation text but not authoritative provider billing usage or a trustworthy per-conversation price. Token counts from history import are estimates and money is never inferred from those estimates.
+## Impact
 
-Spent and donated values are explicit user-maintained profile values. Payment-provider, donation-provider, FX, and provider billing integrations are out of scope.
+The change touches ChatGPT history capture metadata, optional Result fields, Vault profile revision materialization, the personal topbar, Vault portability tests and UI tests. Cards remain canonical; Dashes, search, Semantic Gallery and continuation semantics do not change.
 
-## Storage decision
-
-Metric data uses existing Vault v1 `profileRevisions`, so it remains local-first and participates in Vault export/import and current remote object sync. Collapse state is a device-local UI preference and does not create profile revisions.
-
-## Acceptance
-
-1. The personal top bar exposes a compact Profile control without displacing the card-first dashboard.
-2. Profile shows token, spent, and donated metrics and can collapse/expand.
-3. Token estimates are visibly approximate.
-4. Money is never derived from token estimates.
-5. Metric revisions survive Vault portability.
+Payment-provider integrations, donation-provider integrations, ChatGPT/OpenAI billing scraping, API-key billing, FX conversion and a separate analytics dashboard are out of scope.

@@ -32,6 +32,10 @@ The system SHALL estimate token usage from selected visible user/assistant messa
 ### Requirement: Token aggregation uses materialized cards
 The system SHALL sum valid usage metadata from current materialized canonical cards and SHALL NOT fabricate usage for older cards that lack it.
 
+#### Scenario: Older card has no usage metadata
+- **WHEN** a materialized card predates token tracking and has no valid usage object
+- **THEN** the card remains valid and contributes zero fabricated tokens to the aggregate
+
 ### Requirement: Spent and donated totals are explicit profile data
 The system SHALL let the user maintain spent and donated totals explicitly and SHALL NOT derive them from estimated ChatGPT tokens.
 
@@ -46,8 +50,20 @@ The system SHALL let the user maintain spent and donated totals explicitly and S
 ### Requirement: Metric revisions are portable
 The system SHALL store project metrics in existing Vault v1 `profileRevisions`, materialize the latest valid revision deterministically, and preserve revisions through Vault export/import and supported remote object sync.
 
+#### Scenario: Vault round trip
+- **WHEN** a Vault with project-metrics revisions is exported and imported
+- **THEN** the same current currency, spent total and donated total materialize after the round trip
+
 ### Requirement: New copy is localized
 The system SHALL provide Russian and English copy with English fallback. Russian visible metric labels SHALL use «Проебано токенов», «Потрачено», and «Задоначено» in the requested product voice.
 
+#### Scenario: Russian locale
+- **WHEN** the resolved interface locale is Russian
+- **THEN** the profile renders the requested Russian metric labels while controls remain understandable
+
 ### Requirement: Mobile profile remains usable
 The system SHALL render profile metrics and editing controls without horizontal overflow at a 360px viewport.
+
+#### Scenario: Narrow viewport
+- **WHEN** the personal dashboard is rendered at 360px wide and the profile is opened
+- **THEN** all metrics, collapse control and edit controls remain reachable without horizontal scrolling
