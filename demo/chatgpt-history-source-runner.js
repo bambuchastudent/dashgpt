@@ -6,11 +6,72 @@ import {
 export { CHATGPT_HISTORY_SOURCE_VERSION };
 
 const HANDSHAKE_HOOK = "    postToReceiver({ type: \"HELLO\", sourceVersion });\n    const ready = await waitForReply(\"READY\", () => true, 5000);";
+const PROJECT_CONVERSATION_HOOK = "  function projectConversation(payload, summary) {";
+const PROJECT_FACTS_HOOK = "      facts: [`${messages.length} visible messages`],";
 const OPENER_CONNECT_HOOK = "  if (window.opener && !window.opener.closed) connectAndRun(window.opener).catch(() => {});";
 const ACTION_SESSION_SENTINEL = "__DASHGPT_ACTION_SESSION__";
 const ACTION_NONCE_SENTINEL = "__DASHGPT_ACTION_NONCE__";
 
 export const MAX_CHATGPT_IMPORT_ACTION_CHARS = 64 * 1024;
+export const CHATGPT_VISIBLE_TEXT_ESTIMATOR = "visible-text-v1";
+
+export function estimateVisibleTextTokens(text) {
+  const value = String(text || "").normalize("NFKC");
+  if (!value.trim()) return 0;
+
+  let tokens = 0;
+  let asciiRun = 0;
+  let unicodeRun = 0;
+  const flushAscii = () => {
+    if (!asciiRun) return;
+    tokens += Math.ceil(asciiRun / 4);
+    asciiRun = 0;
+  };
+  const flushUnicode = () => {
+    if (!unicodeRun) return;
+    tokens += Math.ceil(unicodeRun / 2);
+    unicodeRun = 0;
+  };
+
+  for (const char of value) {
+    if (/\s/u.test(char)) {
+      flushAscii();
+      flushUnicode();
+      continue;
+    }
+    if (/^[\x00-\x7F]$/u.test(char)) {
+      flushUnicode();
+      asciiRun += 1;
+      continue;
+    }
+    flushAscii();
+    if (/^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]$/u.test(char)) {
+      flushUnicode();
+      tokens += 1;
+      continue;
+    }
+    unicodeRun += 1;
+  }
+  flushAscii();
+  flushUnicode();
+  return Math.max(1, tokens);
+}
+
+function injectUsageEstimate(runner) {
+  if (!runner.includes(PROJECT_CONVERSATION_HOOK) || !runner.includes(PROJECT_FACTS_HOOK)) {
+    throw new Error("ChatGPT source runner usage hooks not found");
+  }
+  const estimatorSource = estimateVisibleTextTokens.toString()
+    .split("\n")
+    .map(line => `  ${line}`)
+    .join("\n");
+  return runner
+    .replace(PROJECT_CONVERSATION_HOOK, `${estimatorSource}\n\n${PROJECT_CONVERSATION_HOOK}`)
+    .replace(
+      PROJECT_FACTS_HOOK,
+      `${PROJECT_FACTS_HOOK}\n      usage: {\n        tokenCount: messages.reduce((total, item) => total + estimateVisibleTextTokens(item.text), 0),\n        tokenCountKind: \"estimated\",\n        estimator: ${JSON.stringify(CHATGPT_VISIBLE_TEXT_ESTIMATOR)}\n      },`
+    );
+}
 
 function injectHandshakeRetry(runner) {
   if (!runner.includes(HANDSHAKE_HOOK)) {
@@ -24,7 +85,7 @@ function injectHandshakeRetry(runner) {
 }
 
 export function buildChatGptHistorySourceRunner(options) {
-  return injectHandshakeRetry(buildCoreRunner(options));
+  return injectHandshakeRetry(injectUsageEstimate(buildCoreRunner(options)));
 }
 
 export function buildChatGptHistoryImportAction({ receiverOrigin, receiverPath = "/demo/" }) {
