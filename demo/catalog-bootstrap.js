@@ -92,6 +92,14 @@ if (!document.querySelector('link[data-dashgpt-unified-dashboard]')) {
   document.head.append(stylesheet);
 }
 
+if (!document.querySelector('link[data-dashgpt-profile-metrics]')) {
+  const stylesheet = document.createElement("link");
+  stylesheet.rel = "stylesheet";
+  stylesheet.href = "/demo/profile-metrics.css";
+  stylesheet.dataset.dashgptProfileMetrics = "true";
+  document.head.append(stylesheet);
+}
+
 const feature20PersonalEntry = chatGptHistoryImportAllowed();
 let chatGptHistoryImport = null;
 if (feature20PersonalEntry) {
@@ -119,6 +127,7 @@ await import("./unified-onboarding.js");
 await import("./unified-search.js");
 await import("./unified-dashboard-routing.js");
 await import("./unified-product-board.js");
+await import("./profile-metrics.js");
 
 if (chatGptHistoryImport) {
   // App/gallery ownership remains with the existing canonical renderer. Feature
