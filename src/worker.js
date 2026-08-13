@@ -1,4 +1,5 @@
 import coreWorker from "./index.js";
+import { handleGoogleDriveConfig } from "./google-drive-config.js";
 import {
   handleGitHubDisconnect,
   handleGitHubPairStart,
@@ -70,6 +71,7 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === "/api/shared-chat") return handleSharedChat(request, env);
+    if (url.pathname === "/api/storage/google/config") return handleGoogleDriveConfig(request, env);
     if (url.pathname === "/api/storage/github/pair") return handleGitHubPairStart(request, env);
     if (url.pathname === "/api/storage/github/setup") return handleGitHubSetup(request, env);
     if (url.pathname === "/api/storage/github/status") return handleGitHubStatus(request, env);
