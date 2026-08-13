@@ -41,11 +41,13 @@ After that local save, the existing storage controllers remain responsible for r
 
 ## Provider actions
 
-The Google Drive action delegates to the already-initialized canonical Drive controller rather than implementing a second Drive path. The public onboarding module imports that entry point ahead of time so the provider action can delegate synchronously from the user's click, preserving the F26 browser-flow rule.
+The Google Drive controller already owns `#connectGoogleDriveButton`, whose F26 handler preserves the required direct-click ordering. The Save-chat Google action synchronously delegates to that already-initialized canonical control in the same originating user-click task. It performs no fetch, timer, dynamic import, or awaited work first. The onboarding regression test records browser user activation at the canonical Google request to prove this delegation remains safe.
+
+If the canonical Google action is still preparing or blocked, the Save-chat dialog reflects that state and can open the detailed Storage surface rather than creating a second provider path.
 
 GitHub setup requires the existing repository/folder field and pairing flow, so the Save-chat dialog opens the canonical Storage dialog and focuses the GitHub section rather than duplicating that form.
 
-The Save-chat dialog derives status from the canonical provider UI/state and refreshes when provider state changes.
+The Save-chat dialog derives status from the canonical provider UI/state and refreshes from those existing controls.
 
 ## Data safety
 
