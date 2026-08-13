@@ -29,6 +29,7 @@ const {
   computeChatGptDetailRetryDelay
 } = await import("../demo/chatgpt-history-source-runner-core.js");
 const {
+  CHATGPT_HISTORY_SOURCE_VERSION,
   MAX_CHATGPT_IMPORT_ACTION_CHARS,
   buildChatGptHistoryImportAction,
   buildChatGptHistorySourceRunner
@@ -131,8 +132,8 @@ function candidate(sourceId, updatedAt, overrides = {}) {
 assert.equal(chatGptImportedResultId("abc-123"), "chatgpt-conversation-abc-123");
 assert.throws(() => chatGptImportedResultId("https://evil.invalid/x"));
 
-// Per-conversation 429 retry timing honors Retry-After, grows with attempts,
-// stays bounded for fallback backoff, and deterministically staggers sources.
+// Historical F24 core retry timing remains directly testable. F25's final
+// staged policy is verified separately in verify-chatgpt-history-import-f25.mjs.
 {
   const now = Date.parse("2026-08-12T10:00:00.000Z");
   const secondsDelay = computeChatGptDetailRetryDelay("3", 0, "conversation-a", now);
@@ -259,7 +260,8 @@ assert.throws(() => chatGptImportedResultId("https://evil.invalid/x"));
   assert.ok(observedHistoryEstimate < 5_100_000, `Observed 2,123-chat worst-case estimate is ${observedHistoryEstimate} bytes; projection needs tightening`);
 }
 
-// The source runner keeps F24 task-local 429 deferral after F23 launcher wrapping.
+// The final shared runner keeps F24 task-local deferral while F25 adds a
+// bounded provider-pressure circuit breaker around new detail acquisitions.
 {
   const runner = buildChatGptHistorySourceRunner({
     receiverOrigin: "https://dashgpt.example",
@@ -267,7 +269,8 @@ assert.throws(() => chatGptImportedResultId("https://evil.invalid/x"));
     sessionId: "session-test",
     nonce: "nonce-test"
   });
-  assert.match(runner, /"sourceVersion":3/);
+  assert.equal(CHATGPT_HISTORY_SOURCE_VERSION, 4);
+  assert.match(runner, /"sourceVersion":4/);
   assert.match(runner, /"initialConcurrency":2/);
   assert.match(runner, /"maxConcurrency":3/);
   assert.match(runner, /"batchSize":32/);
@@ -279,6 +282,9 @@ assert.throws(() => chatGptImportedResultId("https://evil.invalid/x"));
   assert.match(runner, /const deferred = \[\]/);
   assert.match(runner, /nextRetryAt/);
   assert.match(runner, /deferred: deferredCurrent/);
+  assert.match(runner, /rateLimitStreak/);
+  assert.match(runner, /cooldownStages/);
+  assert.match(runner, /savedCurrent/);
   assert.match(runner, /CONTROL_PAUSE/);
   assert.match(runner, /postMessage/);
   assert.doesNotMatch(runner, /scheduler\.throttled/);
@@ -297,7 +303,7 @@ assert.throws(() => chatGptImportedResultId("https://evil.invalid/x"));
   assert.match(serviceBlock, /scheduler\.serviceThrottled\(delay\)/);
 }
 
-// F23 packages that same final F24 runner as a reusable browser action without
+// The reusable browser action packages the same final F25 runner without
 // fixed bridge identity or credentials.
 {
   const action = buildChatGptHistoryImportAction({
@@ -316,6 +322,7 @@ assert.throws(() => chatGptImportedResultId("https://evil.invalid/x"));
   assert.match(action, /scheduler\.rateLimited\(\)/);
   assert.match(action, /ChatGptDetailDeferredError/);
   assert.match(action, /nextRetryAt/);
+  assert.match(action, /rateLimitStreak/);
   assert.doesNotMatch(action, /scheduler\.throttled/);
   assert.doesNotMatch(action, /__DASHGPT_ACTION_SESSION__/);
   assert.doesNotMatch(action, /__DASHGPT_ACTION_NONCE__/);
@@ -324,4 +331,4 @@ assert.throws(() => chatGptImportedResultId("https://evil.invalid/x"));
   assert.doesNotMatch(action, /localStorage/);
 }
 
-console.log("ChatGPT history import verifier: discoverable operational card, dismissal, idempotent upsert, per-conversation 429 deferral, batch fast path, freshness, privacy, storage budget and reusable launcher contracts passed.");
+console.log("ChatGPT history import verifier: discoverable operational card, dismissal, idempotent upsert, F25-wrapped per-conversation 429 deferral, batch fast path, freshness, privacy, storage budget and reusable launcher contracts passed.");
