@@ -4,7 +4,7 @@ import {
   putResult,
   saveBrowserVault
 } from "./vault.js";
-import { buildChatGptHistorySourceRunner } from "./chatgpt-history-source-runner.js";
+import { buildChatGptHistoryImportAction } from "./chatgpt-history-source-runner.js";
 
 export const CHATGPT_IMPORT_RESULT_ID = "dashgpt-chatgpt-history-import";
 export const CHATGPT_IMPORT_PROTOCOL = "dashgpt-chatgpt-history-import";
@@ -65,7 +65,7 @@ const COPY = {
   en: {
     title: "Import ChatGPT history",
     ready: "Bring useful parts of your previous ChatGPT conversations into this DashGPT Vault. Cards appear progressively and repeated runs do not create duplicates.",
-    waiting: "ChatGPT is open. Run the prepared script once in the ChatGPT page; DashGPT will then save cards progressively.",
+    waiting: "Open ChatGPT in this browser and run your saved “DashGPT Import” action. DashGPT will save cards progressively after it connects.",
     running: ({ imported, discovered, deferred }) => `Imported ${imported}${discovered ? ` of ${discovered}` : ""}.${deferred ? ` ${deferred} waiting to retry; other conversations continue.` : " You can keep using DashGPT while the source page stays available."}`,
     limited: ({ imported, discovered, deferred }) => `Imported ${imported}${discovered ? ` of ${discovered}` : ""}. Waiting for ChatGPT${deferred ? ` to retry ${deferred} conversations` : " to allow more requests"}.`,
     paused: ({ imported, discovered }) => `Imported ${imported}${discovered ? ` of ${discovered}` : ""}. Import is paused; continue later without starting over.`,
@@ -86,15 +86,19 @@ const COPY = {
     remove: "Remove",
     refresh: "Refresh cards",
     restore: "Import ChatGPT",
-    dialogTitle: "Continue in ChatGPT",
-    dialogCopy: "ChatGPT was opened and the import script was copied. In Safari, open Web Inspector → Console on the ChatGPT page, paste once, and press Enter. If Safari separates the windows, the script will show a “Connect DashGPT” button.",
-    copied: "Script copied again",
-    copyAgain: "Copy script again"
+    dialogTitle: "Set up DashGPT Import",
+    dialogCopy: "Save one browser action once. Then run it on chatgpt.com whenever you want to start or continue this import.",
+    copyAction: "Copy DashGPT Import",
+    actionCopied: "DashGPT Import copied",
+    openChatGpt: "Open ChatGPT",
+    close: "Done",
+    target: "This action saves cards to",
+    alreadySaved: "Already saved it? Open ChatGPT and run “DashGPT Import”."
   },
   ru: {
     title: "Импортировать историю ChatGPT",
     ready: "Перенеси полезное из прошлых разговоров ChatGPT в этот Vault DashGPT. Карточки появляются постепенно, а повторный запуск не создаёт дублей.",
-    waiting: "ChatGPT открыт. Один раз запусти подготовленный скрипт на странице ChatGPT — дальше DashGPT будет сохранять карточки постепенно.",
+    waiting: "Открой ChatGPT в этом браузере и запусти сохранённое действие «DashGPT Import». После подключения карточки будут сохраняться постепенно.",
     running: ({ imported, discovered, deferred }) => `Импортировано ${imported}${discovered ? ` из ${discovered}` : ""}.${deferred ? ` ${deferred} ждут повтора, остальные разговоры продолжают импортироваться.` : " Можно пользоваться DashGPT, пока исходная страница ChatGPT доступна."}`,
     limited: ({ imported, discovered, deferred }) => `Импортировано ${imported}${discovered ? ` из ${discovered}` : ""}. Жду ChatGPT${deferred ? `, чтобы повторить ${deferred} разговоров` : ", пока снова разрешатся запросы"}.`,
     paused: ({ imported, discovered }) => `Импортировано ${imported}${discovered ? ` из ${discovered}` : ""}. Импорт приостановлен — позже продолжится без старта с нуля.`,
@@ -115,10 +119,14 @@ const COPY = {
     remove: "Удалить",
     refresh: "Обновить карточки",
     restore: "Импорт ChatGPT",
-    dialogTitle: "Продолжи в ChatGPT",
-    dialogCopy: "ChatGPT уже открыт, а скрипт импорта скопирован. В Safari открой Web Inspector → Console на странице ChatGPT, вставь скрипт один раз и нажми Enter. Если Safari разорвёт связь между вкладками, сам скрипт покажет кнопку «Подключить DashGPT».",
-    copied: "Скрипт снова скопирован",
-    copyAgain: "Скопировать скрипт ещё раз"
+    dialogTitle: "Настрой DashGPT Import",
+    dialogCopy: "Один раз сохрани действие браузера. Потом запускай его на chatgpt.com, чтобы начать или продолжить импорт.",
+    copyAction: "Скопировать DashGPT Import",
+    actionCopied: "DashGPT Import скопирован",
+    openChatGpt: "Открыть ChatGPT",
+    close: "Готово",
+    target: "Карточки будут сохраняться в",
+    alreadySaved: "Уже сохранил? Открой ChatGPT и запусти «DashGPT Import»."
   }
 };
 
@@ -188,7 +196,7 @@ function humanizedProgressResult(progress = {}) {
     : state === "running" || state === "rate_limited"
       ? (remaining ? `${remaining} ${importLocale() === "ru" ? "осталось" : "remaining"}` : "")
       : state === "waiting_for_source"
-        ? (importLocale() === "ru" ? "Запусти скрипт в ChatGPT" : "Run the script in ChatGPT")
+        ? (importLocale() === "ru" ? "Запусти DashGPT Import в ChatGPT" : "Run DashGPT Import in ChatGPT")
         : t(state === "ready" ? "start" : "continue");
 
   const facts = discovered ? [
@@ -311,8 +319,9 @@ function writeProgress(vault, patch = {}) {
 
 export function seedDefaultChatGptImportCard(storage = globalThis.localStorage) {
   const loaded = loadBrowserVault(storage);
-  if (!loaded.created || loaded.vault.results.length || latestDismissed(loaded.vault)) return { ...loaded, seeded: false };
-  putResult(loaded.vault, humanizedProgressResult({ state: "ready", discovered: 0, imported: 0, failed: 0, deferred: 0 }));
+  if (currentProgressResult(loaded.vault) || latestDismissed(loaded.vault)) return { ...loaded, seeded: false };
+  const imported = importedCards(loaded.vault).length;
+  putResult(loaded.vault, humanizedProgressResult({ state: "ready", discovered: 0, imported, failed: 0, deferred: 0 }));
   saveBrowserVault(storage, loaded.vault);
   return { ...loaded, seeded: true };
 }
@@ -592,23 +601,57 @@ async function copyText(text) {
   return Boolean(ok);
 }
 
-function createLaunchConfig() {
-  const config = {
-    sessionId: randomId("session"),
-    nonce: randomId("nonce"),
-    sourceOrigin: CHATGPT_IMPORT_SOURCE_ORIGIN,
-    createdAt: nowIso()
-  };
-  sessionStorage.setItem(RECEIVER_SESSION_KEY, JSON.stringify(config));
-  return config;
+function browserFamily() {
+  const ua = String(navigator.userAgent || "");
+  const platform = String(navigator.platform || "");
+  const ios = /iPhone|iPad|iPod/i.test(ua) || (/Mac/i.test(platform) && Number(navigator.maxTouchPoints || 0) > 1);
+  if (ios) return "ios";
+  if (/Android/i.test(ua)) return "android";
+  return "desktop";
 }
 
-function runnerFor(config) {
-  return buildChatGptHistorySourceRunner({
+function actionInstructions() {
+  const ru = importLocale() === "ru";
+  const family = browserFamily();
+  if (family === "ios") return ru
+    ? [
+        "Нажми «Скопировать DashGPT Import».",
+        "На iPhone/iPad используй действие DashGPT Import в Командах Safari; не вставляй JavaScript в адресную строку.",
+        "Открой chatgpt.com в Safari и запусти DashGPT Import из меню Поделиться."
+      ]
+    : [
+        "Tap “Copy DashGPT Import”.",
+        "On iPhone/iPad use the DashGPT Import Safari Shortcut; do not paste JavaScript into the address bar.",
+        "Open chatgpt.com in Safari and run DashGPT Import from the Share Sheet."
+      ];
+  if (family === "android") return ru
+    ? [
+        "Нажми «Скопировать DashGPT Import».",
+        "В Chrome создай закладку, открой её редактирование, назови «DashGPT Import» и замени адрес на скопированное действие.",
+        "Открой chatgpt.com, начни вводить «DashGPT Import» в адресной строке и выбери сохранённую закладку."
+      ]
+    : [
+        "Tap “Copy DashGPT Import”.",
+        "In Chrome create a bookmark, edit it, name it “DashGPT Import”, and replace its address with the copied action.",
+        "Open chatgpt.com, type “DashGPT Import” in the address bar, and choose the saved bookmark."
+      ];
+  return ru
+    ? [
+        "Нажми «Скопировать DashGPT Import».",
+        "Создай закладку/избранное «DashGPT Import» и замени её адрес на скопированное действие.",
+        "Открой chatgpt.com и запусти «DashGPT Import» из закладок."
+      ]
+    : [
+        "Click “Copy DashGPT Import”.",
+        "Create a bookmark/favorite named “DashGPT Import” and replace its address with the copied action.",
+        "Open chatgpt.com and run “DashGPT Import” from your bookmarks."
+      ];
+}
+
+function actionForCurrentOrigin() {
+  return buildChatGptHistoryImportAction({
     receiverOrigin: window.location.origin,
-    receiverPath: "/demo/",
-    sessionId: config.sessionId,
-    nonce: config.nonce
+    receiverPath: "/demo/"
   });
 }
 
@@ -627,34 +670,57 @@ function ensureDialog() {
   copy.className = "muted";
   copy.id = "chatgptImportLaunchCopy";
   copy.textContent = t("dialogCopy");
+  const steps = document.createElement("ol");
+  steps.className = "chatgpt-import-steps";
+  for (const text of actionInstructions()) {
+    const item = document.createElement("li");
+    item.textContent = text;
+    steps.append(item);
+  }
+  const target = document.createElement("p");
+  target.className = "muted chatgpt-import-origin";
+  target.textContent = `${t("target")}: ${window.location.host}`;
+  const saved = document.createElement("p");
+  saved.className = "muted";
+  saved.textContent = t("alreadySaved");
   const actions = document.createElement("div");
   actions.className = "dialog-actions";
-  const copyAgain = document.createElement("button");
-  copyAgain.type = "button";
-  copyAgain.className = "button ghost";
-  copyAgain.textContent = t("copyAgain");
-  copyAgain.addEventListener("click", async () => {
-    const config = transientLaunch();
-    if (!config) return;
-    const ok = await copyText(runnerFor(config));
-    copyAgain.textContent = ok ? t("copied") : t("copyAgain");
+  const copyAction = document.createElement("button");
+  copyAction.type = "button";
+  copyAction.className = "button primary";
+  copyAction.id = "chatgptImportCopyAction";
+  copyAction.textContent = t("copyAction");
+  copyAction.addEventListener("click", async () => {
+    const ok = await copyText(actionForCurrentOrigin());
+    copyAction.textContent = ok ? t("actionCopied") : t("copyAction");
+    copyAction.dataset.copied = ok ? "true" : "false";
+  });
+  const openChat = document.createElement("button");
+  openChat.type = "button";
+  openChat.className = "button ghost";
+  openChat.id = "chatgptImportOpenChatGpt";
+  openChat.textContent = t("openChatGpt");
+  openChat.addEventListener("click", () => {
+    const chat = window.open(CHATGPT_IMPORT_SOURCE_ORIGIN + "/", "dashgpt-chatgpt-history-source");
+    if (!chat) {
+      copy.textContent = importLocale() === "ru"
+        ? "Браузер не открыл ChatGPT. Открой chatgpt.com вручную в этом же браузере и запусти «DashGPT Import»."
+        : "The browser did not open ChatGPT. Open chatgpt.com manually in this browser and run “DashGPT Import”.";
+    }
   });
   const close = document.createElement("button");
   close.type = "button";
-  close.className = "button primary";
-  close.textContent = importLocale() === "ru" ? "Понятно" : "Got it";
+  close.className = "button ghost";
+  close.textContent = t("close");
   close.addEventListener("click", () => dialog.close());
-  actions.append(copyAgain, close);
-  article.append(eyebrow, title, copy, actions);
+  actions.append(copyAction, openChat, close);
+  article.append(eyebrow, title, copy, steps, target, saved, actions);
   dialog.append(article);
   document.body.append(dialog);
   return dialog;
 }
 
-async function launchImport() {
-  const config = createLaunchConfig();
-  const chat = window.open(CHATGPT_IMPORT_SOURCE_ORIGIN + "/", "dashgpt-chatgpt-history-source");
-  const copied = await copyText(runnerFor(config));
+function launchImport() {
   const loaded = loadBrowserVault(globalThis.localStorage);
   const current = progressFromResult(currentProgressResult(loaded.vault)) || {};
   writeProgress(loaded.vault, {
@@ -667,13 +733,7 @@ async function launchImport() {
   saveBrowserVault(globalThis.localStorage, loaded.vault);
   updateVisibleProgressCard();
   const modal = ensureDialog();
-  const copy = modal.querySelector("#chatgptImportLaunchCopy");
-  if (copy) copy.textContent = copied
-    ? t("dialogCopy")
-    : (importLocale() === "ru" ? "ChatGPT открыт, но Safari не дал скопировать скрипт автоматически. Нажми «Скопировать скрипт ещё раз»." : "ChatGPT opened, but Safari blocked automatic copying. Use “Copy script again”.");
-  if (!chat) {
-    if (copy) copy.textContent += importLocale() === "ru" ? " Разреши всплывающее окно для DashGPT и попробуй снова." : " Allow pop-ups for DashGPT and try again.";
-  }
+  modal.querySelector("#chatgptImportCopyAction")?.removeAttribute("data-copied");
   modal.showModal();
 }
 
@@ -706,11 +766,7 @@ function progressAction(progress) {
   if (!progress || ["ready", "paused", "partial"].includes(progress.state)) return { label: progress?.state === "ready" ? t("start") : t("continue"), action: launchImport };
   if (progress.state === "completed") return { label: t("view"), action: viewImported };
   if (["running", "rate_limited"].includes(progress.state)) return { label: t("pause"), action: pauseImport };
-  return { label: t("copyAgain"), action: async () => {
-    const config = transientLaunch();
-    if (config) await copyText(runnerFor(config));
-    ensureDialog().showModal();
-  } };
+  return { label: t("continue"), action: () => ensureDialog().showModal() };
 }
 
 function pendingUiCount() {
@@ -844,9 +900,14 @@ function installStyles() {
     .chatgpt-import-card[data-import-state="rate_limited"] .card-status { font-weight:700; }
     .chatgpt-import-card .card-actions { flex-wrap:wrap; }
     .chatgpt-import-dialog { max-width:min(620px, calc(100vw - 24px)); }
-    @media (max-width: 360px) {
+    .chatgpt-import-dialog .dialog-actions { display:flex; flex-wrap:wrap; gap:8px; }
+    .chatgpt-import-steps { margin:14px 0; padding-left:22px; }
+    .chatgpt-import-steps li { margin:0 0 8px; line-height:1.45; overflow-wrap:anywhere; }
+    .chatgpt-import-origin { overflow-wrap:anywhere; }
+    @media (max-width: 390px) {
       .chatgpt-import-card .card-actions .button { flex:1 1 100%; width:100%; }
       .chatgpt-import-dialog { width:calc(100vw - 20px); padding:14px; }
+      .chatgpt-import-dialog .dialog-actions .button { flex:1 1 100%; width:100%; }
     }
   `;
   document.head.append(style);

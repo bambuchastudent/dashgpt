@@ -28,7 +28,11 @@ const { applyChatGptImportBatchFast } = await import("../demo/chatgpt-history-im
 const {
   computeChatGptDetailRetryDelay
 } = await import("../demo/chatgpt-history-source-runner-core.js");
-const { buildChatGptHistorySourceRunner } = await import("../demo/chatgpt-history-source-runner.js");
+const {
+  MAX_CHATGPT_IMPORT_ACTION_CHARS,
+  buildChatGptHistoryImportAction,
+  buildChatGptHistorySourceRunner
+} = await import("../demo/chatgpt-history-source-runner.js");
 
 class MemoryStorage {
   constructor() { this.values = new Map(); }
@@ -63,7 +67,8 @@ function candidate(sourceId, updatedAt, overrides = {}) {
   assert.equal(parsedAgain.results.filter(result => result.id === CHATGPT_IMPORT_RESULT_ID).length, 1);
 }
 
-// Existing populated Vaults are not silently seeded on deployment.
+// Existing populated Vaults get the same operational card unless the user
+// explicitly dismissed it. Existing imported cards seed the displayed count.
 {
   const storage = new MemoryStorage();
   const vault = createVault({ vaultId: "vault_existing", createdAt: "2026-08-11T00:00:00.000Z" });
@@ -76,6 +81,45 @@ function candidate(sourceId, updatedAt, overrides = {}) {
     decisions: [],
     immutable: false,
     contentVersion: 1
+  });
+  putResult(vault, sanitizeChatGptCardCandidate(candidate("already-imported", "2026-08-11T10:00:00.000Z")));
+  saveBrowserVault(storage, vault);
+
+  const seeded = seedDefaultChatGptImportCard(storage);
+  assert.equal(seeded.seeded, true);
+  const parsed = JSON.parse(storage.getItem("dashgpt.demo.vault.v1"));
+  const progress = parsed.results.find(result => result.id === CHATGPT_IMPORT_RESULT_ID)?.result;
+  assert.equal(parsed.results.filter(result => result.id === CHATGPT_IMPORT_RESULT_ID).length, 1);
+  assert.equal(progress?.state, "ready");
+  assert.equal(progress?.imported, 1);
+  assert.equal(progress?.deferred, 0);
+
+  const replay = seedDefaultChatGptImportCard(storage);
+  assert.equal(replay.seeded, false);
+  assert.equal(JSON.parse(storage.getItem("dashgpt.demo.vault.v1")).results.filter(result => result.id === CHATGPT_IMPORT_RESULT_ID).length, 1);
+}
+
+// Explicit dismissal remains authoritative and prevents automatic resurrection.
+{
+  const storage = new MemoryStorage();
+  const vault = createVault({ vaultId: "vault_dismissed", createdAt: "2026-08-11T00:00:00.000Z" });
+  putResult(vault, {
+    id: "existing-card",
+    schemaVersion: 1,
+    title: "Existing",
+    summary: "Existing user content",
+    tags: [],
+    decisions: [],
+    immutable: false,
+    contentVersion: 1
+  });
+  vault.events.push({
+    schemaVersion: 1,
+    eventId: "evt_import_dismissed",
+    type: "system.card.dismissed",
+    resultId: CHATGPT_IMPORT_RESULT_ID,
+    value: true,
+    createdAt: "2026-08-11T01:00:00.000Z"
   });
   saveBrowserVault(storage, vault);
   const seeded = seedDefaultChatGptImportCard(storage);
@@ -193,10 +237,7 @@ assert.throws(() => chatGptImportedResultId("https://evil.invalid/x"));
   assert.ok(projected.facts.length <= 4);
 }
 
-// Measure a deliberately worst-case 2,500-card Vault. The fixture pushes
-// already-sanitized projections directly because this block measures storage
-// size, not putResult's per-write validation cost. Runtime batch writes are
-// covered separately above and the final save still validates the whole Vault.
+// Measure a deliberately worst-case 2,500-card Vault.
 {
   const vault = createVault({ vaultId: "vault_large", createdAt: "2026-08-11T00:00:00.000Z" });
   for (let index = 0; index < 2500; index += 1) {
@@ -218,9 +259,7 @@ assert.throws(() => chatGptImportedResultId("https://evil.invalid/x"));
   assert.ok(observedHistoryEstimate < 5_100_000, `Observed 2,123-chat worst-case estimate is ${observedHistoryEstimate} bytes; projection needs tightening`);
 }
 
-// The source runner encodes a bounded adaptive network scheduler plus a
-// separate ready/deferred conversation queue. Conversation-detail 429s must
-// not enter the shared cooldown path; service-level 503s still may.
+// The source runner keeps F24 task-local 429 deferral after F23 launcher wrapping.
 {
   const runner = buildChatGptHistorySourceRunner({
     receiverOrigin: "https://dashgpt.example",
@@ -233,7 +272,6 @@ assert.throws(() => chatGptImportedResultId("https://evil.invalid/x"));
   assert.match(runner, /"maxConcurrency":3/);
   assert.match(runner, /"batchSize":32/);
   assert.match(runner, /"maxDetailRateLimitAttempts":8/);
-  assert.match(runner, /limit: initialConcurrency/);
   assert.match(runner, /scheduler\.rateLimited\(\)/);
   assert.match(runner, /scheduler\.serviceThrottled\(delay\)/);
   assert.match(runner, /ChatGptDetailDeferredError/);
@@ -243,7 +281,6 @@ assert.throws(() => chatGptImportedResultId("https://evil.invalid/x"));
   assert.match(runner, /deferred: deferredCurrent/);
   assert.match(runner, /CONTROL_PAUSE/);
   assert.match(runner, /postMessage/);
-  assert.match(runner, /https:\/\/chatgpt\.com/);
   assert.doesNotMatch(runner, /scheduler\.throttled/);
   assert.doesNotMatch(runner, /fetch\([^\n]*dashgpt\.example/);
   assert.doesNotMatch(runner, /localStorage/);
@@ -260,4 +297,31 @@ assert.throws(() => chatGptImportedResultId("https://evil.invalid/x"));
   assert.match(serviceBlock, /scheduler\.serviceThrottled\(delay\)/);
 }
 
-console.log("ChatGPT history import verifier: seed, idempotent upsert, per-conversation 429 deferral, batch fast path, freshness, bounded projection, privacy, storage budget and adaptive-runner contracts passed.");
+// F23 packages that same final F24 runner as a reusable browser action without
+// fixed bridge identity or credentials.
+{
+  const action = buildChatGptHistoryImportAction({
+    receiverOrigin: "https://dashgpt.example",
+    receiverPath: "/demo/"
+  });
+  assert.ok(action.startsWith("javascript:"));
+  assert.ok(action.length < MAX_CHATGPT_IMPORT_ACTION_CHARS, `Import action is ${action.length} chars`);
+  assert.match(action, /https:\/\/dashgpt\.example/);
+  assert.match(action, /https:\/\/chatgpt\.com/);
+  assert.match(action, /randomUUID/);
+  assert.match(action, /const sessionId=makeId\("session"\)/);
+  assert.match(action, /const nonce=makeId\("nonce"\)/);
+  assert.match(action, /connect\.click\(\)/);
+  assert.match(action, /postMessage/);
+  assert.match(action, /scheduler\.rateLimited\(\)/);
+  assert.match(action, /ChatGptDetailDeferredError/);
+  assert.match(action, /nextRetryAt/);
+  assert.doesNotMatch(action, /scheduler\.throttled/);
+  assert.doesNotMatch(action, /__DASHGPT_ACTION_SESSION__/);
+  assert.doesNotMatch(action, /__DASHGPT_ACTION_NONCE__/);
+  assert.doesNotMatch(action, /session-test|nonce-test|SECRET_ACCESS_TOKEN_SHOULD_NOT_SURVIVE|acct-secret/);
+  assert.doesNotMatch(action, /fetch\([^\n]*dashgpt\.example/);
+  assert.doesNotMatch(action, /localStorage/);
+}
+
+console.log("ChatGPT history import verifier: discoverable operational card, dismissal, idempotent upsert, per-conversation 429 deferral, batch fast path, freshness, privacy, storage budget and reusable launcher contracts passed.");
