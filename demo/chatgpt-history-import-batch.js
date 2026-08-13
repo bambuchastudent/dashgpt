@@ -19,6 +19,7 @@ const VAULT_UPDATED_EVENT = "dashgpt:chatgpt-import-vault-updated";
 const MAX_BATCH_CARDS = 48;
 const MAX_MESSAGE_CHARS = 240_000;
 const SOURCE_STATES = new Set(["running", "rate_limited"]);
+const TOKEN_COUNT_KINDS = new Set(["estimated", "reported"]);
 let installed = false;
 let returnRefreshScheduled = false;
 
@@ -110,6 +111,33 @@ function mutableResultIndex(vault) {
   return byId;
 }
 
+export function sanitizeChatGptUsage(usage) {
+  if (!usage || typeof usage !== "object" || Array.isArray(usage)) return null;
+  const tokenCount = Number(usage.tokenCount);
+  const tokenCountKind = String(usage.tokenCountKind || "");
+  const estimator = String(usage.estimator || "").trim();
+  if (!Number.isSafeInteger(tokenCount) || tokenCount < 0) return null;
+  if (!TOKEN_COUNT_KINDS.has(tokenCountKind)) return null;
+  if (tokenCountKind === "estimated" && (!estimator || estimator.length > 80)) return null;
+  return {
+    tokenCount,
+    tokenCountKind,
+    ...(estimator ? { estimator } : {})
+  };
+}
+
+function attachImportedUsage(result, raw) {
+  const usage = sanitizeChatGptUsage(raw?.usage);
+  if (!usage) return result;
+  return {
+    ...result,
+    result: {
+      kind: "chatgpt-conversation",
+      usage
+    }
+  };
+}
+
 /**
  * Import-only fast path. Incoming objects have already crossed the strict
  * allowlist in sanitizeChatGptCardCandidate. We update the in-memory mutable
@@ -125,7 +153,7 @@ export function applyChatGptImportBatchFast(vault, candidates, progress = {}) {
   let skipped = 0;
 
   for (const raw of candidates) {
-    const result = sanitizeChatGptCardCandidate(raw);
+    const result = attachImportedUsage(sanitizeChatGptCardCandidate(raw), raw);
     const current = currentById.get(result.id);
     if (current?.immutable) throw new Error("Imported Result identity conflicts with immutable content");
     if (current) {
@@ -149,9 +177,6 @@ export function applyChatGptImportBatchFast(vault, candidates, progress = {}) {
     currentById.set(result.id, result);
   }
 
-  // Reuse the canonical Feature 20 progress projection without re-upserting
-  // every conversation through putResult. With an empty card list this performs
-  // one progress-card update for the whole batch.
   const progressResult = applyChatGptImportBatch(vault, [], progress);
   return {
     accepted,
@@ -170,9 +195,6 @@ function refreshProgressiveCardsOnReturn() {
   if (returnRefreshScheduled || typeof document === "undefined" || document.visibilityState !== "visible") return;
   if (!receiverConfig() || pendingUiCount() <= 0) return;
   returnRefreshScheduled = true;
-  // Do not repeatedly reload the hidden receiver while ChatGPT is fetching.
-  // Refresh exactly once when the user comes back so the canonical app.js
-  // gallery materializes everything that is already durable in the Vault.
   globalThis.sessionStorage?.setItem?.(UI_PENDING_KEY, "0");
   setTimeout(() => globalThis.location?.reload?.(), 80);
 }
@@ -181,8 +203,6 @@ function handleBatch(event, config, data) {
   const loaded = loadBrowserVault(globalThis.localStorage);
   try {
     const result = applyChatGptImportBatchFast(loaded.vault, data.cards, data.progress || {});
-    // ACK is deliberately after this durable write. saveBrowserVault performs
-    // the regular full Vault validation/sanitization once for the batch.
     saveBrowserVault(globalThis.localStorage, loaded.vault);
     markPendingUi(result.accepted + result.updated);
     globalThis.dispatchEvent?.(new CustomEvent(VAULT_UPDATED_EVENT));
@@ -251,10 +271,6 @@ function handleSourceState(event, config, data) {
 export function installChatGptImportBatchFastPath() {
   if (installed || typeof window === "undefined") return;
   installed = true;
-  // Install before the standard receiver. Validated BATCH/SOURCE_STATE messages
-  // are fully owned here; all other protocol messages continue to the standard
-  // Feature 20 lifecycle receiver. An owned but invalid SOURCE_STATE is swallowed
-  // here so it cannot fall through into the permissive lifecycle receiver.
   window.addEventListener("message", event => {
     const envelope = validEnvelope(event);
     if (!envelope) {
