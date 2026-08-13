@@ -120,8 +120,18 @@ await import("./unified-dashboard-routing.js");
 await import("./unified-product-board.js");
 
 if (chatGptHistoryImport) {
-  // App/gallery ownership remains with the existing canonical renderer. Feature
-  // 20 only decorates its one operational card and adds the explicit restore
-  // action for already-populated Vaults.
-  chatGptHistoryImport.initializeChatGptHistoryImport({ phase: "post-app" });
+  // Treat the operational import card as a bootstrap invariant. The pre-app
+  // seed is still the normal path, but if another startup layer ever rewrites
+  // a clean Vault before the canonical renderer settles, repair the card once
+  // and reload so app.js materializes that repaired durable state. The existing
+  // seed helper is idempotent and still honors an explicit dismissal event.
+  const repair = chatGptHistoryImport.seedDefaultChatGptImportCard(globalThis.localStorage);
+  if (repair.seeded) {
+    window.location.reload();
+  } else {
+    // App/gallery ownership remains with the existing canonical renderer. Feature
+    // 20 only decorates its one operational card and adds the explicit restore
+    // action for already-populated Vaults.
+    chatGptHistoryImport.initializeChatGptHistoryImport({ phase: "post-app" });
+  }
 }
