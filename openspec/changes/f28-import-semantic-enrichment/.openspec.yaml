@@ -1,0 +1,3 @@
+schema: spec-driven
+created: 2026-08-13
+goal: Enrich ChatGPT-imported canonical cards with deterministic content-derived semantic tags and category inputs at capture time, upgrade legacy imports in place, and align direct DashGPT AI capture with the same meaning-oriented tag contract.
