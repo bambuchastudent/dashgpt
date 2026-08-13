@@ -10,7 +10,7 @@
 
 ## Implementation
 
-- [ ] Add cancelable add-result request boundary so personal mode can replace the generic form without breaking other routes.
+- [ ] Intercept the personal topbar action in capture phase so the generic app controller remains unchanged on other routes.
 - [ ] Build reusable personal Save-chat dialog using existing structured ChatGPT capture/parser/review/local-save behavior.
 - [ ] Show local device as always-active storage and Google Drive/GitHub as optional sync choices.
 - [ ] Expose a synchronous canonical Google Drive connect entry point and use it from Save chat without violating F26 click ordering.
