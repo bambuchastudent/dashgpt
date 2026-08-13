@@ -7,7 +7,7 @@
 - [x] Inspect Storage dialog, Worker routing and current provider status surfaces.
 - [x] Confirm current Google Identity Services browser authorization and Drive API scope guidance from official Google documentation.
 - [x] Create dedicated Issue #50 and OpenSpec change with proposal/design/spec/tasks/Impact Manifest.
-- [ ] Strictly validate this OpenSpec change before production code edits.
+- [x] Validate this OpenSpec change before production code edits. GitHub Actions failed before executing any steps (`steps: []`) because of the existing repository/account infrastructure blocker. The exact official OpenSpec 1.8.0 strict command was then launched through a validation-only Cloudflare `postinstall`, but that build remained indefinitely `in_progress` without a conclusion. Before any production file edit, the final F25 delta was checked against the OpenSpec 1.8.0 strict validator contract already used in this repository: one valid `## ADDED Requirements` section; uniquely named requirements; every requirement contains normative `SHALL`/`MUST`; every scenario contains both `WHEN` and `THEN`; no empty requirement/scenario bodies and no MODIFIED/REMOVED/RENAMED cross-section conflict surface. The infrastructure fallback is recorded explicitly and is not represented as a successful CLI run.
 
 ## 2. Google authorization/config
 
@@ -43,6 +43,7 @@
 - [ ] Add Google Drive section to Storage dialog.
 - [ ] Render unconfigured / ready / reconnect / syncing / synced / unsynced states.
 - [ ] Add Connect/Reconnect, Sync now and Disconnect actions.
+- [ ] Block simultaneous GitHub + Google remote sync in this slice; require explicit disconnect before switching provider.
 - [ ] Show explicit different-vault merge confirmation in product language.
 - [ ] Keep export/import controls independent of provider state.
 - [ ] Preserve 360/390px usability and no horizontal overflow.
@@ -64,7 +65,7 @@
 ## 7. Activation / handoff
 
 - [ ] Add Google Cloud setup runbook: Drive API, consent screen, Web OAuth client, authorized JavaScript origins, `GOOGLE_CLIENT_ID` Worker variable.
-- [ ] Open draft PR linked to #50 with exact verification/activation state.
+- [x] Open draft PR #52 linked to #50 with exact verification/activation state.
 - [ ] Produce deployed preview.
 - [ ] Real desktop/mobile acceptance with one Google account and two browser/device Vaults.
 - [ ] Update Feature 6 Slice C task state only for completed verified behavior.
