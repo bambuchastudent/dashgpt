@@ -59,22 +59,29 @@ function answerHello(event, config, data) {
 }
 
 function receiveBatch(event, config, data) {
-  if (!Number.isInteger(data.sequence) || data.sequence < 1) return;
-  if (!Array.isArray(data.cards) || data.cards.length > MAX_BATCH_CARDS) return;
+  if (!Number.isInteger(data.sequence) || data.sequence < 1) return false;
+  if (!Array.isArray(data.cards) || data.cards.length > MAX_BATCH_CARDS) return false;
   const loaded = loadBrowserVault(globalThis.localStorage);
   try {
     const result = applyChatGptSemanticImportBatch(loaded.vault, data.cards, data.progress || {});
     saveBrowserVault(globalThis.localStorage, loaded.vault);
     const current = Math.max(0, Number(globalThis.sessionStorage?.getItem?.(UI_PENDING_KEY) || 0));
     globalThis.sessionStorage?.setItem?.(UI_PENDING_KEY, String(current + result.accepted + result.updated));
-    postReply(event.source, config, { type: "ACK", sequence: data.sequence, ...result });
+    postReply(event.source, config, {
+      type: "ACK",
+      sequence: data.sequence,
+      semanticEnrichmentVersion: CHATGPT_SEMANTIC_ENRICHMENT_VERSION,
+      ...result
+    });
   } catch (error) {
     postReply(event.source, config, {
       type: "NACK",
       sequence: data.sequence,
+      semanticEnrichmentVersion: CHATGPT_SEMANTIC_ENRICHMENT_VERSION,
       reason: error?.name === "QuotaExceededError" ? "storage-full" : "invalid-or-unsaved-batch"
     });
   }
+  return true;
 }
 
 export function installChatGptSemanticImportBridge() {
@@ -83,7 +90,11 @@ export function installChatGptSemanticImportBridge() {
   window.addEventListener("message", event => {
     const config = owned(event);
     if (!config) return;
-    if (event.data.type === "HELLO") answerHello(event, config, event.data);
-    else if (event.data.type === "BATCH") receiveBatch(event, config, event.data);
+    if (event.data.type === "HELLO") {
+      answerHello(event, config, event.data);
+      return;
+    }
+    if (event.data.type !== "BATCH" || !receiveBatch(event, config, event.data)) return;
+    event.stopImmediatePropagation();
   }, true);
 }
