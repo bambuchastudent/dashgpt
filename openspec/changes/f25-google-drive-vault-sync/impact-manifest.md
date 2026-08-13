@@ -2,20 +2,25 @@
 
 ## Directly affected production surfaces
 
-- `demo/index.html` — Storage dialog gets Google Drive controls and loads the Google sync controller.
+- `demo/index.html` — Storage dialog copy reflects Google Drive as an active optional Vault adapter.
 - `demo/google-drive-storage.js` — new provider adapter over portable Vault v1.
 - `demo/google-drive-sync.js` — new browser authorization/sync controller.
-- `demo/vault.js` — reused as canonical serialization/merge source; change only if a small shared classifier/helper is required.
+- `demo/github-sync.js` — prevents simultaneous GitHub auto-sync while a Google Drive binding is active.
+- `demo/catalog-bootstrap.js` — loads the Google Drive controller after the canonical app initializes.
+- `demo/vault.js` — reused unchanged as canonical serialization/merge source.
+- `src/google-drive-config.js` — new non-secret OAuth configuration handler.
 - `src/worker.js` — new non-secret Google OAuth configuration route.
 - `package.json` — syntax/targeted verification registration.
 
 ## Directly affected tests/docs
 
-- new deterministic Google Drive adapter verifier;
-- new Playwright Storage-dialog/second-device regression;
-- existing Vault/UI/worker verification must remain green;
+- deterministic Google Drive adapter verifier;
+- Worker-route config verifier;
+- Playwright Storage-dialog/second-device regressions;
+- Playwright remote-provider exclusivity regression;
+- existing Vault/UI/worker/GitHub verification must remain green;
 - `docs/google-drive-storage-setup.md` activation runbook;
-- Feature 6 task state updated only after implementation evidence exists.
+- Feature 6 Slice C task state updated without overstating unexecuted verification.
 
 ## Domain/model impact
 
@@ -26,6 +31,8 @@ None. Cards/Results, Dashes, events, profile revisions and continuation remain p
 Adds one optional remote copy of the portable Vault under a DashGPT-created visible Drive folder/file. Local browser storage remains the working copy and offline source.
 
 Different-vault migration is explicit. Same-vault merge reuses existing `mergeVaults` semantics. No second remote database is introduced.
+
+F25 allows one active remote provider per browser Vault. Concurrent GitHub + Google Drive mirroring remains Slice E.
 
 ## Privacy/security impact
 
@@ -60,7 +67,7 @@ Unconfigured deployments stay local-first and functional.
 ## Compatibility impact
 
 - Existing browser Vault data remains readable unchanged.
-- GitHub sync remains independent.
+- Existing GitHub pairing remains stored, but its connect/auto-sync path is blocked whenever a Google Drive binding is present so F25 never silently mirrors two remotes.
 - Export/import format remains Vault v1.
 - No card ID migration.
 - Second device adopts remote `vaultId` when local content is effectively empty.
@@ -76,4 +83,5 @@ Unconfigured deployments stay local-first and functional.
 - different non-empty local/remote Vault IDs;
 - malformed remote JSON;
 - quota/storage failure while saving merged local Vault;
+- pre-existing GitHub pairing plus new Google binding;
 - narrow/mobile Storage dialog overflow.
