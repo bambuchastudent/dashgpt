@@ -292,8 +292,8 @@ async function syncNow({ allowMigration = false } = {}) {
 
     pendingMigration = null;
     $("#googleDriveMigration")?.setAttribute("hidden", "");
-    saveGoogleDriveBinding(globalThis.localStorage, result.binding);
     saveBrowserVault(globalThis.localStorage, result.vault);
+    saveGoogleDriveBinding(globalThis.localStorage, result.binding);
     const localChanged = localBefore !== JSON.stringify(result.vault);
     const copy = {
       created: "Google Drive Vault created and synced.",
@@ -324,7 +324,7 @@ function renderHumanError(error) {
   if (code === "google_drive_unavailable") return render("Google Drive is temporarily unavailable. Local changes are safe and remain unsynced.");
   if (code === "google_drive_invalid_vault") return render("The Drive file is not a valid DashGPT Vault. Local data was not changed.");
   if (code === "google_authorization_not_completed") return render("Google authorization was not completed. Nothing was changed.");
-  render("Google Drive sync could not complete. Local data was not changed.");
+  render("Google Drive sync could not complete. Local data remains available on this device; retry before assuming the remote copy is current.");
 }
 
 function disconnectGoogleDrive() {
@@ -344,7 +344,11 @@ function disconnectGoogleDrive() {
 }
 
 function scheduleSync() {
-  if (!binding() || !tokenValid() || syncing || githubPaired) return;
+  if (!binding() || syncing || githubPaired) return;
+  if (!tokenValid()) {
+    setStorageBadge("LOCAL + GOOGLE DRIVE · RECONNECT", "unsynced");
+    return;
+  }
   clearTimeout(syncTimer);
   setStorageBadge("LOCAL + GOOGLE DRIVE · UNSYNCED", "unsynced");
   syncTimer = setTimeout(() => syncNow({ allowMigration: false }), AUTO_SYNC_DELAY_MS);
