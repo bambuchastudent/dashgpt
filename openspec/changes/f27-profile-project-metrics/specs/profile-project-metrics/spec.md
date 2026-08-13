@@ -22,6 +22,14 @@ The system SHALL estimate token usage from visible imported user/assistant text 
 - **WHEN** the same mutable source is imported again
 - **THEN** only the current canonical card contributes to the aggregate
 
+#### Scenario: Backfill a legacy imported card
+- **WHEN** an already-imported ChatGPT card has no valid usage metadata and history import runs again
+- **THEN** it is eligible for one re-fetch and a same-timestamp update may attach valid usage without creating a duplicate card
+
+#### Scenario: Finish legacy backfill
+- **WHEN** a legacy card has received valid usage metadata
+- **THEN** normal freshness handling resumes and unchanged source content is not repeatedly fetched for usage backfill
+
 ### Requirement: Money totals are explicit profile data
 The system SHALL store spent and donated totals as non-negative integer minor units with a three-letter currency and SHALL NOT derive money from token estimates.
 
