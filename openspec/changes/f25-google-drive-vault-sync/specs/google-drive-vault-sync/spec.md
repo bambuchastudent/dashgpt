@@ -117,6 +117,21 @@ The system SHALL disconnect Google Drive without deleting local or remote Vault 
 - **WHEN** the user chooses Disconnect
 - **THEN** DashGPT clears local Google binding/transient authorization state, keeps the local Vault, and leaves the Drive folder/file untouched
 
+### Requirement: F25 activates at most one remote sync provider per browser Vault
+The system SHALL NOT automatically mirror the same browser Vault to Google Drive and GitHub simultaneously in Feature 25.
+
+#### Scenario: GitHub is already paired
+- **WHEN** the Storage dialog detects an active GitHub pairing on the current browser Vault
+- **THEN** Google Drive Connect is disabled with a human explanation that GitHub must be disconnected before switching the remote provider
+
+#### Scenario: Google Drive is already bound
+- **WHEN** the current browser has a Google Drive Vault binding
+- **THEN** the GitHub Connect action is disabled until Google Drive is disconnected, while local/export data remains available
+
+#### Scenario: User wants provider mirroring
+- **WHEN** the user wants Google Drive and GitHub to mirror the same Vault concurrently
+- **THEN** F25 does not silently enable mirroring and leaves that workflow to the later provider-switch/mirror capability
+
 ### Requirement: Storage UI exposes Google Drive in product language
 The system SHALL expose Google Drive connect, reconnect, synchronization and migration states in the existing Storage dialog without requiring users to understand OAuth implementation details.
 
