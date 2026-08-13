@@ -1,1 +1,0 @@
-F29 reuses existing ChatGPT import and Vault/card systems, adds a local export parser and tests, and keeps live import available. No Vault schema migration.

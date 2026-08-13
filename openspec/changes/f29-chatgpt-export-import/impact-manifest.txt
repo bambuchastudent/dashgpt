@@ -1,1 +1,0 @@
-F29 affects existing ChatGPT history import UI/controller, a new local export parser, canonical Vault card writes, import styling, and regression tests. No new card type or Vault schema migration. Export files stay local and are not persisted as separate assets. Live import remains available.
