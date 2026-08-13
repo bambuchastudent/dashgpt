@@ -1,0 +1,3 @@
+schema: spec-driven
+created: 2026-08-13
+goal: Add spatial arrow-key navigation across visible DashGPT card galleries without changing card or Vault semantics.
