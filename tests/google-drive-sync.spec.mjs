@@ -30,24 +30,27 @@ function vault(vaultId, results = []) {
   };
 }
 
-async function routeProviderConfig(page, { configured = true, githubPaired = false } = {}) {
+async function routeProviderConfig(page, { configured = true, githubPaired = false, githubDelayMs = 0 } = {}) {
   await page.route("**/api/storage/google/config", route => route.fulfill({
     status: 200,
     contentType: "application/json",
     body: JSON.stringify({ configured, clientId: configured ? "test.apps.googleusercontent.com" : null, scope: SCOPE })
   }));
-  await page.route("**/api/storage/github/status", route => route.fulfill({
-    status: 200,
-    contentType: "application/json",
-    body: JSON.stringify({ configured: true, paired: githubPaired })
-  }));
+  await page.route("**/api/storage/github/status", async route => {
+    if (githubDelayMs > 0) await new Promise(resolve => setTimeout(resolve, githubDelayMs));
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ configured: true, paired: githubPaired })
+    });
+  });
 }
 
 async function routeFakeGis(page) {
   await page.route("https://accounts.google.com/gsi/client", route => route.fulfill({
     status: 200,
     contentType: "application/javascript",
-    body: `globalThis.google={accounts:{oauth2:{initTokenClient(config){globalThis.__dashgptGoogleTokenConfig={client_id:config.client_id,scope:config.scope};return{requestAccessToken(options){globalThis.__dashgptGooglePrompt=options?.prompt||\"\";config.callback({access_token:\"BROWSER_TEST_TOKEN\",expires_in:3600});}}}}}};`
+    body: `globalThis.google={accounts:{oauth2:{initTokenClient(config){globalThis.__dashgptGoogleTokenConfig={client_id:config.client_id,scope:config.scope};return{requestAccessToken(options){globalThis.__dashgptGooglePrompt=options?.prompt||\"\";globalThis.__dashgptGoogleUserActivation=navigator.userActivation?.isActive??null;config.callback({access_token:\"BROWSER_TEST_TOKEN\",expires_in:3600});}}}}}};`
   }));
 }
 
@@ -113,6 +116,22 @@ test("Storage dialog exposes Google Drive as optional and remains usable at 390p
   await expect(page.locator("#connectGoogleDriveButton")).toBeDisabled();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);
+});
+
+test("Connect Google Drive requests Google account access inside the click activation before delayed provider networking", async ({ page }) => {
+  await routeProviderConfig(page, { githubDelayMs: 150 });
+  await routeFakeGis(page);
+  const remote = vault("vault-safari-activation", [result("activation-card")]);
+  await routeFakeDrive(page, remote);
+
+  await page.goto("/demo/?personal=1");
+  await page.locator("#storageButton").click();
+  await page.waitForFunction(() => Boolean(globalThis.google?.accounts?.oauth2));
+  await expect(page.locator("#connectGoogleDriveButton")).toBeEnabled();
+  await page.locator("#connectGoogleDriveButton").click();
+
+  await expect.poll(async () => page.evaluate(() => globalThis.__dashgptGoogleUserActivation)).toBe(true);
+  await expect.poll(async () => page.evaluate(key => JSON.parse(localStorage.getItem(key) || "null")?.vaultId, VAULT_KEY)).toBe("vault-safari-activation");
 });
 
 test("fresh second device authorizes with drive.file and adopts the remote Vault without persisting the token", async ({ page }) => {
