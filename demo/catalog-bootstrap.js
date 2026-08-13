@@ -95,15 +95,8 @@ if (!document.querySelector('link[data-dashgpt-unified-dashboard]')) {
 const feature20PersonalEntry = chatGptHistoryImportAllowed();
 let chatGptHistoryImport = null;
 if (feature20PersonalEntry) {
-  // Install the import-only batch fast path before the regular lifecycle
-  // receiver. It owns validated BATCH messages and leaves HELLO/discovery/
-  // pause/completion to the canonical Feature 20 controller.
   const chatGptBatchFastPath = await import("./chatgpt-history-import-batch.js");
   chatGptBatchFastPath.installChatGptImportBatchFastPath();
-
-  // Feature 20 seeds the one default import card before app.js and the clean-user
-  // onboarding make their empty/non-empty decision. The same module also arms the
-  // bounded cross-window receiver before any ChatGPT source runner can connect.
   chatGptHistoryImport = await import("./chatgpt-history-import.js");
   chatGptHistoryImport.initializeChatGptHistoryImport({ phase: "pre-app" });
 }
@@ -121,13 +114,9 @@ await import("./unified-dashboard-routing.js");
 await import("./unified-product-board.js");
 
 if (chatGptHistoryImport) {
-  // App/gallery ownership remains with the existing canonical renderer. Feature
-  // 20 only decorates its one operational card and adds the explicit restore
-  // action for already-populated Vaults.
   chatGptHistoryImport.initializeChatGptHistoryImport({ phase: "post-app" });
-
-  // F29 keeps the live importer intact but makes the official ChatGPT export the
-  // recommended bulk-migration path from the same operational card.
   const chatGptExportImport = await import("./chatgpt-export-import.js");
   chatGptExportImport.initializeChatGptExportImport();
+  const importOnboardingConnector = await import("./import-onboarding-connector.js");
+  importOnboardingConnector.initializeImportOnboardingConnector();
 }
