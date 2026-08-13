@@ -2,16 +2,20 @@
 
 ## Model
 
-Imported ChatGPT cards store token metadata in the existing portable `result.usage` envelope. History import estimates from visible user/assistant text before distillation and marks the value with estimator `visible-text-v1` and kind `estimated`.
+Imported ChatGPT cards store token metadata in the existing portable `result.usage` envelope. History import estimates from visible user/assistant text before distillation and marks it `visible-text-v1` / `estimated`.
 
-Project token totals are derived from current materialized canonical cards, so updating the same mutable source replaces its previous contribution.
+Project totals use current materialized cards only.
 
-Spent and donated totals use existing Vault v1 `profileRevisions`. Values are non-negative integer minor units with a three-letter currency. Editing appends a revision; the latest valid revision materializes deterministically.
+### Existing-card backfill
+
+Cards imported before F27 have no usage. `knownChatGptFreshness` SHALL advertise only cards that already have valid usage, so legacy cards are fetched once more. The batch importer MAY accept the same `publishedAt` only when valid incoming usage enriches a card that lacks usage. After enrichment normal freshness resumes; older source content never replaces newer content.
+
+Spent and donated totals use existing Vault v1 `profileRevisions` as non-negative integer minor units plus a three-letter currency.
 
 ## UI
 
-A compact Profile / Профиль control mounts in the existing topbar. Its three-counter header can collapse. Collapse state is device-local; token totals are read-only; money totals have an explicit editor. RU/EN copy and a 360px responsive layout are required.
+Profile / Профиль mounts in the topbar. The header collapses; collapse state is device-local. Tokens are read-only; money is explicitly editable. RU/EN and 360px are required.
 
 ## Compatibility
 
-Vault schema remains v1. Raw conversation text is not added to profile revisions. No billing, payment-provider, donation-provider, or FX integration is introduced.
+Vault schema remains v1. No raw transcript is added to profile revisions and no billing/payment/FX integration is introduced.
