@@ -13,7 +13,7 @@
 - [ ] Intercept the personal topbar action in capture phase so the generic app controller remains unchanged on other routes.
 - [ ] Build reusable personal Save-chat dialog using existing structured ChatGPT capture/parser/review/local-save behavior.
 - [ ] Show local device as always-active storage and Google Drive/GitHub as optional sync choices.
-- [ ] Expose a synchronous canonical Google Drive connect entry point and use it from Save chat without violating F26 click ordering.
+- [ ] Delegate the Save-chat Google action synchronously to the existing canonical `#connectGoogleDriveButton` without awaited work first.
 - [ ] Reuse canonical GitHub Storage setup rather than duplicating its repository field.
 - [ ] Keep clean onboarding and anonymous Share compatibility intact.
 - [ ] Add responsive Save-chat dialog styles.
@@ -24,7 +24,7 @@
 - [ ] Valid Result envelope saves exactly one local ChatGPT-handoff card.
 - [ ] Local-only save works with no provider connected.
 - [ ] Provider panel shows Google Drive and GitHub choices for the same card/Vault.
-- [ ] Google action delegates to canonical connection entry point without an awaited module-load boundary.
+- [ ] Google action reaches the canonical F26 connection path with active browser user activation.
 - [ ] GitHub action opens/focuses existing Storage provider setup.
 - [ ] 360px Save-chat dialog has no horizontal overflow.
 - [ ] Existing first-card onboarding and anonymous Share tests remain unchanged/passing.
