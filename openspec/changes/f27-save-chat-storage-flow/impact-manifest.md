@@ -4,14 +4,15 @@
 
 Expected primary changes:
 
-- `demo/app.js`
-  - cancelable request boundary before generic manual Result dialog.
 - `demo/public-onboarding.js`
-  - personal Save-chat dialog, capture reuse, provider summary/actions.
+  - capture-phase personal action interception;
+  - Save-chat dialog, capture reuse, provider summary/actions.
 - `demo/google-drive-sync.js`
   - small synchronous public entry point for the canonical Connect flow and provider-state notification where needed.
 - `demo/onboarding.css`
   - Save-chat provider/capture dialog layout and mobile behavior.
+
+`demo/app.js` is intentionally unchanged; its generic manual Result form remains the fallback outside personal mode.
 
 ## Tests
 
@@ -38,7 +39,7 @@ Personal-root topbar Save-chat action changes from generic manual Add Result to 
 
 ## Risk areas
 
-- accidentally opening both Save-chat and generic Add Result dialogs;
+- accidentally allowing the old target listener to open the generic dialog after personal interception;
 - duplicating capture/parser logic with different semantics;
 - losing F26 browser click ordering when invoking Google Drive from Save chat;
 - presenting providers as separate destinations instead of synchronization of one local-first Vault;
