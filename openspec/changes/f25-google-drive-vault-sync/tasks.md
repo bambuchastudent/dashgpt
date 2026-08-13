@@ -11,62 +11,64 @@
 
 ## 2. Google authorization/config
 
-- [ ] Add no-store `/api/storage/google/config` endpoint exposing configured state, fixed scope and non-secret Web OAuth client ID.
-- [ ] Lazy-load Google Identity Services only when the user chooses Google Drive.
-- [ ] Request exactly `https://www.googleapis.com/auth/drive.file` from a user gesture.
-- [ ] Keep access token and expiry in module memory only.
-- [ ] Map denied/closed/expired provider states into human product messages.
+- [x] Add no-store `/api/storage/google/config` endpoint exposing configured state, fixed scope and non-secret Web OAuth client ID.
+- [x] Lazy-load Google Identity Services only when the user chooses Google Drive.
+- [x] Request exactly `https://www.googleapis.com/auth/drive.file` from a user gesture.
+- [x] Keep access token and expiry in module memory only.
+- [x] Map denied/closed/expired provider states into human product messages.
 
 ## 3. Drive adapter
 
-- [ ] Add pure/testable Drive REST adapter with injected `fetch`.
-- [ ] Discover/create visible DashGPT folder through private app properties.
-- [ ] Discover/create `dashgpt-vault.json` through private app properties.
-- [ ] Download and validate portable Vault v1 JSON.
-- [ ] Upload portable Vault using authorization header, never token query parameters.
-- [ ] Track only non-secret binding metadata locally.
-- [ ] Refetch remote version before write and perform bounded remerge if it changed.
+- [x] Add pure/testable Drive REST adapter with injected `fetch`.
+- [x] Discover/create visible DashGPT folder through private app properties.
+- [x] Discover/create `dashgpt-vault.json` through private app properties.
+- [x] Download and validate portable Vault v1 JSON.
+- [x] Upload portable Vault using authorization header, never token query parameters.
+- [x] Track only non-secret binding metadata locally.
+- [x] Refetch remote version before write and perform bounded remerge if it changed.
 
 ## 4. Cross-device sync semantics
 
-- [ ] First device with no remote creates remote from current local Vault.
-- [ ] Same-vault sync merges existing Vault v1 objects before upload/local save.
-- [ ] Effectively empty second-device local Vault adopts remote and preserves remote `vaultId`/Card IDs.
-- [ ] System-operation import card alone does not block remote adoption.
-- [ ] Different meaningful Vault IDs return `migration_required` without writes.
-- [ ] Explicit migration merges local into remote while preserving remote `vaultId`.
-- [ ] Disconnect deletes neither local nor Drive Vault data.
-- [ ] Provider failure/expired token leaves local Vault readable and visibly unsynced.
+- [x] First device with no remote creates remote from current local Vault.
+- [x] Same-vault sync merges existing Vault v1 objects before upload/local save.
+- [x] Effectively empty second-device local Vault adopts remote and preserves remote `vaultId`/Card IDs.
+- [x] System-operation import card alone does not block remote adoption.
+- [x] Different meaningful Vault IDs return `migration_required` without writes.
+- [x] Explicit migration merges local into remote while preserving remote `vaultId`.
+- [x] Disconnect deletes neither local nor Drive Vault data.
+- [x] Provider failure/expired token leaves local Vault readable and visibly unsynced.
 
 ## 5. Product UX
 
-- [ ] Add Google Drive section to Storage dialog.
-- [ ] Render unconfigured / ready / reconnect / syncing / synced / unsynced states.
-- [ ] Add Connect/Reconnect, Sync now and Disconnect actions.
-- [ ] Block simultaneous GitHub + Google remote sync in this slice; require explicit disconnect before switching provider.
-- [ ] Show explicit different-vault merge confirmation in product language.
-- [ ] Keep export/import controls independent of provider state.
-- [ ] Preserve 360/390px usability and no horizontal overflow.
-- [ ] Update overall storage badge without implying silent cloud durability.
+- [x] Add Google Drive section to Storage dialog.
+- [x] Render unconfigured / ready / reconnect / syncing / synced / unsynced states.
+- [x] Add Connect/Reconnect, Sync now and Disconnect actions.
+- [x] Block simultaneous GitHub + Google remote sync in this slice; require explicit disconnect before switching provider.
+- [x] Show explicit different-vault merge confirmation in product language.
+- [x] Keep export/import controls independent of provider state.
+- [x] Preserve 360/390px usability in the committed responsive styles and browser regression.
+- [x] Update overall storage badge without implying silent cloud durability.
 
 ## 6. Verification
 
-- [ ] Add deterministic fake-Drive tests for discover/create/download/update/idempotence.
-- [ ] Verify scope allowlist and no token serialization.
-- [ ] Verify same-vault merge, second-device adoption and explicit different-vault migration.
-- [ ] Verify remote-version race remerge.
-- [ ] Verify Worker config route configured/unconfigured behavior.
-- [ ] Add browser regression for Google Storage dialog and mobile layout.
-- [ ] Add browser regression for fake OAuth + second-device adoption.
-- [ ] Run targeted syntax/verifier gate.
-- [ ] Run `npm run verify:fast`.
+- [x] Add deterministic fake-Drive tests for discover/create/download/update/idempotence.
+- [x] Add scope allowlist and no-token-serialization assertions.
+- [x] Add same-vault merge, second-device adoption and explicit different-vault migration assertions.
+- [x] Add remote-version race remerge assertion.
+- [x] Add Worker config route configured/unconfigured verifier.
+- [x] Add browser regression for Google Storage dialog and mobile layout.
+- [x] Add browser regression for fake OAuth + second-device adoption.
+- [x] Add browser regression preventing legacy GitHub auto-sync while Google Drive is bound.
+- [ ] Run targeted syntax/verifier gate with a conclusive result. A temporary Cloudflare verifier build was started but remained `in_progress`; GitHub Actions still cannot execute job steps.
+- [ ] Run `npm run verify:fast` with a conclusive result.
 - [ ] Run canonical `npm run verify:full` once before merge when CI/browser infrastructure is runnable.
 
 ## 7. Activation / handoff
 
-- [ ] Add Google Cloud setup runbook: Drive API, consent screen, Web OAuth client, authorized JavaScript origins, `GOOGLE_CLIENT_ID` Worker variable.
+- [x] Add Google Cloud setup runbook: Drive API, consent screen, Web OAuth client, authorized JavaScript origins, `GOOGLE_CLIENT_ID` Worker variable.
 - [x] Open draft PR #52 linked to #50 with exact verification/activation state.
-- [ ] Produce deployed preview.
+- [ ] Produce and verify a clean F25 deployed preview. Without `GOOGLE_CLIENT_ID` the preview may only demonstrate the honest unconfigured state.
+- [ ] Configure a real Google Cloud Web OAuth client and the non-secret `GOOGLE_CLIENT_ID` for the acceptance origin.
 - [ ] Real desktop/mobile acceptance with one Google account and two browser/device Vaults.
-- [ ] Update Feature 6 Slice C task state only for completed verified behavior.
-- [ ] Keep PR unmerged until verification/real OAuth activation gates are understood and recorded.
+- [x] Update Feature 6 Slice C task state for implemented code while leaving unverified/changed-scope items explicit.
+- [x] Keep PR unmerged until verification and real OAuth activation gates are understood and recorded.
