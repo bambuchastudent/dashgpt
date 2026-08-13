@@ -54,6 +54,44 @@ function centralEntries(bytes, entryCount) {
   return entries;
 }
 
+async function boundedInflate(compressed, entry) {
+  if (typeof DecompressionStream !== "function") {
+    throw new Error("This browser cannot unpack the ChatGPT ZIP directly; unzip it and select the conversation JSON files instead");
+  }
+  let stream;
+  try {
+    stream = new Blob([compressed]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+  } catch {
+    throw new Error("This browser cannot unpack this ChatGPT ZIP; unzip it and select the conversation JSON files instead");
+  }
+  const reader = stream.getReader();
+  const chunks = [];
+  let total = 0;
+  const maximum = entry.uncompressedSize || MAX_CONVERSATION_JSON_BYTES;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = value instanceof Uint8Array ? value : new Uint8Array(value || 0);
+      total += chunk.byteLength;
+      if (total > maximum || total > MAX_CONVERSATION_JSON_BYTES) {
+        await reader.cancel();
+        throw new Error(`Conversation JSON expands beyond its declared safe size: ${entry.name}`);
+      }
+      chunks.push(chunk);
+    }
+  } finally {
+    reader.releaseLock?.();
+  }
+  const output = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    output.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return output;
+}
+
 async function inflateEntry(blob, entry) {
   if (entry.flags & 0x1) throw new Error(`Protected ZIP entry is not supported: ${entry.name}`);
   if (![0, 8].includes(entry.method)) throw new Error(`Unsupported ZIP compression for ${entry.name}`);
@@ -68,18 +106,8 @@ async function inflateEntry(blob, entry) {
   const dataStart = entry.localOffset + 30 + nameLength + extraLength;
   if (dataStart + entry.compressedSize > blob.size) throw new Error("Invalid ZIP entry bounds");
   const compressed = new Uint8Array(await blob.slice(dataStart, dataStart + entry.compressedSize).arrayBuffer());
-  if (entry.method === 0) return compressed;
-
-  if (typeof DecompressionStream !== "function") {
-    throw new Error("This browser cannot unpack the ChatGPT ZIP directly; unzip it and select the conversation JSON files instead");
-  }
-  let stream;
-  try {
-    stream = new Blob([compressed]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
-  } catch {
-    throw new Error("This browser cannot unpack this ChatGPT ZIP; unzip it and select the conversation JSON files instead");
-  }
-  const output = new Uint8Array(await new Response(stream).arrayBuffer());
+  const output = entry.method === 0 ? compressed : await boundedInflate(compressed, entry);
+  if (output.byteLength > MAX_CONVERSATION_JSON_BYTES) throw new Error(`Conversation JSON is too large: ${entry.name}`);
   if (entry.uncompressedSize && output.byteLength !== entry.uncompressedSize) throw new Error(`ZIP entry size mismatch: ${entry.name}`);
   return output;
 }
