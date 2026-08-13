@@ -66,6 +66,8 @@ function validEnvelope(event) {
   if (!matchesOwnedProtocol(event)) return null;
   if (safeMessageSize(data) > MAX_MESSAGE_CHARS) return null;
 
+  if (data.type === "HELLO") return { config, data };
+
   if (data.type === "BATCH") {
     if (!Number.isInteger(data.sequence) || data.sequence < 1) return null;
     if (!Array.isArray(data.cards) || data.cards.length > MAX_BATCH_CARDS) return null;
@@ -126,6 +128,23 @@ export function sanitizeChatGptUsage(usage) {
   };
 }
 
+function importedChatGptCards(vault) {
+  return materializeResults(vault).filter(result =>
+    result.id !== CHATGPT_IMPORT_RESULT_ID
+    && result.source?.provider === "chatgpt"
+    && result.source?.type === "conversation"
+    && typeof result.source?.sourceId === "string"
+  );
+}
+
+export function knownChatGptUsageFreshness(vault) {
+  return importedChatGptCards(vault)
+    .filter(result => sanitizeChatGptUsage(result?.result?.usage))
+    .map(result => [result.source.sourceId, String(result.publishedAt || "")])
+    .filter(([, publishedAt]) => Number.isFinite(Date.parse(publishedAt)))
+    .slice(0, 10_000);
+}
+
 function attachImportedUsage(result, raw) {
   const usage = sanitizeChatGptUsage(raw?.usage);
   if (!usage) return result;
@@ -159,7 +178,10 @@ export function applyChatGptImportBatchFast(vault, candidates, progress = {}) {
     if (current) {
       const existingTime = Date.parse(current.publishedAt || "") || 0;
       const incomingTime = Date.parse(result.publishedAt || "") || 0;
-      if (existingTime >= incomingTime) {
+      const currentUsage = sanitizeChatGptUsage(current?.result?.usage);
+      const incomingUsage = sanitizeChatGptUsage(result?.result?.usage);
+      const usageBackfill = existingTime === incomingTime && !currentUsage && Boolean(incomingUsage);
+      if (existingTime > incomingTime || (existingTime === incomingTime && !usageBackfill)) {
         skipped += 1;
         continue;
       }
@@ -197,6 +219,15 @@ function refreshProgressiveCardsOnReturn() {
   returnRefreshScheduled = true;
   globalThis.sessionStorage?.setItem?.(UI_PENDING_KEY, "0");
   setTimeout(() => globalThis.location?.reload?.(), 80);
+}
+
+function handleHello(event, config) {
+  const loaded = loadBrowserVault(globalThis.localStorage);
+  postReply(event.source, config, {
+    type: "READY",
+    known: knownChatGptUsageFreshness(loaded.vault),
+    limits: { maxBatchCards: MAX_BATCH_CARDS, maxMessageChars: MAX_MESSAGE_CHARS }
+  });
 }
 
 function handleBatch(event, config, data) {
@@ -275,6 +306,13 @@ export function installChatGptImportBatchFastPath() {
     const envelope = validEnvelope(event);
     if (!envelope) {
       if (ownsSourceState(event)) event.stopImmediatePropagation();
+      return;
+    }
+    if (envelope.data.type === "HELLO") {
+      // Reply first with usage-aware freshness. The standard receiver still handles
+      // HELLO afterwards to update its canonical progress card; its later READY is
+      // harmless because the source handshake consumes the first matching reply.
+      handleHello(event, envelope.config);
       return;
     }
     event.stopImmediatePropagation();
