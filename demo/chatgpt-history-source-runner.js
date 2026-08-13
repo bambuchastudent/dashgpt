@@ -1,9 +1,9 @@
 import {
-  CHATGPT_HISTORY_SOURCE_VERSION,
+  CHATGPT_HISTORY_SOURCE_VERSION as CORE_SOURCE_VERSION,
   buildChatGptHistorySourceRunner as buildCoreRunner
 } from "./chatgpt-history-source-runner-core.js";
 
-export { CHATGPT_HISTORY_SOURCE_VERSION };
+export const CHATGPT_HISTORY_SOURCE_VERSION = CORE_SOURCE_VERSION + 1;
 
 const HANDSHAKE_HOOK = "    postToReceiver({ type: \"HELLO\", sourceVersion });\n    const ready = await waitForReply(\"READY\", () => true, 5000);";
 const PROJECT_CONVERSATION_HOOK = "  function projectConversation(payload, summary) {";
@@ -57,6 +57,13 @@ export function estimateVisibleTextTokens(text) {
   return Math.max(1, tokens);
 }
 
+function injectSourceVersion(runner) {
+  const from = `\"sourceVersion\":${CORE_SOURCE_VERSION}`;
+  const to = `\"sourceVersion\":${CHATGPT_HISTORY_SOURCE_VERSION}`;
+  if (!runner.includes(from)) throw new Error("ChatGPT source runner version hook not found");
+  return runner.replace(from, to);
+}
+
 function injectUsageEstimate(runner) {
   if (!runner.includes(PROJECT_CONVERSATION_HOOK) || !runner.includes(PROJECT_FACTS_HOOK)) {
     throw new Error("ChatGPT source runner usage hooks not found");
@@ -80,12 +87,12 @@ function injectHandshakeRetry(runner) {
 
   return runner.replace(
     HANDSHAKE_HOOK,
-    `    let ready = null;\n    let lastHandshakeError = null;\n    for (let attempt = 0; attempt < 10 && !ready; attempt += 1) {\n      postToReceiver({ type: \"HELLO\", sourceVersion });\n      try {\n        ready = await waitForReply(\"READY\", () => true, 1200);\n      } catch (error) {\n        lastHandshakeError = error;\n        if (attempt < 9) await sleep(250);\n      }\n    }\n    if (!ready) throw lastHandshakeError || new Error(\"DashGPT receiver did not become ready\");`
+    `    let ready = null;\n    let lastHandshakeError = null;\n    for (let attempt = 0; attempt < 10 && !ready; attempt += 1) {\n      postToReceiver({ type: \"HELLO\", sourceVersion });\n      try {\n        ready = await waitForReply(\"READY\", data => data.usageAware === true, 1200);\n      } catch (error) {\n        lastHandshakeError = error;\n        if (attempt < 9) await sleep(250);\n      }\n    }\n    if (!ready) throw lastHandshakeError || new Error(\"DashGPT receiver did not become ready\");`
   );
 }
 
 export function buildChatGptHistorySourceRunner(options) {
-  return injectHandshakeRetry(injectUsageEstimate(buildCoreRunner(options)));
+  return injectHandshakeRetry(injectUsageEstimate(injectSourceVersion(buildCoreRunner(options))));
 }
 
 export function buildChatGptHistoryImportAction({ receiverOrigin, receiverPath = "/demo/" }) {
