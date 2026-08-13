@@ -1,4 +1,4 @@
-import { GOOGLE_DRIVE_SCOPE } from "../demo/google-drive-storage.js";
+const GOOGLE_DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 
 function json(data, init = {}) {
   const headers = new Headers(init.headers || {});
