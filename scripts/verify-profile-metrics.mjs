@@ -3,7 +3,8 @@ import {
   createVault,
   exportVaultBundle,
   importVaultBundle,
-  materializeResults
+  materializeResults,
+  mergeVaults
 } from "../demo/vault.js";
 import {
   applyChatGptImportBatchFast,
@@ -20,6 +21,11 @@ import {
   projectTokenMetrics,
   sanitizeProjectMetricsRevision
 } from "../demo/profile-metrics.js";
+import {
+  mergeVaultObjectSets,
+  vaultFromObjects,
+  vaultToObjects
+} from "../src/vault-layout.js";
 
 assert.equal(estimateVisibleTextTokens(""), 0);
 assert.equal(estimateVisibleTextTokens("abcd"), 1);
@@ -107,4 +113,28 @@ assert.equal(roundTripCard.result.usage.tokenCount, 175, "usage metadata must su
 assert.equal(currentProjectMetrics(roundTrip).spentMinor, 2500, "profile metrics must survive portable Vault round trip");
 assert.equal(currentProjectMetrics(roundTrip).donatedMinor, 750);
 
-console.log("Profile project metrics token, money, re-import and Vault portability tests passed.");
+const objects = vaultToObjects(vault, "DashGPT");
+assert.ok(objects.some(object => object.path === "DashGPT/profile/profile_metrics_1.json"));
+assert.ok(objects.some(object => object.path === "DashGPT/profile/profile_metrics_2.json"));
+const objectRoundTrip = vaultFromObjects(objects, "DashGPT");
+assert.equal(currentProjectMetrics(objectRoundTrip).spentMinor, 2500, "profile metrics must survive object-layout round trip");
+assert.equal(materializeResults(objectRoundTrip).find(result => result.source?.sourceId === "conv_profile_metrics").result.usage.tokenCount, 175);
+
+const remote = createVault({ vaultId: vault.vaultId, createdAt: vault.createdAt });
+appendProjectMetricsRevision(remote, {
+  currency: "EUR",
+  spentMinor: 3000,
+  donatedMinor: 1000
+}, {
+  profileRevisionId: "profile_metrics_remote",
+  updatedAt: "2026-08-13T12:05:00.000Z"
+});
+const mergedDirect = mergeVaults(vault, remote, { updatedAt: "2026-08-13T12:06:00.000Z" });
+assert.equal(mergedDirect.profileRevisions.length, 3, "same-vault merge must preserve profile revision history");
+assert.equal(currentProjectMetrics(mergedDirect).spentMinor, 3000, "latest merged profile revision must materialize");
+
+const mergedObjects = mergeVaultObjectSets(vault, vaultToObjects(remote, "DashGPT"), "DashGPT");
+assert.equal(mergedObjects.profileRevisions.length, 3, "remote object merge must preserve both profile histories");
+assert.equal(currentProjectMetrics(mergedObjects).donatedMinor, 1000);
+
+console.log("Profile project metrics token, money, re-import, Vault, object-layout and merge tests passed.");
