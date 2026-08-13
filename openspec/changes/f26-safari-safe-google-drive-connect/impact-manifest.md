@@ -12,7 +12,7 @@
 
 ## Documentation
 
-- `docs/browser-user-activation-recommendations.md`
+- `docs/browser-flow-regression-guide.md`
 - `docs/handoff-f26-safari-google-drive.md`
 - F26 OpenSpec artifacts.
 
