@@ -1,4 +1,7 @@
+import { initializeCardKeyboardNavigation } from "./card-keyboard-navigation.js";
 import { buildChatGptHistorySafariShortcutScript } from "./chatgpt-history-source-runner.js";
+
+initializeCardKeyboardNavigation();
 
 function isIphoneOrIpadSafari() {
   const ua = String(navigator.userAgent || "");
