@@ -9,8 +9,10 @@ The core app and provider controllers remain unchanged.
 
 ## Tests
 
-- `tests/onboarding.spec.mjs`: existing-user dialog behavior, local save, provider visibility/delegation, and narrow viewport behavior.
-- Existing Google Drive tests remain the browser-ordering regression suite.
+- `tests/save-chat-flow.spec.mjs`: existing-user dialog behavior, local save, provider visibility/delegation, Google user-activation delegation, GitHub focus, and narrow viewport behavior.
+- Existing onboarding tests remain authoritative for clean-user first-card and anonymous Share compatibility.
+- Existing Google Drive tests remain authoritative for canonical browser-ordering behavior.
+- `package.json` registers the new regression file for syntax/fast verification.
 
 ## OpenSpec overlap
 
