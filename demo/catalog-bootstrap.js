@@ -125,4 +125,9 @@ if (chatGptHistoryImport) {
   // 20 only decorates its one operational card and adds the explicit restore
   // action for already-populated Vaults.
   chatGptHistoryImport.initializeChatGptHistoryImport({ phase: "post-app" });
+
+  // F29 keeps the live importer intact but makes the official ChatGPT export the
+  // recommended bulk-migration path from the same operational card.
+  const chatGptExportImport = await import("./chatgpt-export-import.js");
+  chatGptExportImport.initializeChatGptExportImport();
 }
