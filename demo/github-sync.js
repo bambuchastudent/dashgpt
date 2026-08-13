@@ -1,3 +1,4 @@
+import { loadGoogleDriveBinding } from "./google-drive-storage.js";
 import { loadBrowserVault, portableVault, saveBrowserVault } from "./vault.js";
 
 const storageButton = document.querySelector("#storageButton");
@@ -13,6 +14,10 @@ const githubLocation = document.querySelector("#githubLocation");
 let state = { configured: false, paired: false, locator: null };
 let syncing = false;
 let syncTimer = null;
+
+function googleBound() {
+  return Boolean(loadGoogleDriveBinding(globalThis.localStorage));
+}
 
 async function api(path, init = {}) {
   const headers = new Headers(init.headers || {});
@@ -36,13 +41,22 @@ function locatorText(locator) {
 
 function renderState(message = "") {
   if (!githubStatus) return;
+  const driveBound = googleBound();
   githubConnectControls.hidden = state.paired;
   githubPairedControls.hidden = !state.paired;
-  connectGithubButton.disabled = !state.configured;
+  connectGithubButton.disabled = !state.configured || driveBound;
+  if (syncGithubButton) syncGithubButton.disabled = syncing || driveBound;
 
   if (!state.configured) {
     githubStatus.textContent = "GitHub sync is supported, but the GitHub App is not configured on this deployment yet.";
     if (storageButton?.textContent.includes("GITHUB")) storageButton.textContent = "LOCAL · NOT SYNCED";
+    return;
+  }
+
+  if (driveBound) {
+    githubStatus.textContent = state.paired
+      ? "Google Drive is also bound on this browser. Disconnect one remote provider before syncing again."
+      : "Google Drive is the active remote provider on this browser. Disconnect it before switching to GitHub.";
     return;
   }
 
@@ -66,7 +80,7 @@ function markSynced(sync) {
 }
 
 function markUnsynced(message) {
-  if (storageButton && state.paired) {
+  if (storageButton && state.paired && !googleBound()) {
     storageButton.textContent = "LOCAL + GITHUB · UNSYNCED";
     storageButton.dataset.state = "unsynced";
   }
@@ -74,7 +88,10 @@ function markUnsynced(message) {
 }
 
 async function syncGithub({ quiet = false } = {}) {
-  if (!state.paired || syncing) return;
+  if (!state.paired || syncing || googleBound()) {
+    if (googleBound()) renderState();
+    return;
+  }
   syncing = true;
   syncGithubButton.disabled = true;
   try {
@@ -99,12 +116,12 @@ async function syncGithub({ quiet = false } = {}) {
     else markUnsynced("GitHub is temporarily unavailable. Local changes remain safe and unsynced.");
   } finally {
     syncing = false;
-    syncGithubButton.disabled = false;
+    syncGithubButton.disabled = googleBound();
   }
 }
 
 function scheduleSync() {
-  if (!state.paired || syncing) return;
+  if (!state.paired || syncing || googleBound()) return;
   clearTimeout(syncTimer);
   syncTimer = setTimeout(() => syncGithub({ quiet: true }), 700);
 }
@@ -113,7 +130,7 @@ async function refreshStatus({ autoSync = false } = {}) {
   try {
     state = await api("/api/storage/github/status");
     renderState();
-    if (state.paired && autoSync) await syncGithub({ quiet: true });
+    if (state.paired && autoSync && !googleBound()) await syncGithub({ quiet: true });
   } catch (error) {
     state = { configured: false, paired: false, locator: null };
     renderState(error.message);
@@ -121,6 +138,10 @@ async function refreshStatus({ autoSync = false } = {}) {
 }
 
 connectGithubButton?.addEventListener("click", async () => {
+  if (googleBound()) {
+    renderState();
+    return;
+  }
   const url = githubStorageUrl.value.trim();
   if (!url) {
     renderState("Paste a GitHub repository or folder URL first.");
@@ -136,7 +157,7 @@ connectGithubButton?.addEventListener("click", async () => {
     location.assign(payload.installUrl);
   } catch (error) {
     renderState(error.message);
-    connectGithubButton.disabled = false;
+    connectGithubButton.disabled = googleBound();
   }
 });
 
@@ -148,7 +169,7 @@ disconnectGithubButton?.addEventListener("click", async () => {
     await api("/api/storage/github/disconnect", { method: "POST" });
     state = { ...state, paired: false, locator: null };
     renderState("GitHub disconnected. Your local Vault was not deleted.");
-    if (storageButton) storageButton.textContent = "LOCAL · NOT SYNCED";
+    if (storageButton && !googleBound()) storageButton.textContent = "LOCAL · NOT SYNCED";
   } catch (error) {
     renderState(error.message);
   } finally {
@@ -158,12 +179,15 @@ disconnectGithubButton?.addEventListener("click", async () => {
 
 if (storageButton) {
   new MutationObserver(() => {
-    if (state.paired && storageButton.textContent.includes("NOT SYNCED")) {
+    renderState();
+    if (state.paired && !googleBound() && storageButton.textContent.includes("NOT SYNCED")) {
       storageButton.textContent = "LOCAL + GITHUB · UNSYNCED";
       scheduleSync();
     }
   }).observe(storageButton, { childList: true, subtree: true, characterData: true });
 }
+
+window.addEventListener("dashgpt:remote-provider-changed", () => renderState());
 
 const params = new URLSearchParams(location.search);
 const returnedFromPairing = params.get("storage") === "github-paired";
