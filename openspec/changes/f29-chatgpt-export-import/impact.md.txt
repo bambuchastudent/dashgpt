@@ -1,0 +1,1 @@
+F29 uses existing import UI, local parser, canonical Vault, tests. No schema migration.
