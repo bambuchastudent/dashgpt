@@ -18,6 +18,7 @@ const UI_PENDING_KEY = "dashgpt.chatgpt-import.pending-ui.v1";
 const VAULT_UPDATED_EVENT = "dashgpt:chatgpt-import-vault-updated";
 const MAX_BATCH_CARDS = 48;
 const MAX_MESSAGE_CHARS = 240_000;
+const USAGE_AWARE_SOURCE_VERSION = 4;
 const SOURCE_STATES = new Set(["running", "rate_limited"]);
 const TOKEN_COUNT_KINDS = new Set(["estimated", "reported"]);
 let installed = false;
@@ -157,12 +158,6 @@ function attachImportedUsage(result, raw) {
   };
 }
 
-/**
- * Import-only fast path. Incoming objects have already crossed the strict
- * allowlist in sanitizeChatGptCardCandidate. We update the in-memory mutable
- * Result array directly, then the normal saveBrowserVault path validates and
- * sanitizes the complete Vault exactly once before the durable write.
- */
 export function applyChatGptImportBatchFast(vault, candidates, progress = {}) {
   if (!Array.isArray(candidates) || candidates.length > MAX_BATCH_CARDS) throw new Error("Invalid import batch size");
   const currentById = new Map(materializeResults(vault).map(result => [result.id, result]));
@@ -225,6 +220,7 @@ function handleHello(event, config) {
   const loaded = loadBrowserVault(globalThis.localStorage);
   postReply(event.source, config, {
     type: "READY",
+    usageAware: true,
     known: knownChatGptUsageFreshness(loaded.vault),
     limits: { maxBatchCards: MAX_BATCH_CARDS, maxMessageChars: MAX_MESSAGE_CHARS }
   });
@@ -309,10 +305,11 @@ export function installChatGptImportBatchFastPath() {
       return;
     }
     if (envelope.data.type === "HELLO") {
-      // Reply first with usage-aware freshness. The standard receiver still handles
-      // HELLO afterwards to update its canonical progress card; its later READY is
-      // harmless because the source handshake consumes the first matching reply.
-      handleHello(event, envelope.config);
+      // Only the F27 usage-aware action gets the filtered freshness reply. Older
+      // saved actions continue through the standard receiver unchanged.
+      if (Number(envelope.data.sourceVersion) >= USAGE_AWARE_SOURCE_VERSION) {
+        handleHello(event, envelope.config);
+      }
       return;
     }
     event.stopImmediatePropagation();
