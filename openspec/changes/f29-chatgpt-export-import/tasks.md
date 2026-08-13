@@ -3,8 +3,9 @@
 ## OpenSpec
 - [x] Create dedicated issue and branch.
 - [x] Define proposal, design, and spec delta before production edits.
-- [ ] Inspect current import, Vault, card provenance, storage, and tests.
-- [ ] Complete Impact Manifest and validate the change structure.
+- [x] Inspect current F20/F24 import behavior, canonical Vault/card provenance, storage composition, bootstrap order, and import verification.
+- [x] Complete canonical `impact-manifest.md`.
+- [x] Structural validation before production edits: one `## ADDED Requirements` delta; every requirement uses SHALL; every scenario uses WHEN/THEN; no schema/provider/card-type widening. Official CLI validation remains a later executable gate because repository Actions are currently infrastructure-blocked.
 
 ## Implementation
 - [ ] Add a local ChatGPT export parser for supported JSON/archive inputs.
@@ -26,7 +27,7 @@
 
 ## Verification
 - [ ] Run targeted verification.
-- [ ] Run OpenSpec validation when executable infrastructure permits.
+- [ ] Run executable OpenSpec validation when infrastructure permits.
 - [ ] Run canonical `npm run verify:full` once before merge where applicable.
 - [ ] Verify Cloudflare preview and mobile viewport.
 - [ ] Merge to `develop` with actual verification state recorded.
