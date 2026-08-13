@@ -46,10 +46,12 @@ Implementation PR: `#13` (`feature/f6-github-sync`), merged into `develop`.
 
 ## Slice C — Google Drive sync
 
-- [ ] Recognize supported Google Drive folder links as StorageLocators.
-- [ ] Add explicit Google authorization flow.
-- [ ] Implement Drive adapter against the same Vault v1 contract.
-- [ ] Reuse adapter contract tests and prove provider-neutral Result identity.
+- [ ] Recognize supported Google Drive folder links as StorageLocators. F25 intentionally does not require a pasted Drive folder URL: DashGPT creates/discovers its own app-managed visible `DashGPT/dashgpt-vault.json`. Generic Drive StorageLocator input remains a separate follow-up if it is still useful.
+- [x] Add explicit Google authorization flow. Implemented in draft PR `#52` / F25 using Google Identity Services and the narrow `drive.file` scope; real OAuth activation still requires deployment `GOOGLE_CLIENT_ID` and acceptance evidence.
+- [x] Implement Drive adapter against the same Vault v1 contract. F25 includes create/discover/download/update, second-device adoption, same-vault merge, explicit different-vault migration and remote-version remerge.
+- [ ] Reuse adapter contract tests and prove provider-neutral Result identity. Deterministic and browser assertions are committed in F25, but the repository verification infrastructure has not yet produced a conclusive execution result.
+
+Implementation PR: `#52` (`feature/f25-google-drive-vault-sync`), open draft.
 
 ## Slice D — Personalization
 
