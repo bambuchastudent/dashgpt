@@ -178,7 +178,7 @@ function render(message = "") {
 
   if (!tokenValid()) {
     tokenState = null;
-    status.textContent = message || "Google Drive is connected on this device, but authorization must be refreshed before the next sync. Local changes are safe.";
+    status.textContent = message || "Google Drive is linked to this Vault. Reconnect when you want to sync again; the cards already on this device stay available offline.";
     connect.hidden = false;
     connect.disabled = false;
     connect.textContent = "Reconnect Google Drive";
@@ -274,6 +274,7 @@ async function syncNow({ allowMigration = false } = {}) {
   render();
   try {
     const { vault: localVault } = loadBrowserVault(globalThis.localStorage);
+    const localBefore = JSON.stringify(localVault);
     const result = await syncGoogleDriveVault({
       token: tokenState.accessToken,
       localVault,
@@ -293,7 +294,7 @@ async function syncNow({ allowMigration = false } = {}) {
     $("#googleDriveMigration")?.setAttribute("hidden", "");
     saveGoogleDriveBinding(globalThis.localStorage, result.binding);
     saveBrowserVault(globalThis.localStorage, result.vault);
-    window.dispatchEvent(new CustomEvent("dashgpt:vault-updated", { detail: { provider: "google-drive", action: result.action } }));
+    const localChanged = localBefore !== JSON.stringify(result.vault);
     const copy = {
       created: "Google Drive Vault created and synced.",
       adopted: "Google Drive Vault loaded on this device.",
@@ -302,6 +303,7 @@ async function syncNow({ allowMigration = false } = {}) {
     }[result.action] || "Google Drive sync complete.";
     setStorageBadge("LOCAL + GOOGLE DRIVE · SYNCED", "synced");
     render(copy);
+    if (localChanged) setTimeout(() => window.location.reload(), 120);
   } catch (error) {
     renderHumanError(error);
   } finally {
