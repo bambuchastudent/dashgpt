@@ -17,8 +17,10 @@ let syncing = false;
 let syncTimer = null;
 let pendingMigration = null;
 let gisPromise = null;
+let gisLoadError = null;
 
 function $(selector) { return document.querySelector(selector); }
+function googleSignInReady() { return Boolean(globalThis.google?.accounts?.oauth2); }
 
 function ensureProviderUi() {
   if ($("#googleDriveStorageProvider")) return;
@@ -155,6 +157,20 @@ function render(message = "") {
     return;
   }
 
+  if ((!googleBinding || !tokenValid()) && !googleSignInReady()) {
+    status.textContent = message || (gisLoadError
+      ? "Google sign-in could not be prepared. Retry loading it; your local Vault is unchanged."
+      : "Preparing Google sign-in…");
+    connect.hidden = false;
+    connect.disabled = !gisLoadError;
+    connect.textContent = gisLoadError ? "Retry Google sign-in" : "Preparing Google sign-in…";
+    sync.hidden = true;
+    disconnect.hidden = !googleBinding;
+    migration.hidden = true;
+    if (googleBinding) setStorageBadge("LOCAL + GOOGLE DRIVE · RECONNECT", "unsynced");
+    return;
+  }
+
   if (!googleBinding) {
     status.textContent = message || "Connect Google Drive to carry this Vault to your other devices. Local data stays here until you connect.";
     connect.hidden = false;
@@ -194,13 +210,17 @@ function render(message = "") {
 }
 
 function loadGisScript() {
-  if (globalThis.google?.accounts?.oauth2) return Promise.resolve();
+  if (googleSignInReady()) {
+    gisLoadError = null;
+    return Promise.resolve();
+  }
   if (gisPromise) return gisPromise;
+  gisLoadError = null;
   gisPromise = new Promise((resolve, reject) => {
     const existing = document.querySelector(`script[src="${GIS_SRC}"]`);
     if (existing) {
       existing.addEventListener("load", resolve, { once: true });
-      existing.addEventListener("error", reject, { once: true });
+      existing.addEventListener("error", () => reject(new Error("Google sign-in could not be loaded.")), { once: true });
       return;
     }
     const script = document.createElement("script");
@@ -208,10 +228,30 @@ function loadGisScript() {
     script.async = true;
     script.defer = true;
     script.addEventListener("load", resolve, { once: true });
-    script.addEventListener("error", () => reject(new Error("Google sign-in could not be loaded.")), { once: true });
+    script.addEventListener("error", () => {
+      script.remove();
+      reject(new Error("Google sign-in could not be loaded."));
+    }, { once: true });
     document.head.append(script);
+  }).then(() => {
+    gisLoadError = null;
+  }).catch(error => {
+    gisLoadError = error;
+    gisPromise = null;
+    throw error;
   });
   return gisPromise;
+}
+
+function prepareGoogleSignIn() {
+  if (!config?.configured || (githubPaired && !binding()) || googleSignInReady()) {
+    render();
+    return;
+  }
+  render("Preparing Google sign-in…");
+  loadGisScript()
+    .then(() => render())
+    .catch(() => render("Google sign-in could not be prepared. Press Retry Google sign-in to try loading it again."));
 }
 
 function requestAccessToken() {
@@ -243,20 +283,43 @@ function requestAccessToken() {
   });
 }
 
-async function connectGoogleDrive() {
+function connectGoogleDrive() {
   if (!config?.configured) return render();
-  await refreshGithubStatus();
-  if (githubPaired && !binding()) return render();
+  const googleBinding = binding();
+  if (githubPaired && !googleBinding) return render();
+
+  if (!googleSignInReady()) {
+    gisLoadError = null;
+    render("Preparing Google sign-in…");
+    loadGisScript()
+      .then(() => render("Google sign-in is ready. Press Connect Google Drive again."))
+      .catch(() => render("Google sign-in could not be prepared. Press Retry Google sign-in to try loading it again."));
+    return;
+  }
+
+  let accessRequest;
   try {
-    if (!globalThis.google?.accounts?.oauth2) {
-      render("Preparing Google sign-in…");
-      await loadGisScript();
-    }
-    tokenState = await requestAccessToken();
-    await syncNow({ allowMigration: false });
+    // Safari is strict about popup/user-activation lifetime. Keep this call in
+    // the original click task: do not await provider status, timers, or script
+    // loading before requestAccessToken().
+    accessRequest = requestAccessToken();
   } catch (error) {
     renderHumanError(error);
+    return;
   }
+
+  accessRequest
+    .then(async nextToken => {
+      tokenState = nextToken;
+      await refreshGithubStatus();
+      if (githubPaired && !binding()) {
+        tokenState = null;
+        render("GitHub sync became active before Google Drive could sync. Disconnect GitHub, then connect Google Drive again.");
+        return;
+      }
+      await syncNow({ allowMigration: false });
+    })
+    .catch(renderHumanError);
 }
 
 function migrationMessage(result) {
@@ -368,11 +431,12 @@ async function initialize() {
   await loadConfig();
   await refreshGithubStatus();
   render();
+  if (config?.configured && (!githubPaired || binding())) prepareGoogleSignIn();
   installLocalChangeWatch();
   $("#storageButton")?.addEventListener("click", async () => {
     await refreshGithubStatus();
     render();
-    if (config?.configured && !globalThis.google?.accounts?.oauth2) loadGisScript().catch(() => {});
+    if (config?.configured && (!githubPaired || binding()) && !googleSignInReady()) prepareGoogleSignIn();
   }, true);
 }
 
