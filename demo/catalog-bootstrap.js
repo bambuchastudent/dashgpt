@@ -154,3 +154,6 @@ if (chatGptHistoryImport) {
     importOnboardingConnector.initializeImportOnboardingConnector();
   }
 }
+
+const homeEntry = await import("./home-entry.js");
+homeEntry.initializeHomeEntry();
