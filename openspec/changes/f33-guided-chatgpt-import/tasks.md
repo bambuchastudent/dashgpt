@@ -32,5 +32,5 @@
 - [x] Run `npm run verify:fast` with the new F33 verifier registered in the canonical fast gate; Cloudflare deployment succeeded only after that gate completed.
 - [ ] Run canonical `npm run verify:full` once before merge. GitHub Actions still cannot start jobs because of the account billing/spending-limit blocker.
 - [ ] Execute Playwright/browser acceptance in an environment able to launch Chromium. Cloudflare can download the Chromium bundle (`5540c113208e36cf02406db484fc950da63b9384`) but a minimal headless `chromium.launch()` fails in that build environment (`207ca0d3fd9d628c8f06f2048cb8ce06224eaa25`), so the failed Cloudflare Playwright attempts are environment evidence, not a product-test result.
-- [ ] Verify the final clean Cloudflare branch preview after diagnostic hooks are removed.
+- [x] Verify the final clean Cloudflare branch preview after diagnostic hooks are removed. Commit `f6f73e3a9bd19c52c24c5524c6107d608ac99a14` deployed successfully and the branch preview is available at `https://feature-f33-guided-chatgpt-import-dashgpt.dimkashir.workers.dev`.
 - [x] Keep the PR draft while the mandatory full/browser gate remains unavailable; no browser-pass claim is made.
