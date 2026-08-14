@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./playwright-fixture.mjs";
 
 const VAULT_KEY = "dashgpt.demo.vault.v1";
 const BINDING_KEY = "dashgpt.google-drive.binding.v1";
@@ -254,7 +254,11 @@ test("disconnect removes browser Google binding but preserves the local Vault", 
   await page.locator("#connectGoogleDriveButton").click();
   await expect.poll(async () => page.evaluate(key => Boolean(localStorage.getItem(key)), BINDING_KEY)).toBe(true);
 
+  const documentToken = `test-${Date.now()}-${Math.random()}`;
+  await page.evaluate(value => { document.documentElement.dataset.testDocument = value; }, documentToken);
   await page.locator("#disconnectGoogleDriveButton").click();
+  await page.waitForFunction(value => document.documentElement.dataset.testDocument !== value, documentToken);
+  await page.locator('html[data-dashgpt-ready="true"]').waitFor();
   const state = await page.evaluate(({ vaultKey, bindingKey }) => ({
     vault: JSON.parse(localStorage.getItem(vaultKey) || "null"),
     binding: localStorage.getItem(bindingKey)

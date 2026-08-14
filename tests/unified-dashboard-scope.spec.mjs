@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./playwright-fixture.mjs";
 
 const VAULT_KEY = "dashgpt.demo.vault.v1";
 const NOW = "2026-08-11T08:00:00.000Z";

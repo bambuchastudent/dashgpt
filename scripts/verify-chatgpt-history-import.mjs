@@ -269,8 +269,8 @@ assert.throws(() => chatGptImportedResultId("https://evil.invalid/x"));
     sessionId: "session-test",
     nonce: "nonce-test"
   });
-  assert.equal(CHATGPT_HISTORY_SOURCE_VERSION, 6);
-  assert.match(runner, /"sourceVersion":6/);
+  assert.equal(CHATGPT_HISTORY_SOURCE_VERSION, 7);
+  assert.match(runner, /"sourceVersion":7/);
   assert.match(runner, /"initialConcurrency":2/);
   assert.match(runner, /"maxConcurrency":3/);
   assert.match(runner, /"batchSize":32/);

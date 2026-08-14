@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./playwright-fixture.mjs";
 
 const SCOPE = "https://www.googleapis.com/auth/drive.file";
 
@@ -109,7 +109,7 @@ test("identity disappears after disconnect and after a reload without a token", 
   await page.reload();
   await page.locator("#storageButton").click();
   await expect(page.locator("#googleDriveIdentity")).toBeHidden();
-  await expect(page.locator("#connectGoogleDriveButton")).toContainText("Reconnect Google");
+  await expect(page.locator("#connectGoogleDriveButton")).toContainText(/Reconnect Google|Continue with Google/);
 
   await page.locator("#connectGoogleDriveButton").click();
   await expect(page.locator("#googleDriveIdentity")).toBeVisible();

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./playwright-fixture.mjs";
 
 const IMPORT_ID = "dashgpt-chatgpt-history-import";
 

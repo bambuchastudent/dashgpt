@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./playwright-fixture.mjs";
 
 const VAULT_KEY = "dashgpt.demo.vault.v1";
 const SORT_KEY = "dashgpt.demo.gallery-sort.v2";
@@ -30,9 +30,11 @@ function fixtureVault(count = 100) {
 
 async function openFixture(page, count = 100) {
   await page.addInitScript(({ key, sortKey, vault }) => {
+    if (sessionStorage.getItem("dashgpt.f32-fixture-ready") === "1") return;
     localStorage.setItem(key, JSON.stringify(vault));
     localStorage.removeItem(sortKey);
     localStorage.removeItem("dashgpt.demo.gallery-sort.v1");
+    sessionStorage.setItem("dashgpt.f32-fixture-ready", "1");
   }, { key: VAULT_KEY, sortKey: SORT_KEY, vault: fixtureVault(count) });
   await page.goto("/demo/?personal=1");
   await page.locator("#searchInput").fill("F32 Fixture");
@@ -53,7 +55,7 @@ test("Color is default, controls are Color Tag Time, and palette is bounded to 3
   const buttons = page.locator("#galleryRegion .gallery-sort [data-gallery-sort]");
   await expect(buttons).toHaveCount(3);
   expect(await buttons.evaluateAll(nodes => nodes.map(node => node.dataset.gallerySort))).toEqual(["color", "tag", "time"]);
-  await expect(page.locator('[data-gallery-sort="color"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('button[data-gallery-sort="color"]')).toHaveAttribute("aria-pressed", "true");
 
   const cards = page.locator("#resultsGrid > .result-card");
   const initialIds = new Set(await cards.evaluateAll(nodes => nodes.map(node => node.dataset.resultId)));
@@ -66,8 +68,8 @@ test("Color is default, controls are Color Tag Time, and palette is bounded to 3
   expect(new Set(hues).size).toBeLessThanOrEqual(32);
   expect(hues.every(hue => Math.abs((hue / 11.25) - Math.round(hue / 11.25)) < 0.0001)).toBe(true);
 
-  await page.locator('[data-gallery-sort="tag"]').click();
-  await expect(page.locator('[data-gallery-sort="tag"]')).toHaveAttribute("aria-pressed", "true");
+  await page.locator('button[data-gallery-sort="tag"]').click();
+  await expect(page.locator('button[data-gallery-sort="tag"]')).toHaveAttribute("aria-pressed", "true");
   expect(new Set(await cards.evaluateAll(nodes => nodes.map(node => node.dataset.resultId)))).toEqual(initialIds);
   const primaryTags = await cards.evaluateAll(nodes => nodes.map(node => node.querySelector(".tag")?.textContent || "~untagged"));
   const firstBeta = primaryTags.findIndex(tag => tag === "#beta");
@@ -75,12 +77,12 @@ test("Color is default, controls are Color Tag Time, and palette is bounded to 3
   expect(primaryTags.slice(0, firstBeta).every(tag => tag === "#alpha")).toBe(true);
   expect(primaryTags.slice(firstBeta).every(tag => tag === "#beta")).toBe(true);
 
-  await page.locator('[data-gallery-sort="time"]').click();
+  await page.locator('button[data-gallery-sort="time"]').click();
   await expect(cards.first().locator(".title")).toHaveText("F32 Fixture 0099");
 
   await page.reload();
   await page.locator("#searchInput").fill("F32 Fixture");
-  await expect(page.locator('[data-gallery-sort="time"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('button[data-gallery-sort="time"]')).toHaveAttribute("aria-pressed", "true");
 });
 
 test("old v1 Time preference is superseded by Color-first v2 default", async ({ page }) => {
@@ -91,7 +93,7 @@ test("old v1 Time preference is superseded by Color-first v2 default", async ({ 
   }, { key: VAULT_KEY, vault: fixtureVault(20) });
   await page.goto("/demo/?personal=1");
   await page.locator("#searchInput").fill("F32 Fixture");
-  await expect(page.locator('[data-gallery-sort="color"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('button[data-gallery-sort="color"]')).toHaveAttribute("aria-pressed", "true");
 });
 
 test("minimum density keeps the complete selection without horizontal overflow", async ({ page }) => {
@@ -117,12 +119,13 @@ test("minimum density keeps the complete selection without horizontal overflow",
 });
 
 test("2200 cards fit simultaneously on one screen as Color-sorted actionable heat-map tiles", async ({ page }) => {
+  test.setTimeout(180_000);
   await openFixture(page, 2200);
   await setOverview(page);
 
   const cards = page.locator("#resultsGrid > .result-card");
   await expect(cards).toHaveCount(2200);
-  await expect(page.locator('[data-gallery-sort="color"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('button[data-gallery-sort="color"]')).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("#galleryRegion")).toHaveAttribute("data-f32-overview", "heatmap");
   await expect(cards.first()).toHaveAttribute("title", /F32 Fixture/);
 

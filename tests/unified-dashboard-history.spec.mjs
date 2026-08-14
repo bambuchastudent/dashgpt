@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./playwright-fixture.mjs";
 
 const VAULT_KEY = "dashgpt.demo.vault.v1";
 const NOW = "2026-08-11T08:00:00.000Z";
@@ -54,7 +54,7 @@ test("saved Dash context survives browser back, forward, and reload", async ({ p
   await page.goBack();
   await expect(page).toHaveURL(/\/demo\/\?personal=1$/);
   await expect(page.locator("#dashContextTitle")).toHaveText("My Dash");
-  await expect(page.locator("#resultsGrid .result-card")).toHaveCount(2);
+  await expect(page.locator("#resultsGrid .result-card")).toHaveCount(3);
 
   await page.goForward();
   await expect(page).toHaveURL(/\/demo\/dashes\/dash_history_travel\/$/);

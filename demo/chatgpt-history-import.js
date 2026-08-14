@@ -25,6 +25,7 @@ let initialized = false;
 let sourceWindow = null;
 let lastAutoRefreshAt = 0;
 let cardObserver = null;
+let activeCardActionDelegationInstalled = false;
 let dialog = null;
 
 function nowIso() {
@@ -58,7 +59,9 @@ function list(value, maxItems, maxLength) {
 }
 
 function importLocale() {
-  return String(document.documentElement?.lang || navigator.language || "en").toLocaleLowerCase().startsWith("ru") ? "ru" : "en";
+  const documentLanguage = globalThis.document?.documentElement?.lang;
+  const navigatorLanguage = globalThis.navigator?.language;
+  return String(documentLanguage || navigatorLanguage || "en").toLocaleLowerCase().startsWith("ru") ? "ru" : "en";
 }
 
 const COPY = {
@@ -821,7 +824,8 @@ function updateVisibleProgressCard() {
     open.onclick = event => {
       event.preventDefault();
       event.stopPropagation();
-      action.action();
+      const latest = currentStoredProgress().progress || progress;
+      progressAction(latest).action();
     };
   }
 
@@ -861,7 +865,10 @@ function updateVisibleProgressCard() {
 
 function installCardObserver() {
   if (cardObserver) return;
-  const root = document.querySelector("#dashboardView") || document.body;
+  // Unified dashboard bootstrap can replace the original dashboard subtree.
+  // Observe the stable body so the operational card keeps its import action
+  // after that canonical redraw.
+  const root = document.body;
   cardObserver = new MutationObserver(records => {
     const externalMutation = records.some(record => {
       const target = record.target instanceof Element ? record.target : record.target?.parentElement;
@@ -871,6 +878,22 @@ function installCardObserver() {
   });
   cardObserver.observe(root, { childList: true, subtree: true });
   queueMicrotask(updateVisibleProgressCard);
+}
+
+function installActiveCardActionDelegation() {
+  if (activeCardActionDelegationInstalled) return;
+  activeCardActionDelegationInstalled = true;
+  document.addEventListener("click", event => {
+    const target = event.target instanceof Element
+      ? event.target.closest(`[data-result-id="${CHATGPT_IMPORT_RESULT_ID}"] .open-button`)
+      : null;
+    if (!target) return;
+    const { progress } = currentStoredProgress();
+    if (!progress || !["running", "rate_limited", "completed"].includes(progress.state)) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    progressAction(progress).action();
+  }, true);
 }
 
 function installExistingUserAction() {
@@ -935,6 +958,7 @@ export function initializeChatGptHistoryImport({ phase = "post-app" } = {}) {
   if (initialized) return;
   initialized = true;
   installStyles();
+  installActiveCardActionDelegation();
   installCardObserver();
   installExistingUserAction();
   updateVisibleProgressCard();

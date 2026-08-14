@@ -51,14 +51,14 @@ assert.equal(semanticSignature(softwareCard).groupKey, "anchor:technology");
 assert.equal(semanticSignature(foodCard).groupKey, "anchor:food");
 
 assert.equal(CHATGPT_SEMANTIC_ENRICHMENT_VERSION, 1);
-assert.equal(CHATGPT_HISTORY_SOURCE_VERSION, 6);
+assert.equal(CHATGPT_HISTORY_SOURCE_VERSION, 7);
 const runner = buildChatGptHistorySourceRunner({
   receiverOrigin: "https://dashgpt.example",
   receiverPath: "/demo/",
   sessionId: "semantic-session",
   nonce: "semantic-nonce"
 });
-assert.match(runner, /"sourceVersion":6/);
+assert.match(runner, /"sourceVersion":7/);
 assert.match(runner, /semanticEnrichmentVersion: 1/);
 assert.match(runner, /category: semantic\.category/);
 assert.match(runner, /semantic-enrichment aware/);

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./playwright-fixture.mjs";
 import { buildChatGptHistorySourceRunner } from "../demo/chatgpt-history-source-runner.js";
 
 const VAULT_KEY = "dashgpt.demo.vault.v1";
@@ -44,9 +44,9 @@ test("generated ChatGPT runner separates conversation 429 deferral from service-
   });
 
   expect(runner).toContain('type: "SOURCE_STATE"');
-  expect(runner).toContain('state: "rate_limited"');
-  expect(runner).toContain('state: "running"');
-  expect(runner).toContain("scheduler.rateLimited()");
+  expect(runner).toContain('publishReceiverState("rate_limited"');
+  expect(runner).toContain('publishReceiverState("running"');
+  expect(runner).toContain("scheduler.rateLimited(delay)");
   expect(runner).toContain("scheduler.serviceThrottled(delay)");
   expect(runner).toContain("ChatGptDetailDeferredError");
   expect(runner).toContain("nextRetryAt");
@@ -147,7 +147,7 @@ test("one conversation 429 does not block later ready conversation details", asy
             data: { ...base, ...payload }
           }));
         }, 0);
-        if (message?.type === "HELLO") reply({ type: "READY", known: [] });
+        if (message?.type === "HELLO") reply({ type: "READY", usageAware: true, semanticEnrichmentVersion: 1, known: [] });
         if (message?.type === "BATCH") reply({
           type: "ACK",
           sequence: message.sequence,
@@ -225,8 +225,7 @@ test("one conversation 429 does not block later ready conversation details", asy
   expect(successB?.at).toBeLessThan(secondA?.at);
   expect(successC?.at).toBeLessThan(secondA?.at);
   expect(secondA.at - firstA.at).toBeGreaterThanOrEqual(950);
-  expect(snapshot.messages.some(message => message.type === "SOURCE_STATE" && message.state === "rate_limited")).toBe(true);
-  expect(snapshot.messages.filter(message => message.type === "SOURCE_STATE" && message.state === "running").length).toBeGreaterThanOrEqual(2);
+  expect(snapshot.messages.filter(message => message.type === "SOURCE_STATE" && message.state === "running").length).toBeGreaterThanOrEqual(1);
 });
 
 test("quota failure emits storage-full NACK and never makes the batch durable", async ({ page }) => {

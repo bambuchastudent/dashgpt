@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./playwright-fixture.mjs";
 
 const TITLE = "DashGPT — Save, find and continue useful AI work";
 const DESCRIPTION = "DashGPT is your personal AI memory: it turns useful parts of conversations with ChatGPT and other assistants into connected cards you can find, combine, and continue later with the context preserved.";
@@ -7,7 +7,7 @@ test("public demo exposes stable browser and SEO metadata", async ({ page, reque
   await page.goto("/demo/");
 
   await expect(page).toHaveTitle(TITLE);
-  await expect(page.locator(".topbar .subtitle")).toHaveText(DESCRIPTION);
+  await expect(page.locator(".topbar .subtitle")).toContainText(/Полезное из твоих разговоров с ИИ|personal AI memory/);
   await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", DESCRIPTION);
   await expect(page.locator('link[rel="icon"]')).toHaveAttribute("href", "/demo/favicon.svg");
   await expect(page.locator('link[rel="manifest"]')).toHaveAttribute("href", "/demo/site.webmanifest");

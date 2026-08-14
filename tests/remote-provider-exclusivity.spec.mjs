@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./playwright-fixture.mjs";
 
 const GOOGLE_BINDING_KEY = "dashgpt.google-drive.binding.v1";
 

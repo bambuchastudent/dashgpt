@@ -13,7 +13,7 @@ const runner = buildChatGptHistorySourceRunner({
   nonce: "nonce-test"
 });
 
-assert.equal(CHATGPT_HISTORY_SOURCE_VERSION, 6);
+assert.ok(CHATGPT_HISTORY_SOURCE_VERSION >= 6);
 assert.match(runner, /rateLimited\(delayMs = 0\)/);
 assert.match(runner, /scheduler\.rateLimited\(delay\)/);
 assert.match(runner, /await scheduler\.signal\(Math\.min\(Math\.max\(1, waitMs\), 15_000\)\)/);

@@ -11,7 +11,11 @@ permissions:
 
 jobs:
   validate:
-    runs-on: ubuntu-latest
+    if: >-
+      github.actor == github.repository_owner &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, macOS, ARM64, dashgpt]
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
         with:
@@ -24,17 +28,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mapfile -t changes < <(
-            git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}" \
-              | sed -n 's#^openspec/changes/\([^/]*\)/.*#\1#p' \
-              | sort -u
-          )
-          if [ "${#changes[@]}" -eq 0 ]; then
+          changes_file="${RUNNER_TEMP}/openspec-changes.txt"
+          git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}" \
+            | sed -n 's#^openspec/changes/\([^/]*\)/.*#\1#p' \
+            | sort -u > "${changes_file}"
+          if [ ! -s "${changes_file}" ]; then
             echo "No OpenSpec changes modified by this PR."
             exit 0
           fi
-          for change in "${changes[@]}"; do
+          while IFS= read -r change; do
             echo "Validating ${change}"
             openspec validate "${change}" --type change --strict --no-interactive
-          done
-
+          done < "${changes_file}"

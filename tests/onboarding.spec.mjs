@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./playwright-fixture.mjs";
 
 const VAULT_KEY = "dashgpt.demo.vault.v1";
 const IMPORT_ID = "dashgpt-chatgpt-history-import";
@@ -72,7 +72,7 @@ test("pasted ChatGPT Result envelope creates only the visitor's first user card"
 
   await expect(page.locator("#publicWelcome")).toHaveCount(0);
   await expect(page.locator(".result-card")).toHaveCount(2);
-  await expect(page.locator(".result-card")).toContainText("Мой план на выходные");
+  await expect(page.locator(".result-card").filter({ hasText: "Мой план на выходные" })).toHaveCount(1);
   await expect(page.getByText("Ночёвка с палаткой для рыбалки", { exact: false })).toHaveCount(0);
 
   const stored = await page.evaluate(key => JSON.parse(localStorage.getItem(key)).results, VAULT_KEY);
@@ -119,7 +119,7 @@ test("anonymous ?share mobile handoff resolves, previews, and saves the visitor 
   await page.waitForURL(/\/demo\/$/);
   await expect(page.locator("#publicWelcome")).toHaveCount(0);
   await expect(page.locator(".result-card")).toHaveCount(2);
-  await expect(page.locator(".result-card")).toContainText("Картошка в аэрогриле");
+  await expect(page.locator(".result-card").filter({ hasText: "Картошка в аэрогриле" })).toHaveCount(1);
   await expect(page.getByText("Ночёвка с палаткой для рыбалки", { exact: false })).toHaveCount(0);
 
   const stored = await page.evaluate(key => JSON.parse(localStorage.getItem(key)).results, VAULT_KEY);

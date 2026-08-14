@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./playwright-fixture.mjs";
 
 const VAULT_KEY = "dashgpt.demo.vault.v1";
 const SCOPE = "https://www.googleapis.com/auth/drive.file";
@@ -13,7 +13,9 @@ function vault(vaultId = "vault-save-chat", results = [result("existing-card", "
 }
 
 async function seedExistingUser(page, localVault = vault()) {
-  await page.addInitScript(({ key, value }) => localStorage.setItem(key, JSON.stringify(value)), { key: VAULT_KEY, value: localVault });
+  await page.addInitScript(({ key, value }) => {
+    if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify(value));
+  }, { key: VAULT_KEY, value: localVault });
 }
 
 async function routeStorage(page, { googleConfigured = false, githubConfigured = true, githubPaired = false, githubDelayMs = 0 } = {}) {
@@ -76,8 +78,21 @@ async function saveSharedChat(page, inputUrl = SHARE_URL) {
   await page.locator("#saveChatLink").fill(inputUrl);
   await page.locator("#saveChatLinkForm").getByRole("button", { name: "Добавить карточку" }).click();
   await expect(page.locator("#saveChatReview")).toBeVisible();
+  const documentToken = await markDocument(page);
   await page.locator("#saveChatCommit").click();
   await page.waitForURL(/\/demo\/$/);
+  await waitForNewDocument(page, documentToken);
+}
+
+async function markDocument(page) {
+  const token = `test-${Date.now()}-${Math.random()}`;
+  await page.evaluate(value => { document.documentElement.dataset.testDocument = value; }, token);
+  return token;
+}
+
+async function waitForNewDocument(page, token) {
+  await page.waitForFunction(value => document.documentElement.dataset.testDocument !== value, token);
+  await page.locator('html[data-dashgpt-ready="true"]').waitFor();
 }
 
 const CAPTURE = JSON.stringify({ title: "Сохранённый разговор", summary: "Сохранили полезный итог существующего разговора через нормальный Save chat flow.", category: "DashGPT", tags: ["capture"], decisions: ["Одна карточка, один Vault"], facts: [], constraints: [], userPreferences: [], openQuestions: [], next: "Продолжить с карточки" });
@@ -113,9 +128,11 @@ test("Save chat resolves a public Share link into one local canonical card", asy
   await expect(page.locator("#saveChatReview")).toBeVisible();
   await expect(page.locator("#saveChatReviewTitle")).toHaveValue("Импортированный чат");
   await expect(page.locator("#saveChatReviewSummary")).toHaveValue("Полезный итог из публичного ChatGPT Share-чата.");
+  const documentToken = await markDocument(page);
   await page.locator("#saveChatCommit").click();
   await page.waitForURL(/\/demo\/$/);
-  await expect(page.locator(".result-card")).toContainText("Импортированный чат");
+  await waitForNewDocument(page, documentToken);
+  await expect(page.locator(".result-card").filter({ hasText: "Импортированный чат" })).toHaveCount(1);
 
   const stored = await page.evaluate(key => JSON.parse(localStorage.getItem(key) || "null"), VAULT_KEY);
   const saved = stored.results.filter(item => item.source?.url === SHARE_URL);
@@ -157,7 +174,7 @@ test("Save chat explains that a private /c link must be shared first", async ({ 
   await expect(page.locator("#saveChatLinkStatus")).not.toContainText("backend");
   expect(resolverCalls).toBe(0);
   const stored = await page.evaluate(key => JSON.parse(localStorage.getItem(key) || "null"), VAULT_KEY);
-  expect(stored.results).toHaveLength(1);
+  expect(stored.results).toHaveLength(2);
 });
 
 test("Save chat keeps structured ChatGPT handoff as a secondary local fallback", async ({ page }) => {
@@ -169,9 +186,11 @@ test("Save chat keeps structured ChatGPT handoff as a secondary local fallback",
   await page.locator("#saveChatPayload").fill(CAPTURE);
   await page.locator("#saveChatForm").getByRole("button", { name: "Проверить карточку" }).click();
   await expect(page.locator("#saveChatReview")).toBeVisible();
+  const documentToken = await markDocument(page);
   await page.locator("#saveChatCommit").click();
   await page.waitForURL(/\/demo\/$/);
-  await expect(page.locator(".result-card")).toContainText("Сохранённый разговор");
+  await waitForNewDocument(page, documentToken);
+  await expect(page.locator(".result-card").filter({ hasText: "Сохранённый разговор" })).toHaveCount(1);
   const stored = await page.evaluate(key => JSON.parse(localStorage.getItem(key) || "null"), VAULT_KEY);
   const saved = stored.results.filter(item => item.title === "Сохранённый разговор");
   expect(saved).toHaveLength(1);
