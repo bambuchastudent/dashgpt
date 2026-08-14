@@ -4,7 +4,7 @@
 - [x] Rebase the F32 branch onto current `develop` and inspect Feature 8 Gallery, current import/tag enrichment, saved Dashes and active overlapping changes.
 - [x] Update Issue #46 with the latest Color → Tag → Time priority, 32-color palette and one-screen ~2,200-card requirement.
 - [x] Refresh proposal, design, spec delta and Impact Manifest before production edits.
-- [ ] Strictly validate `f32-semantic-gallery-overview-sorting` before production edits.
+- [ ] Strictly validate `f32-semantic-gallery-overview-sorting` before production edits. Validation requested again on the rebased spec-only head; GitHub-hosted runner failures with zero executed steps are infrastructure, not a validation result.
 
 ## Implementation
 - [ ] Make Color the default sort and control order `Color → Tag → Time` using isolated versioned presentation state.
