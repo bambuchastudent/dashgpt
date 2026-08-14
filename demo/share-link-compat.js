@@ -1,25 +1,15 @@
+import { canonicalizeChatGptSharedUrl } from "./chatgpt-share-url.js";
+
 function canonicalizeChatGptShareInput(raw) {
-  let url;
-  try {
-    url = new URL(raw);
-  } catch {
-    return raw;
-  }
-  if (url.protocol !== "https:" || !["chatgpt.com", "chat.openai.com"].includes(url.hostname)) return raw;
-  const match = url.pathname.match(/^\/s\/([^/]+)\/?$/);
-  if (!match) return raw;
-  url.hostname = "chatgpt.com";
-  url.pathname = `/share/${match[1]}`;
-  url.search = "";
-  url.hash = "";
-  return url.toString();
+  return canonicalizeChatGptSharedUrl(raw) || raw;
 }
 
-document.addEventListener("submit", event => {
-  if (event.target?.id !== "publicShareForm") return;
-  const input = document.querySelector("#publicShareUrl");
-  if (!input) return;
-  input.value = canonicalizeChatGptShareInput(input.value.trim());
-}, true);
+const publicShareForm = document.querySelector("#publicShareForm");
+const publicShareUrl = document.querySelector("#publicShareUrl");
+if (publicShareForm && publicShareUrl) {
+  publicShareForm.addEventListener("submit", () => {
+    publicShareUrl.value = canonicalizeChatGptShareInput(publicShareUrl.value);
+  }, true);
+}
 
 export { canonicalizeChatGptShareInput };
