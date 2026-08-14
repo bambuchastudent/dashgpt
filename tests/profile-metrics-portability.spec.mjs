@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./playwright-fixture.mjs";
 import { createVault, exportVaultBundle, importVaultBundle } from "../demo/vault.js";
 import { appendProjectMetricsRevision, currentProjectMetrics } from "../demo/profile-metrics.js";
 import { vaultFromObjects, vaultToObjects } from "../src/vault-layout.js";

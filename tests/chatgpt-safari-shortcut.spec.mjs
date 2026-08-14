@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./playwright-fixture.mjs";
 
 const IMPORT_ID = "dashgpt-chatgpt-history-import";
 
@@ -24,6 +24,8 @@ test("iPhone Safari uses Shortcut setup instead of a JavaScript bookmark", async
   const card = page.locator(`[data-result-id="${IMPORT_ID}"]`);
   await expect(card).toBeVisible();
   await card.locator(".open-button").click();
+  await expect(page.locator("#chatgptExportImportDialog")).toBeVisible();
+  await page.locator("#chatgptExportLiveButton").click();
 
   const dialog = page.locator("#chatgptImportLaunchDialog");
   await expect(dialog).toBeVisible();

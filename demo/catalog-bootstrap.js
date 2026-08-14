@@ -159,6 +159,10 @@ if (chatGptHistoryImport) {
   const repair = chatGptHistoryImport.seedDefaultChatGptImportCard(globalThis.localStorage);
   if (repair.seeded) {
     window.location.reload();
+    // Do not expose or interact with the transient pre-reload document. The
+    // replacement load will install post-app handlers against the repaired
+    // durable Vault.
+    await new Promise(() => {});
   } else {
     chatGptHistoryImport.initializeChatGptHistoryImport({ phase: "post-app" });
     const chatGptExportImport = await import("./chatgpt-export-import.js");
@@ -171,3 +175,8 @@ if (chatGptHistoryImport) {
 }
 
 if (feature20PersonalEntry) await import("./profile-metrics.js");
+
+// Browser regressions must exercise the settled application, not the
+// transient document used to repair a first-run Vault.
+await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+document.documentElement.dataset.dashgptReady = "true";

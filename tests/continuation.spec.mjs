@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./playwright-fixture.mjs";
 
 const RESULT_ID = "camping-fishing-el-regajo-fuente-munoz";
 const RESULT_PATH = `/demo/result/${RESULT_ID}/`;

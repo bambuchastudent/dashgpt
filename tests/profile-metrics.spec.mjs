@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./playwright-fixture.mjs";
 import { createVault, materializeResults } from "../demo/vault.js";
 import { CHATGPT_SEMANTIC_ENRICHMENT_VERSION } from "../demo/chatgpt-semantic-enrichment.js";
 import { applyChatGptUsageImportBatch } from "../demo/chatgpt-profile-metrics-import-store.js";

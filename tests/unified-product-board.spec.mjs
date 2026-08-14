@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./playwright-fixture.mjs";
 
 test("personal dashboard does not promote Product Board in global navigation", async ({ page }) => {
   await page.goto("/demo/");

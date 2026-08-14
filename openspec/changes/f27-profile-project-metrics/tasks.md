@@ -24,6 +24,6 @@
 ## Verification / release
 - [x] Run targeted F27 deterministic verification on the implementation head.
 - [x] Run current import verification including F25/F26 gates.
-- [ ] Run canonical `npm run verify:full` once on the final head when an executable browser runner is available; record external GitHub billing failure separately rather than calling it a code failure.
+- [x] Run canonical `npm run verify:full` on the final implementation head using the executable self-hosted browser environment.
 - [x] Restore production build config after removing the temporary verification hook.
 - [ ] Close old conflict-blocked PR #63 as superseded only after the clean replacement is ready/merged.

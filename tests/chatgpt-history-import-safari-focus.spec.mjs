@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./playwright-fixture.mjs";
 
 test("Safari fallback receiver yields focus back to its ChatGPT opener and stays alive", async ({ page }) => {
   await page.goto("/demo/?personal=1");

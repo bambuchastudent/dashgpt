@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./playwright-fixture.mjs";
 
 const VAULT_KEY = "dashgpt.demo.vault.v1";
 const NOW = "2026-08-11T08:00:00.000Z";
@@ -59,7 +59,7 @@ test("My Dash is one card surface and a search selection saves reference-only", 
   await expect(page.locator("#unifiedPrimarySearch")).toBeVisible();
   await expect(page.locator("#unifiedPrimarySearch #searchInput")).toBeVisible();
   await expect(page.locator(".semantic-dashes")).toBeHidden();
-  await expect(page.locator("#resultsGrid .result-card")).toHaveCount(4);
+  await expect(page.locator("#resultsGrid .result-card")).toHaveCount(5);
 
   await page.locator("#unifiedDashContext .my-dashes-trigger").click();
   await expect(page.locator("#unifiedDashContext .my-dash-item").first()).toContainText("My Dash");
@@ -78,7 +78,7 @@ test("My Dash is one card surface and a search selection saves reference-only", 
 
   const before = await page.evaluate(key => JSON.parse(localStorage.getItem(key)), VAULT_KEY);
   expect(before.dashRevisions).toHaveLength(1);
-  expect(before.results).toHaveLength(4);
+  expect(before.results).toHaveLength(5);
 
   await page.locator("#saveSelectionButton").click();
   await expect(page.locator("#saveSelectionDialog")).toBeVisible();
@@ -92,7 +92,7 @@ test("My Dash is one card surface and a search selection saves reference-only", 
   await expect(page.getByRole("link", { name: "Back to My Dash" }).first()).toBeVisible();
 
   const after = await page.evaluate(key => JSON.parse(localStorage.getItem(key)), VAULT_KEY);
-  expect(after.results).toHaveLength(4);
+  expect(after.results).toHaveLength(5);
   expect(after.dashRevisions).toHaveLength(2);
   const saved = after.dashRevisions.find(item => item.title === "Лосось");
   expect(saved.automaticResultIds).toEqual(["food-salmon"]);

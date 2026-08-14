@@ -408,8 +408,8 @@ async function syncNow({ allowMigration = false } = {}) {
       const migration = $("#googleDriveMigration");
       const text = $("#googleDriveMigrationText");
       if (text) text.textContent = migrationMessage(result);
-      if (migration) migration.hidden = false;
       render("This device and your Google account contain different DashGPT Vaults. Choose whether to merge them; nothing has been written yet.");
+      if (migration) migration.hidden = false;
       return;
     }
 

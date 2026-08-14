@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./playwright-fixture.mjs";
 
 const VAULT_KEY = "dashgpt.demo.vault.v1";
 const IMPORT_ID = "dashgpt-chatgpt-history-import";
@@ -16,6 +16,12 @@ async function dispatchSourceMessage(page, data, origin = "https://chatgpt.com")
       data: payload
     }));
   }, { payload: data, sourceOrigin: origin });
+}
+
+async function openLiveImport(page) {
+  await page.locator(`[data-result-id="${IMPORT_ID}"] .open-button`).click();
+  await expect(page.locator("#chatgptExportImportDialog")).toBeVisible();
+  await page.locator("#chatgptExportLiveButton").click();
 }
 
 async function emulateNavigator(page, { userAgent, platform = "", maxTouchPoints = 0 }) {
@@ -77,7 +83,7 @@ test("360px My Dash keeps the import setup usable without horizontal overflow", 
   const card = page.locator(`[data-result-id="${IMPORT_ID}"]`);
   await expect(card).toBeVisible();
   await expect(card.locator(".open-button")).toBeVisible();
-  await card.locator(".open-button").click();
+  await openLiveImport(page);
   await expect(page.locator("#chatgptImportLaunchDialog")).toBeVisible();
   await expect(page.locator("#chatgptImportCopyAction")).toBeVisible();
   await expect(page.locator("#chatgptImportOpenChatGpt")).toBeVisible();
@@ -101,7 +107,7 @@ test("Start import opens zero-DevTools setup, copies one reusable action, and tr
   await page.goto("/demo/?personal=1");
 
   const importCard = page.locator(`[data-result-id="${IMPORT_ID}"]`);
-  await importCard.locator(".open-button").click();
+  await openLiveImport(page);
 
   const dialog = page.locator("#chatgptImportLaunchDialog");
   await expect(dialog).toBeVisible();
@@ -139,7 +145,7 @@ test("iPhone Safari gets Shortcut instructions for DashGPT Import", async ({ pag
   });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/demo/?personal=1");
-  await page.locator(`[data-result-id="${IMPORT_ID}"] .open-button`).click();
+  await openLiveImport(page);
 
   const dialog = page.locator("#chatgptImportLaunchDialog");
   await expect(dialog).toHaveAttribute("data-launch-adapter", "safari-shortcut");
@@ -160,7 +166,7 @@ test("Android Chrome gets bookmark and address-bar instructions for the same Das
   });
   await page.setViewportSize({ width: 360, height: 800 });
   await page.goto("/demo/?personal=1");
-  await page.locator(`[data-result-id="${IMPORT_ID}"] .open-button`).click();
+  await openLiveImport(page);
 
   const dialog = page.locator("#chatgptImportLaunchDialog");
   await expect(dialog).toContainText(/Chrome/);
@@ -253,6 +259,8 @@ test("Pause from the progress card sends CONTROL_PAUSE to the active source and 
 
   await dispatchSourceMessage(page, envelope("HELLO", { sourceVersion: 1 }));
   await dispatchSourceMessage(page, envelope("DISCOVERED", { total: 12, archived: 0 }));
+  await expect.poll(async () => (await storedResults(page))
+    .find(result => result.id === IMPORT_ID)?.result?.discovered).toBe(12);
 
   const importCard = page.locator(`[data-result-id="${IMPORT_ID}"]`);
   await expect(importCard.locator(".open-button")).toContainText(/Pause|Пауза/);

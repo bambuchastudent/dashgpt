@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./playwright-fixture.mjs";
 import {
   CHATGPT_HISTORY_SOURCE_VERSION,
   buildChatGptHistorySourceRunner

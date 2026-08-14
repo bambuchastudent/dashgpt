@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./playwright-fixture.mjs";
 import { deflateRawSync } from "node:zlib";
 
 const VAULT_KEY = "dashgpt.demo.vault.v1";
