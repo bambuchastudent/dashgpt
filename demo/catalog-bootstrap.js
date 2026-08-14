@@ -124,6 +124,7 @@ const galleryOverviewSorting = await import("./gallery-overview-sorting.js");
 galleryOverviewSorting.initializeGalleryOverviewSorting();
 await import("./google-drive-sync.js");
 await import("./google-account-entry.js");
+await import("./device-reset.js");
 await import("./share-link-compat.js");
 await import("./public-onboarding.js");
 await import("./anonymous-share-onboarding.js");
