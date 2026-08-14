@@ -4,7 +4,7 @@
 
 - [x] Inspect current public header copy, branding metadata, current product model and overlapping branding OpenSpec history.
 - [x] Create a dedicated proposal, design and spec delta for the one-sentence product explanation.
-- [ ] Strictly validate `f40-one-sentence-product-explanation` before production-code edits.
+- [x] Strictly validate `f40-one-sentence-product-explanation` before production-code edits.
 
 ## 2. Product copy
 
