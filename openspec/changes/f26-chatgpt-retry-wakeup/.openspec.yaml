@@ -1,0 +1,3 @@
+schema: spec-driven
+created: 2026-08-14
+goal: Make deferred ChatGPT history retries self-waking under Safari background throttling and make shared 429 cooldowns honor the computed detail retry delay, while preserving durable resumability and duplicate-free imports.
