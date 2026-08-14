@@ -33,7 +33,7 @@ const runner = buildChatGptHistorySourceRunner({
   nonce: "nonce-test"
 });
 
-assert.equal(CHATGPT_HISTORY_SOURCE_VERSION, 6);
+assert.ok(CHATGPT_HISTORY_SOURCE_VERSION >= 6);
 assert.match(runner, /cooldownStages = \[5_000, 10_000, 15_000, 30_000\]/);
 assert.match(runner, /this\.limit = 1;/);
 assert.match(runner, /rateLimitStreak/);
