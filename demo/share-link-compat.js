@@ -4,12 +4,11 @@ function canonicalizeChatGptShareInput(raw) {
   return canonicalizeChatGptSharedUrl(raw) || raw;
 }
 
-const publicShareForm = document.querySelector("#publicShareForm");
-const publicShareUrl = document.querySelector("#publicShareUrl");
-if (publicShareForm && publicShareUrl) {
-  publicShareForm.addEventListener("submit", () => {
-    publicShareUrl.value = canonicalizeChatGptShareInput(publicShareUrl.value);
-  }, true);
-}
+document.addEventListener("submit", event => {
+  if (event.target?.id !== "publicShareForm") return;
+  const input = document.querySelector("#publicShareUrl");
+  if (!input) return;
+  input.value = canonicalizeChatGptShareInput(input.value.trim());
+}, true);
 
 export { canonicalizeChatGptShareInput };
