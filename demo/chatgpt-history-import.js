@@ -58,7 +58,9 @@ function list(value, maxItems, maxLength) {
 }
 
 function importLocale() {
-  return String(document.documentElement?.lang || navigator.language || "en").toLocaleLowerCase().startsWith("ru") ? "ru" : "en";
+  const documentLanguage = globalThis.document?.documentElement?.lang;
+  const navigatorLanguage = globalThis.navigator?.language;
+  return String(documentLanguage || navigatorLanguage || "en").toLocaleLowerCase().startsWith("ru") ? "ru" : "en";
 }
 
 const COPY = {

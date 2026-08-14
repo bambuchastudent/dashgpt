@@ -4,9 +4,6 @@
   "main": "./src/worker.js",
   "compatibility_date": "2026-08-09",
   "preview_urls": true,
-  "build": {
-    "command": "npx playwright test tests/profile-metrics-source-version.spec.mjs tests/profile-metrics-backfill.spec.mjs tests/profile-metrics-portability.spec.mjs --workers=1"
-  },
   "vars": {
     "GITHUB_APP_ID": "4544269",
     "GITHUB_APP_SLUG": "dashgpt-storage"
