@@ -21,19 +21,44 @@ export function canonicalSharedChatUrl(input) {
     throw new Error("Invalid URL.");
   }
 
-  if (url.protocol !== "https:" || !ALLOWED_SHARE_HOSTS.has(url.hostname)) {
+  if (
+    url.protocol !== "https:"
+    || !ALLOWED_SHARE_HOSTS.has(url.hostname)
+    || url.username
+    || url.password
+  ) {
     throw new Error("Only public ChatGPT share URLs are allowed.");
   }
 
   const segments = url.pathname.split("/").filter(Boolean);
-  const shareId = segments[0] === "share" && segments[1] === "e"
-    ? segments[2]
-    : segments[0] === "share"
-      ? segments[1]
-      : null;
 
-  if (!shareId) throw new Error("Expected a public https://chatgpt.com/share/... URL.");
-  return new URL(`/share/${shareId}`, "https://chatgpt.com");
+  if (segments.length === 2 && segments[0] === "s" && segments[1]) {
+    return new URL(`/share/${segments[1]}`, "https://chatgpt.com");
+  }
+
+  if (segments.length === 2 && segments[0] === "share" && segments[1]) {
+    return new URL(`/share/${segments[1]}`, "https://chatgpt.com");
+  }
+
+  if (segments.length === 3 && segments[0] === "share" && segments[1] === "e" && segments[2]) {
+    return new URL(`/share/${segments[2]}`, "https://chatgpt.com");
+  }
+
+  if (
+    segments.length === 5
+    && segments[0] === "g"
+    && segments[1]
+    && segments[2] === "shared"
+    && segments[3] === "c"
+    && segments[4]
+  ) {
+    const canonical = new URL(`/g/${segments[1]}/shared/c/${segments[4]}`, "https://chatgpt.com");
+    const ownerUserId = url.searchParams.get("owner_user_id");
+    if (ownerUserId) canonical.searchParams.set("owner_user_id", ownerUserId);
+    return canonical;
+  }
+
+  throw new Error("Expected a supported public ChatGPT share URL.");
 }
 
 function shareIdFromUrl(sourceUrl) {
