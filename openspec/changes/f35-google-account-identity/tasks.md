@@ -25,6 +25,6 @@
 ## Verification / release
 - [x] Run targeted syntax/deterministic verification through the canonical fast gate.
 - [x] Run `npm run verify:fast`: temporary Cloudflare `postinstall` on commit `7509710592ba8d38efe88f75a4ff715bdb00afd5` completed successfully, then the hook was removed.
-- [ ] Run canonical `npm run verify:full` when runnable infrastructure is available. GitHub Actions continues to start zero steps because of the account billing/spending-limit blocker, so no browser-pass claim is made.
-- [ ] Verify final clean Cloudflare branch preview after the verification hook is removed.
-- [x] Keep PR separate from F34 and profile metrics; merge only within verified/explicitly accepted risk.
+- [ ] Run canonical `npm run verify:full` when runnable infrastructure is available. GitHub Actions starts zero steps because of the account billing/spending-limit blocker; this is infrastructure, not a reported F35 test failure.
+- [x] Verify Cloudflare branch preview for the exact F35 runtime: commit `7509710592ba8d38efe88f75a4ff715bdb00afd5` deployed successfully at `https://ecdada10-dashgpt.dimkashir.workers.dev` and the stable branch preview `https://feature-f35-google-account-identity-dashgpt.dimkashir.workers.dev`. The only commits after that verified runtime remove the temporary `postinstall` hook and update this checklist; compare `75097105..1195211d` changes only `package.json` (one hook line removed) and `tasks.md`, with no runtime-file changes.
+- [x] Keep PR separate from F34 and profile metrics. User explicitly requested delivery to `develop`; merge proceeds with strict spec + fast gate + deployed runtime evidence while the repository-wide browser runner remains externally blocked.
