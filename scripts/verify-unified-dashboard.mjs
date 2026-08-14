@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { createVault, putDashRevision } from "../demo/vault.js";
 import {
   createSelectionDash,
@@ -56,5 +57,17 @@ assert.equal(findEquivalentSavedDash(vault, results, ["travel-1"]), null);
 const before = JSON.stringify(results);
 createSelectionDash({ title: "Поездки", query: "camping", resultIds: ["travel-1"], now });
 assert.equal(JSON.stringify(results), before, "saving a Dash definition must not mutate/copy source cards");
+
+const dashboardHtml = readFileSync(new URL("../demo/index.html", import.meta.url), "utf8");
+assert.doesNotMatch(
+  dashboardHtml,
+  /<header class="topbar">[\s\S]*?href="\/demo\/dash\/dashgpt-product\/"[\s\S]*?<\/header>/i,
+  "personal dashboard header must not expose DashGPT Product Board"
+);
+assert.doesNotMatch(
+  dashboardHtml,
+  /<header class="topbar">[\s\S]*?>\s*PRODUCT BOARD\s*<\/a>[\s\S]*?<\/header>/i,
+  "Product Board must remain project tooling rather than global user navigation"
+);
 
 console.log("Unified Card Dashboard contracts verified.");

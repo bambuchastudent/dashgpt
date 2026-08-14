@@ -177,7 +177,7 @@ assert.equal(isProductBoardPath("/demo/dash/other/"), false);
 assert.ok(!dashSource.includes("/demo/data/dash.json"), "product board UI must not read the manual status snapshot");
 assert.ok(dashSource.includes("/demo/data/dashes.json"));
 assert.ok(dashSource.includes("/demo/data/results.json"));
-assert.ok(indexSource.includes(`href=\"${PRODUCT_BOARD_PATH}\"`), "normal demo must expose the stable board link");
+assert.ok(!indexSource.includes(`href=\"${PRODUCT_BOARD_PATH}\"`), "normal demo must not promote the internal Product Board route");
 assert.ok(indexSource.includes("/demo/catalog-bootstrap.js"), "dashboard must load the unified public Result catalog");
 
 const fakePayloads = new Map([
