@@ -33,17 +33,17 @@ function ensureProviderUi() {
   section.innerHTML = `
     <span class="provider-dot" aria-hidden="true"></span>
     <div class="provider-content">
-      <strong id="google-drive-storage-title">Google Drive sync</strong>
-      <p id="googleDriveStatus">Checking Google Drive sync…</p>
+      <strong id="google-drive-storage-title">Google account</strong>
+      <p id="googleDriveStatus">Checking Google account…</p>
       <div class="dialog-actions compact-actions google-drive-actions">
-        <button id="connectGoogleDriveButton" class="button primary" type="button">Connect Google Drive</button>
+        <button id="connectGoogleDriveButton" class="button primary" type="button">Continue with Google</button>
         <button id="syncGoogleDriveButton" class="button primary" type="button" hidden>Sync now</button>
-        <button id="disconnectGoogleDriveButton" class="button ghost" type="button" hidden>Disconnect</button>
+        <button id="disconnectGoogleDriveButton" class="button ghost" type="button" hidden>Disconnect Google</button>
       </div>
       <div id="googleDriveMigration" class="google-drive-migration" hidden>
         <p id="googleDriveMigrationText"></p>
         <div class="dialog-actions compact-actions">
-          <button id="mergeGoogleDriveButton" class="button primary" type="button">Merge this device into Google Drive</button>
+          <button id="mergeGoogleDriveButton" class="button primary" type="button">Merge this device into my Google Vault</button>
           <button id="cancelGoogleDriveMergeButton" class="button ghost" type="button">Keep separate</button>
         </div>
       </div>
@@ -57,7 +57,7 @@ function ensureProviderUi() {
   $("#cancelGoogleDriveMergeButton")?.addEventListener("click", () => {
     pendingMigration = null;
     $("#googleDriveMigration").hidden = true;
-    render("Local and Google Drive Vaults remain separate. Nothing was changed.");
+    render("Your local memory and Google Vault stay separate. Nothing was changed.");
   });
 }
 
@@ -106,7 +106,7 @@ function applyProviderExclusivity() {
   if (githubConnect) {
     if (googleBinding) {
       githubConnect.disabled = true;
-      githubConnect.title = "Disconnect Google Drive before switching remote storage provider.";
+      githubConnect.title = "Disconnect Google before switching remote storage provider.";
     } else if (!githubPaired) {
       githubConnect.removeAttribute("title");
     }
@@ -126,10 +126,9 @@ function render(message = "") {
   applyProviderExclusivity();
 
   if (!config?.configured) {
-    status.textContent = message || "Google Drive sync is not configured on this deployment yet. Local Vault stays available.";
-    connect.hidden = false;
+    status.textContent = message || "Google sign-in is not available on this deployment yet. DashGPT keeps working locally on this device.";
+    connect.hidden = true;
     connect.disabled = true;
-    connect.textContent = "Connect Google Drive";
     sync.hidden = true;
     disconnect.hidden = true;
     migration.hidden = true;
@@ -137,10 +136,10 @@ function render(message = "") {
   }
 
   if (githubPaired && !googleBinding) {
-    status.textContent = message || "GitHub sync is active. Disconnect GitHub before switching this browser Vault to Google Drive.";
+    status.textContent = message || "GitHub sync is active. Disconnect GitHub before using Google-backed DashGPT memory on this browser.";
     connect.hidden = false;
     connect.disabled = true;
-    connect.textContent = "Connect Google Drive";
+    connect.textContent = "Continue with Google";
     sync.hidden = true;
     disconnect.hidden = true;
     migration.hidden = true;
@@ -159,7 +158,7 @@ function render(message = "") {
 
   if ((!googleBinding || !tokenValid()) && !googleSignInReady()) {
     status.textContent = message || (gisLoadError
-      ? "Google sign-in could not be prepared. Retry loading it; your local Vault is unchanged."
+      ? "Google sign-in could not be prepared. Retry loading it; your local memory is unchanged."
       : "Preparing Google sign-in…");
     connect.hidden = false;
     connect.disabled = !gisLoadError;
@@ -172,10 +171,10 @@ function render(message = "") {
   }
 
   if (!googleBinding) {
-    status.textContent = message || "Connect Google Drive to carry this Vault to your other devices. Local data stays here until you connect.";
+    status.textContent = message || "Continue with Google to keep this DashGPT memory in your Google Drive and open the same cards on your other devices.";
     connect.hidden = false;
     connect.disabled = false;
-    connect.textContent = "Connect Google Drive";
+    connect.textContent = "Continue with Google";
     sync.hidden = true;
     disconnect.hidden = true;
     migration.hidden = true;
@@ -184,7 +183,7 @@ function render(message = "") {
 
   disconnect.hidden = false;
   if (syncing) {
-    status.textContent = message || "Syncing the local Vault with Google Drive…";
+    status.textContent = message || "Syncing this device with your Google-backed DashGPT memory…";
     connect.hidden = true;
     sync.hidden = false;
     sync.disabled = true;
@@ -194,16 +193,16 @@ function render(message = "") {
 
   if (!tokenValid()) {
     tokenState = null;
-    status.textContent = message || "Google Drive is linked to this Vault. Reconnect when you want to sync again; the cards already on this device stay available offline.";
+    status.textContent = message || "Your Google Vault is linked to this browser. Reconnect Google when you want to sync again; cards already on this device remain available offline.";
     connect.hidden = false;
     connect.disabled = false;
-    connect.textContent = "Reconnect Google Drive";
+    connect.textContent = "Reconnect Google";
     sync.hidden = true;
     setStorageBadge("LOCAL + GOOGLE DRIVE · RECONNECT", "unsynced");
     return;
   }
 
-  status.textContent = message || "Local Vault and Google Drive are connected for this browser session.";
+  status.textContent = message || "This browser is using your Google-backed DashGPT Vault. Local cards stay available offline and sync to the same Vault.";
   connect.hidden = true;
   sync.hidden = false;
   sync.disabled = false;
@@ -292,7 +291,7 @@ function connectGoogleDrive() {
     gisLoadError = null;
     render("Preparing Google sign-in…");
     loadGisScript()
-      .then(() => render("Google sign-in is ready. Press Connect Google Drive again."))
+      .then(() => render("Google sign-in is ready. Press Continue with Google again."))
       .catch(() => render("Google sign-in could not be prepared. Press Retry Google sign-in to try loading it again."));
     return;
   }
@@ -314,7 +313,7 @@ function connectGoogleDrive() {
       await refreshGithubStatus();
       if (githubPaired && !binding()) {
         tokenState = null;
-        render("GitHub sync became active before Google Drive could sync. Disconnect GitHub, then connect Google Drive again.");
+        render("GitHub sync became active before Google could bootstrap your Vault. Disconnect GitHub, then continue with Google again.");
         return;
       }
       await syncNow({ allowMigration: false });
@@ -325,13 +324,13 @@ function connectGoogleDrive() {
 function migrationMessage(result) {
   const local = result.local || {};
   const remote = result.remote || {};
-  return `This device has ${local.cards || 0} local cards in Vault ${local.vaultId || "unknown"}, while Google Drive has ${remote.cards || 0} cards in Vault ${remote.vaultId || "unknown"}. Merge this device into the Google Drive Vault? Neither side changes until you confirm.`;
+  return `This device has ${local.cards || 0} local cards in Vault ${local.vaultId || "unknown"}, while your Google account has ${remote.cards || 0} cards in Vault ${remote.vaultId || "unknown"}. Merge this device into your Google Vault? Neither side changes until you confirm.`;
 }
 
 async function syncNow({ allowMigration = false } = {}) {
-  if (!tokenValid()) return render("Reconnect Google Drive before syncing. Local changes are safe.");
+  if (!tokenValid()) return render("Reconnect Google before syncing. Local changes are safe.");
   await refreshGithubStatus();
-  if (githubPaired) return render("GitHub sync is active. Disconnect GitHub before using Google Drive sync on this browser.");
+  if (githubPaired) return render("GitHub sync is active. Disconnect GitHub before using Google-backed DashGPT memory on this browser.");
   if (syncing) return;
   syncing = true;
   render();
@@ -349,7 +348,7 @@ async function syncNow({ allowMigration = false } = {}) {
       const text = $("#googleDriveMigrationText");
       if (text) text.textContent = migrationMessage(result);
       if (migration) migration.hidden = false;
-      render("This device and Google Drive contain different Vaults. Choose whether to merge them; nothing has been written yet.");
+      render("This device and your Google account contain different DashGPT Vaults. Choose whether to merge them; nothing has been written yet.");
       return;
     }
 
@@ -359,11 +358,11 @@ async function syncNow({ allowMigration = false } = {}) {
     saveGoogleDriveBinding(globalThis.localStorage, result.binding);
     const localChanged = localBefore !== JSON.stringify(result.vault);
     const copy = {
-      created: "Google Drive Vault created and synced.",
-      adopted: "Google Drive Vault loaded on this device.",
-      migrated: "This device was merged into the Google Drive Vault.",
-      sync: result.remoteChanged ? "Local and Google Drive Vaults merged and synced." : "Local and Google Drive Vaults are already in sync."
-    }[result.action] || "Google Drive sync complete.";
+      created: "Your Google Vault was created from this device and is synced.",
+      adopted: "Your existing Google Vault was loaded on this device.",
+      migrated: "This device was merged into your Google Vault.",
+      sync: result.remoteChanged ? "Local and Google Vault memory merged and synced." : "This device and your Google Vault are already in sync."
+    }[result.action] || "Google Vault sync complete.";
     setStorageBadge("LOCAL + GOOGLE DRIVE · SYNCED", "synced");
     render(copy);
     if (localChanged) setTimeout(() => window.location.reload(), 120);
@@ -385,9 +384,9 @@ function renderHumanError(error) {
   }
   if (code === "google_drive_rate_limited") return render("Google Drive is busy right now. Local changes are safe; try Sync now again later.");
   if (code === "google_drive_unavailable") return render("Google Drive is temporarily unavailable. Local changes are safe and remain unsynced.");
-  if (code === "google_drive_invalid_vault") return render("The Drive file is not a valid DashGPT Vault. Local data was not changed.");
+  if (code === "google_drive_invalid_vault") return render("The Google Vault file is not valid DashGPT Vault data. Local data was not changed.");
   if (code === "google_authorization_not_completed") return render("Google authorization was not completed. Nothing was changed.");
-  render("Google Drive sync could not complete. Local data remains available on this device; retry before assuming the remote copy is current.");
+  render("Google Vault sync could not complete. Local data remains available on this device; retry before assuming the remote copy is current.");
 }
 
 function disconnectGoogleDrive() {
@@ -403,7 +402,7 @@ function disconnectGoogleDrive() {
     githubConnect.removeAttribute("title");
   }
   setStorageBadge("LOCAL · NOT SYNCED", "unpaired");
-  render("Google Drive disconnected from this browser. Local and Drive data were left intact.");
+  render("Google was disconnected from this browser. Your local memory and Google Vault were both left intact.");
 }
 
 function scheduleSync() {
