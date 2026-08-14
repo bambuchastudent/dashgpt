@@ -61,7 +61,10 @@ export async function ensureGithubDisconnected(fetchFn = globalThis.fetch?.bind(
   }
   if (!statusResponse?.ok) throw resetError("github_reset_status_unavailable", "GitHub storage status is unavailable.");
   const status = await readJsonResponse(statusResponse);
-  if (!status?.paired) return { paired: false, disconnected: false };
+  if (typeof status?.paired !== "boolean") {
+    throw resetError("github_reset_status_unavailable", "GitHub storage status is unavailable.");
+  }
+  if (!status.paired) return { paired: false, disconnected: false };
 
   let disconnectResponse;
   try {
@@ -115,6 +118,7 @@ export async function performDeviceReset(options = {}) {
   await ensureGithubDisconnected(fetchFn);
 
   let restoreWriteBarrier;
+  let cleanupCompleted = false;
   try {
     restoreWriteBarrier = installWriteBarrier();
     if (typeof restoreWriteBarrier !== "function") {
@@ -123,10 +127,11 @@ export async function performDeviceReset(options = {}) {
     dispatchReset();
     const removedLocal = clearDashGptStorage(local);
     const removedSession = clearDashGptStorage(session);
+    cleanupCompleted = true;
     navigate("/demo/");
     return { removedLocal, removedSession };
   } catch (error) {
-    restoreWriteBarrier?.();
+    if (!cleanupCompleted) restoreWriteBarrier?.();
     throw error;
   }
 }
@@ -243,6 +248,9 @@ export function initializeDeviceReset() {
     dialog.showModal();
   });
   cancelButton?.addEventListener("click", () => dialog.close());
+  dialog.addEventListener("cancel", event => {
+    if (confirmButton?.disabled) event.preventDefault();
+  });
   confirmButton?.addEventListener("click", async () => {
     if (confirmButton.disabled) return;
     confirmButton.disabled = true;
