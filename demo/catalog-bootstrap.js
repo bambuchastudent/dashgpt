@@ -95,6 +95,8 @@ if (!document.querySelector('link[data-dashgpt-unified-dashboard]')) {
 const feature20PersonalEntry = chatGptHistoryImportAllowed();
 let chatGptHistoryImport = null;
 if (feature20PersonalEntry) {
+  const chatGptSemanticImport = await import("./chatgpt-semantic-import-bridge.js");
+  chatGptSemanticImport.installChatGptSemanticImportBridge();
   const chatGptBatchFastPath = await import("./chatgpt-history-import-batch.js");
   chatGptBatchFastPath.installChatGptImportBatchFastPath();
   chatGptHistoryImport = await import("./chatgpt-history-import.js");
