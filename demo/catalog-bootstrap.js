@@ -119,6 +119,8 @@ if (chatGptHistoryImport) {
   chatGptHistoryImport.initializeChatGptHistoryImport({ phase: "post-app" });
   const chatGptExportImport = await import("./chatgpt-export-import.js");
   chatGptExportImport.initializeChatGptExportImport();
+  const chatGptImportGuide = await import("./chatgpt-import-guide.js");
+  chatGptImportGuide.initializeChatGptImportGuide();
   const importOnboardingConnector = await import("./import-onboarding-connector.js");
   importOnboardingConnector.initializeImportOnboardingConnector();
 }
