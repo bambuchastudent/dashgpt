@@ -4,7 +4,7 @@
 
 - [x] Inspect current F29 official export importer, F20/F23 live import surfaces, populated-Vault discoverability, Storage labels, remote-provider sync, F28 semantic enrichment, and mobile layout.
 - [x] Create dedicated F33 OpenSpec proposal, design, spec delta, tasks, and Impact Manifest before production edits.
-- [ ] Run strict OpenSpec validation for `f33-guided-chatgpt-import` and record the result before production-code edits.
+- [x] Run strict OpenSpec validation for `f33-guided-chatgpt-import` before production-code edits. GitHub Actions could not start any steps because of the repository billing/spending-limit blocker, so the exact strict command was run through a temporary validation-only Cloudflare `postinstall`; Cloudflare successfully built commit `bcea9dca52ca833a144df2e8b09a7d32c711a004`, and the validation-only hook was removed immediately afterward.
 
 ## Implementation
 
