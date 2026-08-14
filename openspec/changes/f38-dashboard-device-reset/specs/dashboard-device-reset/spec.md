@@ -32,18 +32,18 @@ Reset SHALL be a local-device operation, not a remote-memory deletion operation.
 
 #### Scenario: Google Drive is bound before reset
 - **WHEN** the user resets this device
-- **THEN** the browser's Google binding and transient authorization/session state SHALL be removed
-- **AND** pending Google synchronization SHALL be stopped before local cleanup
+- **THEN** the browser's Google binding SHALL be removed with other DashGPT-owned local state
+- **AND** late or in-flight browser synchronization SHALL NOT be able to restore DashGPT local state before navigation completes
 - **AND** DashGPT SHALL NOT delete the remote Google Drive Vault file
 
 #### Scenario: GitHub storage is paired before reset
 - **WHEN** the user resets this device
 - **THEN** DashGPT SHALL disconnect the existing GitHub pairing before local storage is removed
-- **AND** pending GitHub synchronization SHALL be stopped before local cleanup
+- **AND** late or in-flight browser synchronization SHALL NOT be able to restore DashGPT local state before navigation completes
 - **AND** DashGPT SHALL NOT delete Vault content from the paired GitHub repository
 
 ### Requirement: Reset SHALL prevent automatic remote rehydration
-DashGPT SHALL establish a safe disconnected device state before deleting local memory so that reset cannot immediately refill the browser from an active provider.
+DashGPT SHALL establish a safe disconnected device state before deleting local memory so that reset cannot immediately refill the browser from an active or in-flight provider operation.
 
 #### Scenario: GitHub disconnect fails
 - **WHEN** an active GitHub pairing cannot be disconnected
@@ -51,10 +51,12 @@ DashGPT SHALL establish a safe disconnected device state before deleting local m
 - **AND** SHALL show a human-readable retryable error
 - **AND** SHALL NOT claim that reset completed
 
-#### Scenario: Provider controllers have pending sync work
-- **WHEN** reset is ready to remove local state
-- **THEN** the in-page provider controllers SHALL cancel pending sync timers and transient provider session state
-- **AND** local cleanup SHALL happen only after that reset lifecycle has begun
+#### Scenario: In-flight code attempts to write old DashGPT state
+- **WHEN** reset has passed remote-disconnect checks and is ready to clear browser state
+- **THEN** DashGPT SHALL install a temporary write barrier for keys beginning with `dashgpt.` before local deletion
+- **AND** the barrier SHALL allow unrelated origin storage writes to continue
+- **AND** the barrier SHALL remain effective until immediate navigation tears down the current page
+- **AND** if the barrier cannot be installed, reset SHALL abort before deleting local state
 
 ### Requirement: Confirmation SHALL explain the recovery boundary
 The destructive confirmation SHALL distinguish device cleanup from remote deletion.
