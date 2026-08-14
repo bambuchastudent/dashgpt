@@ -4,9 +4,6 @@
   "main": "./src/worker.js",
   "compatibility_date": "2026-08-09",
   "preview_urls": true,
-  "build": {
-    "command": "node scripts/verify-demo-branding.mjs && node scripts/smoke.mjs && echo f21-verification-ok"
-  },
   "vars": {
     "GITHUB_APP_ID": "4544269",
     "GITHUB_APP_SLUG": "dashgpt-storage"
