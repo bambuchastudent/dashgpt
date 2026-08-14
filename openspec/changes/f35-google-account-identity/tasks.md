@@ -3,7 +3,7 @@
 ## Spec / design gate
 - [x] Inspect F34 Google authorization, Drive adapter, account-entry UI and overlap with open profile-metrics PR.
 - [x] Create dedicated issue and OpenSpec proposal/design/spec/tasks/impact manifest before production edits.
-- [ ] Strictly validate `f35-google-account-identity` before production edits and record evidence.
+- [x] Strictly validate `f35-google-account-identity` before production edits. The exact strict validator command ran as a temporary Cloudflare `postinstall` on commit `c1ba2262b14f901b4304c4206f9b340b7f7b0fb1`; the deployment succeeded, proving the command exited successfully. The temporary hook was removed before production implementation.
 
 ## Implementation
 - [ ] Add a focused Drive `about.get` helper using the existing `drive.file` token.
