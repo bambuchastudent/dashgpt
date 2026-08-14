@@ -111,16 +111,22 @@ if (!document.querySelector('link[data-dashgpt-profile-metrics]')) {
 
 const chatGptImportReceiverEntry = new URLSearchParams(window.location.search).get("chatgptImportReceiver") === "1";
 const feature20PersonalEntry = chatGptHistoryImportAllowed();
+const chatGptProfileMetricsImportPromise = feature20PersonalEntry
+  ? import("./chatgpt-profile-metrics-import-bridge.js")
+  : null;
 let chatGptHistoryImport = null;
 if (feature20PersonalEntry) {
-  const chatGptProfileMetricsImport = await import("./chatgpt-profile-metrics-import-bridge.js");
-  chatGptProfileMetricsImport.installChatGptProfileMetricsImportBridge();
   const chatGptSemanticImport = await import("./chatgpt-semantic-import-bridge.js");
   chatGptSemanticImport.installChatGptSemanticImportBridge();
   const chatGptBatchFastPath = await import("./chatgpt-history-import-batch.js");
   chatGptBatchFastPath.installChatGptImportBatchFastPath();
   chatGptHistoryImport = await import("./chatgpt-history-import.js");
   chatGptHistoryImport.initializeChatGptHistoryImport({ phase: "pre-app" });
+
+  // Start loading usage support with the other receiver modules, but do not
+  // delay the existing dashboard/import handlers. A usage-aware source keeps
+  // retrying HELLO until this capture-phase bridge is installed.
+  chatGptProfileMetricsImportPromise.then(module => module.installChatGptProfileMetricsImportBridge());
 
   // Safari may sever the original DashGPT -> ChatGPT opener and require the
   // source runner to open a replacement DashGPT receiver. Keep that receiver
@@ -143,7 +149,6 @@ await import("./unified-onboarding.js");
 await import("./unified-search.js");
 await import("./unified-dashboard-routing.js");
 await import("./unified-product-board.js");
-if (feature20PersonalEntry) await import("./profile-metrics.js");
 
 if (chatGptHistoryImport) {
   // Treat the operational import card as a bootstrap invariant. The pre-app
@@ -164,3 +169,5 @@ if (chatGptHistoryImport) {
     importOnboardingConnector.initializeImportOnboardingConnector();
   }
 }
+
+if (feature20PersonalEntry) await import("./profile-metrics.js");

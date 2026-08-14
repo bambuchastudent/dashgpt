@@ -44,9 +44,9 @@ test("generated ChatGPT runner separates conversation 429 deferral from service-
   });
 
   expect(runner).toContain('type: "SOURCE_STATE"');
-  expect(runner).toContain('state: "rate_limited"');
-  expect(runner).toContain('state: "running"');
-  expect(runner).toContain("scheduler.rateLimited()");
+  expect(runner).toContain('publishReceiverState("rate_limited"');
+  expect(runner).toContain('publishReceiverState("running"');
+  expect(runner).toContain("scheduler.rateLimited(delay)");
   expect(runner).toContain("scheduler.serviceThrottled(delay)");
   expect(runner).toContain("ChatGptDetailDeferredError");
   expect(runner).toContain("nextRetryAt");
@@ -147,7 +147,7 @@ test("one conversation 429 does not block later ready conversation details", asy
             data: { ...base, ...payload }
           }));
         }, 0);
-        if (message?.type === "HELLO") reply({ type: "READY", known: [] });
+        if (message?.type === "HELLO") reply({ type: "READY", usageAware: true, semanticEnrichmentVersion: 1, known: [] });
         if (message?.type === "BATCH") reply({
           type: "ACK",
           sequence: message.sequence,

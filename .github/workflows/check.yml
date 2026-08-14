@@ -11,13 +11,17 @@ permissions:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    if: >-
+      github.actor == github.repository_owner &&
+      (github.event_name == 'push' ||
+      github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: [self-hosted, macOS, ARM64, dashgpt]
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
           node-version: 22
       - run: npm install --ignore-scripts
-      - run: npm run check
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:browser
+      - run: npx playwright install chromium
+      - run: npm run verify:full

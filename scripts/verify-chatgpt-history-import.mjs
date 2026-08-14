@@ -260,8 +260,8 @@ assert.throws(() => chatGptImportedResultId("https://evil.invalid/x"));
   assert.ok(observedHistoryEstimate < 5_100_000, `Observed 2,123-chat worst-case estimate is ${observedHistoryEstimate} bytes; projection needs tightening`);
 }
 
-// The final shared runner keeps F24 task-local deferral while F25 adds a
-// bounded provider-pressure circuit breaker around new detail acquisitions.
+// The final shared runner keeps F24 task-local deferral, the F25 bounded
+// provider-pressure circuit breaker, and F26 wakeable deferred retries.
 {
   const runner = buildChatGptHistorySourceRunner({
     receiverOrigin: "https://dashgpt.example",
