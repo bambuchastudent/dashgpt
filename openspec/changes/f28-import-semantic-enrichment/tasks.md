@@ -1,0 +1,21 @@
+# Tasks
+
+- [x] Inspect current `develop` import projection, receiver paths, Vault identity rules, Search, Semantic Gallery and Semantic Dashes.
+- [x] Inspect current overlap after `develop` advanced: merged F25/#72, merged F29 export import, draft F27/#63.
+- [x] Inspect DashGPT direct-capture skill and confirm public app publication remains a separate external gate.
+- [x] Choose deterministic local semantic enrichment; no mandatory external LLM/API key.
+- [x] Define bounded projection-version/backfill semantics preserving canonical source identity.
+- [x] Update F28 OpenSpec for current `develop`, including official ZIP/JSON import and F25 composition.
+- [ ] Strictly validate the rebased `f28-import-semantic-enrichment` change before production edits.
+- [ ] Add shared local semantic classifier with useful canonical topic tags and generic/provider filtering.
+- [ ] Compose semantic projection with merged F25 source runner and advance the semantic-aware source revision.
+- [ ] Add semantic-aware receiver ownership/freshness/same-timestamp backfill without duplicate legacy fast-path processing.
+- [ ] Make official ZIP/JSON import use the same semantic projection/store contract.
+- [ ] Tighten direct DashGPT skill to require 2–5 meaning-oriented tags and no summarize-skill dependency.
+- [ ] Add deterministic RU/EN/mixed classifier and semantic hue/signature coverage.
+- [ ] Add same-timestamp backfill, identity preservation, idempotent rerun and live/export parity coverage.
+- [ ] Wire F28 checks into current `check` and `verify:fast` without dropping F25/F29 checks.
+- [ ] Run F28 targeted verification and existing F25/F29 import verification.
+- [ ] Run `npm run verify:full` once before merge while applicable and record infrastructure/runtime blockers truthfully.
+- [ ] Verify production-shaped preview; metadata uses the existing card/tag/color renderer so no new layout is introduced.
+- [ ] Update PR body/tasks with final verification and compatibility state, then merge to `develop` only if clean.
