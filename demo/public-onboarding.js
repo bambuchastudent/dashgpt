@@ -5,6 +5,7 @@ import {
   recordResultActivity,
   saveBrowserVault
 } from "./vault.js";
+import { normalizeRichCardText, projectSharedReply } from "./card-content.js";
 
 const params = new URLSearchParams(window.location.search);
 const isPersonalRoot = /^\/demo\/?$/.test(window.location.pathname) && params.get("showcase") !== "1";
@@ -108,7 +109,7 @@ if (isPersonalRoot) {
     }
 
     const title = cleanText(parsed.title, 120);
-    const summary = cleanText(parsed.summary, 5000);
+    const summary = normalizeRichCardText(parsed.summary, { maxLength: 5000 });
     if (!title || !summary) {
       throw new Error("В ответе не хватает названия или итога. Попроси ChatGPT выполнить DashGPT-команду ещё раз.");
     }
@@ -123,7 +124,7 @@ if (isPersonalRoot) {
       constraints: cleanList(parsed.constraints),
       userPreferences: cleanList(parsed.userPreferences),
       openQuestions: cleanList(parsed.openQuestions),
-      next: cleanText(parsed.next || parsed.suggestedNextStep, 1000)
+      next: normalizeRichCardText(parsed.next || parsed.suggestedNextStep, { maxLength: 1000 })
     };
   }
 
@@ -155,18 +156,19 @@ if (isPersonalRoot) {
     return `https://chatgpt.com/share/${shareId}`;
   }
 
-  function summaryFromSharedChat(payload) {
+  function projectionFromSharedChat(payload) {
     const replies = Array.isArray(payload?.replies) ? payload.replies : [];
     const assistantReplies = replies
       .filter(reply => reply?.type === "assistant")
-      .map(reply => cleanText(reply?.statement, 2600))
+      .map(reply => normalizeRichCardText(reply?.statement, { maxLength: 5000 }))
       .filter(Boolean);
     const visibleReplies = replies
-      .map(reply => cleanText(reply?.statement, 2600))
+      .map(reply => normalizeRichCardText(reply?.statement, { maxLength: 5000 }))
       .filter(Boolean);
-    return assistantReplies.at(-1)
+    const statement = assistantReplies.at(-1)
       || visibleReplies.at(-1)
       || "Разговор сохранён. Открой карточку, чтобы вернуться к нему позже.";
+    return projectSharedReply(statement, { maxLength: 5000 });
   }
 
   async function resolveSharedChatCard(rawUrl) {
@@ -184,17 +186,18 @@ if (isPersonalRoot) {
     }
 
     const title = cleanText(payload?.title, 120) || "Сохранённый разговор";
+    const projection = projectionFromSharedChat(payload);
     return {
       title,
-      summary: summaryFromSharedChat(payload),
+      summary: projection.summary,
       category: "Мои чаты",
       tags: ["share"],
-      decisions: [],
+      decisions: projection.decisions,
       facts: [],
       constraints: [],
       userPreferences: [],
       openQuestions: [],
-      next: "Вернуться к сохранённому разговору и продолжить с полезного итога.",
+      next: projection.next,
       source: {
         type: "chatgpt-share",
         url: sourceUrl,
@@ -220,15 +223,15 @@ if (isPersonalRoot) {
       id: existing?.id || `result-${crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`,
       schemaVersion: 1,
       title: prepared.title,
-      summary: prepared.summary,
+      summary: normalizeRichCardText(prepared.summary, { maxLength: 5000 }),
       category: prepared.category,
       tags,
-      decisions: prepared.decisions || [],
+      decisions: cleanList(prepared.decisions),
       facts: prepared.facts || [],
       constraints: prepared.constraints || [],
       userPreferences: prepared.userPreferences || [],
       openQuestions: prepared.openQuestions || [],
-      next: prepared.next || "Вернуться к сохранённому итогу, когда он снова понадобится.",
+      next: normalizeRichCardText(prepared.next, { maxLength: 1000 }),
       source,
       immutable: false,
       contentVersion: existing ? Number(existing.contentVersion || 1) + 1 : 1,
@@ -561,7 +564,7 @@ if (isPersonalRoot) {
       const saved = persistFirstResult({
         ...prepared,
         title: cleanText(titleInput.value, 120) || prepared.title,
-        summary: cleanText(summaryInput.value, 5000) || prepared.summary
+        summary: normalizeRichCardText(summaryInput.value, { maxLength: 5000 }) || prepared.summary
       });
       const saveStatus = prepared.source?.type === "chatgpt-share" ? linkStatus : status;
       saveStatus.classList.remove("error");
@@ -722,7 +725,7 @@ if (isPersonalRoot) {
       persistFirstResult({
         ...prepared,
         title: cleanText(titleInput.value, 120) || prepared.title,
-        summary: cleanText(summaryInput.value, 5000) || prepared.summary
+        summary: normalizeRichCardText(summaryInput.value, { maxLength: 5000 }) || prepared.summary
       });
       window.location.replace("/demo/");
     });

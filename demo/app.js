@@ -13,6 +13,7 @@ import {
 import { rankResults, semanticTerms } from "./semantic-dashes.js";
 import { createSemanticDashUi } from "./semantic-dash-ui.js";
 import { appendContinuationActivity, createContinuationController } from "./continuation.js";
+import { normalizeRichCardText, renderCardRichText } from "./card-content.js";
 import {
   createGalleryZoomController,
   gallerySelectionKey,
@@ -418,12 +419,13 @@ function createCard(result) {
   applySemanticVisual(card, result);
   node.querySelector(".category").textContent = result.category || "Result";
   node.querySelector(".title").textContent = result.title;
-  node.querySelector(".summary").textContent = result.summary;
+  node.querySelector(".summary").textContent = normalizeRichCardText(result.summary);
   const status = node.querySelector(".card-status");
   status.textContent = result.status || (result.immutable ? "Saved" : "Draft");
   const next = node.querySelector(".card-next");
-  next.textContent = result.next ? `Next: ${result.next}` : "";
-  next.hidden = !result.next;
+  const nextText = normalizeRichCardText(result.next, { maxLength: 1000 });
+  next.textContent = nextText ? `Next: ${nextText}` : "";
+  next.hidden = !nextText;
   const related = node.querySelector(".card-related");
   const relatedCount = [result.links, result.images, result.assets, result.relatedResults]
     .reduce((count, items) => count + (Array.isArray(items) ? items.length : 0), 0);
@@ -520,6 +522,36 @@ function detailBlock(label, value) {
   return block;
 }
 
+function detailRichBlock(label, value) {
+  const text = normalizeRichCardText(value, { maxLength: 2000 });
+  if (!text) return null;
+  const block = document.createElement("div");
+  block.className = "detail-block";
+  const strong = document.createElement("strong");
+  strong.textContent = label;
+  block.append(strong, renderCardRichText(text, { className: "detail-rich-text" }));
+  return block;
+}
+
+function detailListBlock(label, values) {
+  const items = (Array.isArray(values) ? values : [])
+    .map(item => normalizeRichCardText(item, { maxLength: 500 }))
+    .filter(Boolean);
+  if (!items.length) return null;
+  const block = document.createElement("div");
+  block.className = "detail-block";
+  const strong = document.createElement("strong");
+  strong.textContent = label;
+  const list = document.createElement("ul");
+  for (const item of items) {
+    const li = document.createElement("li");
+    li.append(renderCardRichText(item, { className: "detail-rich-inline" }));
+    list.append(li);
+  }
+  block.append(strong, list);
+  return block;
+}
+
 function actionBar(result, id) {
   const actions = document.createElement("div");
   actions.className = "dialog-actions primary-result-actions";
@@ -583,17 +615,20 @@ function openResult(id) {
   category.textContent = result.category;
   const title = document.createElement("h2");
   title.textContent = result.title;
-  const summary = document.createElement("p");
-  summary.className = "muted";
-  summary.textContent = result.summary;
+  const summary = renderCardRichText(result.summary, { className: "card-rich-text muted result-detail-summary" });
   const badge = immutableBadge(result);
   const details = document.createElement("div");
   details.className = "detail-grid";
-  details.appendChild(detailBlock("Decisions", (result.decisions || []).join(" • ") || "No decisions captured yet."));
-  details.appendChild(detailBlock("Next", result.next || "No next step captured yet."));
+  const decisions = detailListBlock("Decisions", result.decisions);
+  const next = detailRichBlock("Next", result.next);
+  if (decisions) details.appendChild(decisions);
+  if (next) details.appendChild(next);
   if (result.contentHash) details.appendChild(detailBlock("Content hash", result.contentHash));
   if (result._vaultConflictCount > 1) details.appendChild(detailBlock("Vault", `${result._vaultConflictCount} conflicting revisions preserved`));
-  resultDialogContent.append(category, title, badge, summary, details, actionBar(result, id));
+  const content = [category, title, badge, summary];
+  if (details.childElementCount) content.push(details);
+  content.push(actionBar(result, id));
+  resultDialogContent.append(...content);
   resultDialog.showModal();
 }
 
@@ -685,7 +720,7 @@ function renderStandaloneResult(result) {
   const title = document.createElement("h1");
   title.className = "result-page-title";
   title.textContent = result.title;
-  const lead = paragraph(result.summary, "result-lead");
+  const lead = renderCardRichText(result.summary, { className: "card-rich-text result-lead" });
   article.append(category, title, immutableBadge(result), lead);
   const tags = document.createElement("div");
   tags.className = "tags page-tags";
@@ -693,10 +728,12 @@ function renderStandaloneResult(result) {
   article.appendChild(tags);
   const details = document.createElement("div");
   details.className = "detail-grid page-details";
-  details.appendChild(detailBlock("Decisions", (result.decisions || []).join(" • ") || "No decisions captured yet."));
-  details.appendChild(detailBlock("Next", result.next || "No next step captured yet."));
+  const decisions = detailListBlock("Decisions", result.decisions);
+  const next = detailRichBlock("Next", result.next);
+  if (decisions) details.appendChild(decisions);
+  if (next) details.appendChild(next);
   if (result.source?.url) details.appendChild(sourceBlock(result.source, result.id));
-  article.append(details);
+  if (details.childElementCount) article.append(details);
   const actions = document.createElement("div");
   actions.className = "page-actions";
   const back = document.createElement("a");
