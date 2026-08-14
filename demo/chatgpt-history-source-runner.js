@@ -11,7 +11,7 @@ import {
   deriveChatGptSemanticMetadata
 } from "./chatgpt-semantic-enrichment.js";
 
-export const CHATGPT_HISTORY_SOURCE_VERSION = CORE_CHATGPT_HISTORY_SOURCE_VERSION + 2;
+export const CHATGPT_HISTORY_SOURCE_VERSION = CORE_CHATGPT_HISTORY_SOURCE_VERSION + 3;
 export { computeChatGptDetailRetryDelay };
 
 const HANDSHAKE_HOOK = "    postToReceiver({ type: \"HELLO\", sourceVersion });\n    const ready = await waitForReply(\"READY\", () => true, 5000);";
@@ -36,8 +36,14 @@ const SUCCEEDED_HOOK = `    succeeded() {
       }
     }`;
 const ACKED_PROGRESS_HOOK = "        importedThisRun += Number(reply.accepted || 0) + Number(reply.updated || 0);";
+const RATE_LIMIT_CALL_HOOK = "        scheduler.rateLimited();";
 const DETAIL_429_HOOK = `        if (error?.name === "ChatGptDetailDeferredError" && error.status === 429) {
           task.attempt += 1;`;
+const DEFERRED_SLEEP_HOOK = "        await sleep(Math.min(Math.max(1, waitMs), 60_000));";
+const CONTROL_MESSAGE_HOOK = `  window.addEventListener("message", event => {
+    if (!validReceiverMessage(event)) return;
+    if (event.data.type === "CONTROL_PAUSE") pauseImport("dashgpt-card");
+  });`;
 const QUEUE_STATE_HOOK = `    function updateQueueState(retryAfterMs = 0) {
       refreshDeferredCount();
       if (deferred.length && ready.length === 0 && running.size === 0) {
@@ -83,7 +89,7 @@ function injectHandshakeRetry(runner) {
   );
 }
 
-function injectF25Policy(runner) {
+function injectF26RetryWakeup(runner) {
   let next = runner;
   next = replaceRequired(next, SOURCE_VERSION_HOOK, `\"sourceVersion\":${CHATGPT_HISTORY_SOURCE_VERSION}`, "source version");
   next = replaceRequired(next, computeCoreDetailRetryDelay.toString(), computeChatGptDetailRetryDelay.toString(), "detail retry helper");
@@ -96,13 +102,15 @@ function injectF25Policy(runner) {
   next = replaceRequired(
     next,
     RATE_LIMITED_HOOK,
-    `    rateLimited() {
+    `    rateLimited(delayMs = 0) {
       const now = Date.now();
       if (!this.lastRateLimitAt || now - this.lastRateLimitAt > 60_000) this.rateLimitStreak = 0;
       this.lastRateLimitAt = now;
       this.rateLimitStreak += 1;
       const cooldownStages = [5_000, 10_000, 15_000, 30_000];
-      const cooldown = cooldownStages[Math.min(cooldownStages.length - 1, this.rateLimitStreak - 1)];
+      const stagedCooldown = cooldownStages[Math.min(cooldownStages.length - 1, this.rateLimitStreak - 1)];
+      const requestedCooldown = Math.max(0, Number(delayMs) || 0);
+      const cooldown = Math.max(stagedCooldown, requestedCooldown);
       this.limit = 1;
       this.successStreak = 0;
       this.cooldownUntil = Math.max(this.cooldownUntil, now + cooldown);
@@ -135,11 +143,38 @@ function injectF25Policy(runner) {
   );
   next = replaceRequired(
     next,
+    RATE_LIMIT_CALL_HOOK,
+    "        scheduler.rateLimited(delay);",
+    "shared retry cooldown"
+  );
+  next = replaceRequired(
+    next,
     DETAIL_429_HOOK,
     `        if (error?.name === "ChatGptDetailDeferredError" && error.status === 429) {
           await flush(true);
           task.attempt += 1;`,
     "rate-limit flush"
+  );
+  next = replaceRequired(
+    next,
+    DEFERRED_SLEEP_HOOK,
+    "        await scheduler.signal(Math.min(Math.max(1, waitMs), 15_000));",
+    "wakeable deferred wait"
+  );
+  next = replaceRequired(
+    next,
+    CONTROL_MESSAGE_HOOK,
+    `  window.addEventListener("message", event => {
+    if (!validReceiverMessage(event)) return;
+    if (event.data.type === "CONTROL_PAUSE") pauseImport("dashgpt-card");
+    if (event.data.type === "CONTROL_WAKE") scheduler.wake();
+  });
+
+  window.addEventListener("focus", () => scheduler.wake());
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") scheduler.wake();
+  });`,
+    "validated retry wake controls"
   );
   next = replaceRequired(
     next,
@@ -163,7 +198,7 @@ function injectF25Policy(runner) {
 }
 
 export function buildChatGptHistorySourceRunner(options) {
-  return injectHandshakeRetry(injectSemanticProjection(injectF25Policy(buildCoreRunner(options))));
+  return injectHandshakeRetry(injectSemanticProjection(injectF26RetryWakeup(buildCoreRunner(options))));
 }
 
 export function buildChatGptHistoryImportAction({ receiverOrigin, receiverPath = "/demo/" }) {
