@@ -70,7 +70,7 @@ assert.deepEqual(paths, [
   `.dashgpt/cards/${cardFileName("card-b")}`,
   ".dashgpt/manifest.json",
   ".dashgpt/project.md"
-].sort());
+].sort((left, right) => left.localeCompare(right)));
 assert(!paths.some(path => path.includes("private-other")));
 
 const manifest = JSON.parse(files.find(file => file.path.endsWith("manifest.json")).content);
