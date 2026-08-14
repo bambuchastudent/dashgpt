@@ -15,7 +15,7 @@ function requireText(haystack, needle, label) {
 
 const title = "DashGPT — Save, find and continue useful AI work";
 const description = "DashGPT keeps useful outcomes from AI conversations as cards so you can find them and continue your work later.";
-const faviconLink = '<link rel="icon" href="/demo/favicon.svg" type="image/svg+xml" />';
+const faviconLink = '<link rel="icon" type="image/svg+xml" href="/demo/favicon.svg" />';
 
 requireText(index, `<title>${title}</title>`, "document title");
 requireText(index, `<meta name="description" content="${description}" />`, "meta description");
@@ -25,7 +25,7 @@ for (const [name, html] of [["support", support], ["privacy", privacy], ["terms"
 }
 requireText(index, '<link rel="manifest" href="/demo/site.webmanifest" />', "manifest link");
 requireText(index, '<link rel="canonical" href="/demo/" />', "canonical link");
-requireText(index, '<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1" />', "robots meta");
+requireText(index, '<meta name="robots" content="index,follow,max-image-preview:large" />', "robots meta");
 requireText(index, `<meta property="og:title" content="${title}" />`, "Open Graph title");
 requireText(index, `<meta property="og:description" content="${description}" />`, "Open Graph description");
 requireText(index, '<meta property="og:type" content="website" />', "Open Graph type");
