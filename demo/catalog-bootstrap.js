@@ -117,11 +117,21 @@ await import("./unified-dashboard-routing.js");
 await import("./unified-product-board.js");
 
 if (chatGptHistoryImport) {
-  chatGptHistoryImport.initializeChatGptHistoryImport({ phase: "post-app" });
-  const chatGptExportImport = await import("./chatgpt-export-import.js");
-  chatGptExportImport.initializeChatGptExportImport();
-  const chatGptImportGuide = await import("./chatgpt-import-guide.js");
-  chatGptImportGuide.initializeChatGptImportGuide();
-  const importOnboardingConnector = await import("./import-onboarding-connector.js");
-  importOnboardingConnector.initializeImportOnboardingConnector();
+  // Treat the operational import card as a bootstrap invariant. The pre-app
+  // seed is still the normal path, but if another startup layer rewrites a
+  // clean Vault before the canonical renderer settles, repair the card once
+  // and reload so app.js materializes the repaired durable state. The existing
+  // seed helper is idempotent and still honors an explicit dismissal event.
+  const repair = chatGptHistoryImport.seedDefaultChatGptImportCard(globalThis.localStorage);
+  if (repair.seeded) {
+    window.location.reload();
+  } else {
+    chatGptHistoryImport.initializeChatGptHistoryImport({ phase: "post-app" });
+    const chatGptExportImport = await import("./chatgpt-export-import.js");
+    chatGptExportImport.initializeChatGptExportImport();
+    const chatGptImportGuide = await import("./chatgpt-import-guide.js");
+    chatGptImportGuide.initializeChatGptImportGuide();
+    const importOnboardingConnector = await import("./import-onboarding-connector.js");
+    importOnboardingConnector.initializeImportOnboardingConnector();
+  }
 }
