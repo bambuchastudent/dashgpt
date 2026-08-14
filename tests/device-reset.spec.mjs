@@ -41,15 +41,16 @@ async function routeProviders(page) {
 
 test("dashboard reset requires confirmation and returns this device to fresh local state", async ({ page }) => {
   await routeProviders(page);
-  await page.addInitScript(({ vaultKey, vault }) => {
+  await page.goto("/demo/?personal=1");
+  await page.evaluate(({ vaultKey, vault }) => {
     localStorage.setItem(vaultKey, JSON.stringify(vault));
     localStorage.setItem("dashgpt.test.reset-marker", "remove-me");
     localStorage.setItem("foreign.app.preference", "survive-me");
     sessionStorage.setItem("dashgpt.test.session-marker", "remove-me");
     sessionStorage.setItem("foreign.session.preference", "survive-me");
   }, { vaultKey: VAULT_KEY, vault: oldVault() });
+  await page.reload();
 
-  await page.goto("/demo/?personal=1");
   await expect(page.locator("[data-result-id='user-card-before-reset']")).toBeVisible();
   await page.locator("#storageButton").click();
   await expect(page.locator("#deviceResetSection")).toBeVisible();
