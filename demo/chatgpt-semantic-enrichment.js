@@ -30,6 +30,10 @@ export function deriveChatGptSemanticMetadata({ title = "", messages = [] } = {}
     "phone", "pixel", "screen", "battery", "dashgpt", "semantic", "vault", "memory", "product", "feature", "onboarding", "ux", "design",
     "software", "github", "javascript", "typescript", "java", "python", "api", "mcp", "openspec", "safari", "browser", "plugin", "skill", "import", "repository"
   ]);
+  const highSignalTags = new Set(["github", "openspec", "safari", "salmon", "spanish", "pixel", "morocco", "valencia"]);
+  const mediumSignalTags = new Set(["dashgpt", "recipe", "flight", "hotel", "camping", "fishing", "doctor", "plumbing", "screen", "battery", "javascript", "typescript", "java", "python", "api", "mcp", "plugin", "skill", "repository"]);
+  const lowSignalTags = new Set(["import", "browser", "software", "product", "feature", "food", "travel", "language", "health", "home"]);
+  const tagSignal = tag => highSignalTags.has(tag) ? 3 : mediumSignalTags.has(tag) ? 2 : lowSignalTags.has(tag) ? 0 : 1;
 
   const tokenScores = new Map();
   const conceptScores = new Map(concepts.map(({ id }) => [id, 0]));
@@ -55,7 +59,10 @@ export function deriveChatGptSemanticMetadata({ title = "", messages = [] } = {}
     .sort((left, right) => right.score - left.score || left.id.localeCompare(right.id));
   const primary = rankedConcepts[0]?.score >= 2.2 ? rankedConcepts[0] : null;
   const scoredTokens = [...tokenScores.entries()].sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]));
-  const canonical = scoredTokens.map(([token]) => token).filter(token => canonicalTags.has(token));
+  const canonical = scoredTokens
+    .filter(([token]) => canonicalTags.has(token))
+    .sort((left, right) => tagSignal(right[0]) - tagSignal(left[0]) || right[1] - left[1] || left[0].localeCompare(right[0]))
+    .map(([token]) => token);
   const secondary = rankedConcepts.filter(item => item.score >= 2.2 && item.id !== primary?.id).map(item => item.id);
   const conceptTerms = new Set(concepts.flatMap(concept => concept.terms));
   const lexical = scoredTokens.map(([token]) => token)
