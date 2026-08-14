@@ -112,6 +112,10 @@ if (feature20PersonalEntry) {
   chatGptHistoryImport = await import("./chatgpt-history-import.js");
   chatGptHistoryImport.initializeChatGptHistoryImport({ phase: "pre-app" });
 
+  // Safari may sever the original DashGPT -> ChatGPT opener and require the
+  // source runner to open a replacement DashGPT receiver. Keep that receiver
+  // alive for postMessage/Vault ownership, but yield focus straight back to the
+  // ChatGPT source instead of making the user manually switch windows.
   if (chatGptImportReceiverEntry) returnChatGptImportFocusToSource();
 }
 
@@ -132,6 +136,11 @@ await import("./unified-dashboard-routing.js");
 await import("./unified-product-board.js");
 
 if (chatGptHistoryImport) {
+  // Treat the operational import card as a bootstrap invariant. The pre-app
+  // seed is still the normal path, but if another startup layer rewrites a
+  // clean Vault before the canonical renderer settles, repair the card once
+  // and reload so app.js materializes the repaired durable state. The existing
+  // seed helper is idempotent and still honors an explicit dismissal event.
   const repair = chatGptHistoryImport.seedDefaultChatGptImportCard(globalThis.localStorage);
   if (repair.seeded) {
     window.location.reload();
