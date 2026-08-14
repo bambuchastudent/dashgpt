@@ -1,4 +1,4 @@
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: Shared-chat URL normalization supports current ChatGPT share routes
 The system SHALL accept supported ChatGPT shared-chat URLs only from approved ChatGPT HTTPS hosts, SHALL normalize legacy classic share syntax without changing source identity, and SHALL preserve the distinct ChatGPT Project shared-chat route when that route is supplied.
