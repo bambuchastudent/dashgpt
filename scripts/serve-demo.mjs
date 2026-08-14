@@ -1,6 +1,12 @@
 import { createServer } from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
+import {
+  SEO_PRIMARY_ORIGIN,
+  decorateSeoResponse,
+  robotsResponse,
+  sitemapResponse
+} from "../src/seo.js";
 
 const root = new URL("../", import.meta.url).pathname;
 const port = Number(process.env.PORT || 4173);
@@ -12,7 +18,8 @@ const types = {
   ".mjs": "text/javascript; charset=utf-8",
   ".png": "image/png",
   ".svg": "image/svg+xml",
-  ".webmanifest": "application/manifest+json; charset=utf-8"
+  ".webmanifest": "application/manifest+json; charset=utf-8",
+  ".xml": "application/xml; charset=utf-8"
 };
 
 function safePath(pathname) {
@@ -44,8 +51,19 @@ function isDemoDeepRoute(pathname) {
 
 createServer(async (request, response) => {
   const url = new URL(request.url, `http://${request.headers.host}`);
-  let result = await fileResponse(url.pathname);
-  if (!result && isDemoDeepRoute(url.pathname)) result = await fileResponse("/demo/index.html");
+  const productionRequest = new Request(new URL(`${url.pathname}${url.search}`, SEO_PRIMARY_ORIGIN));
+  let result;
+
+  if (url.pathname === "/robots.txt") {
+    result = robotsResponse(productionRequest);
+  } else if (url.pathname === "/sitemap.xml") {
+    result = sitemapResponse(productionRequest);
+  } else {
+    result = await fileResponse(url.pathname);
+    if (!result && isDemoDeepRoute(url.pathname)) result = await fileResponse("/demo/index.html");
+    if (result) result = await decorateSeoResponse(productionRequest, result);
+  }
+
   result ||= new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
   response.writeHead(result.status, Object.fromEntries(result.headers));
   response.end(Buffer.from(await result.arrayBuffer()));
