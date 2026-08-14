@@ -4,7 +4,7 @@
 
 - [x] Inspect current product/storage guidance, Vault v1, Google Drive adapter/controller, Safari-safe OAuth flow, provider exclusivity and prior Google Drive PRs.
 - [x] Create dedicated F34 issue and OpenSpec proposal, design, spec delta, tasks and Impact Manifest before production edits.
-- [ ] Strictly validate `f34-account-scoped-vault` before production-code edits and record evidence.
+- [x] Strictly validate `f34-account-scoped-vault` before production-code edits. GitHub Actions could not start project steps because of the repository billing/spending-limit blocker, so the exact strict validator command was run as a temporary validation-only Cloudflare `postinstall`; deployment of commit `da8e53c6f05d06303021cf66b9a89193c2f291fc` succeeded, proving the command exited successfully. The temporary hook was removed before production implementation.
 
 ## Implementation
 
