@@ -101,10 +101,20 @@ if (!document.querySelector('link[data-dashgpt-unified-dashboard]')) {
   document.head.append(stylesheet);
 }
 
+if (!document.querySelector('link[data-dashgpt-profile-metrics]')) {
+  const stylesheet = document.createElement("link");
+  stylesheet.rel = "stylesheet";
+  stylesheet.href = "/demo/profile-metrics.css";
+  stylesheet.dataset.dashgptProfileMetrics = "true";
+  document.head.append(stylesheet);
+}
+
 const chatGptImportReceiverEntry = new URLSearchParams(window.location.search).get("chatgptImportReceiver") === "1";
 const feature20PersonalEntry = chatGptHistoryImportAllowed();
 let chatGptHistoryImport = null;
 if (feature20PersonalEntry) {
+  const chatGptProfileMetricsImport = await import("./chatgpt-profile-metrics-import-bridge.js");
+  chatGptProfileMetricsImport.installChatGptProfileMetricsImportBridge();
   const chatGptSemanticImport = await import("./chatgpt-semantic-import-bridge.js");
   chatGptSemanticImport.installChatGptSemanticImportBridge();
   const chatGptBatchFastPath = await import("./chatgpt-history-import-batch.js");
@@ -133,6 +143,7 @@ await import("./unified-onboarding.js");
 await import("./unified-search.js");
 await import("./unified-dashboard-routing.js");
 await import("./unified-product-board.js");
+if (feature20PersonalEntry) await import("./profile-metrics.js");
 
 if (chatGptHistoryImport) {
   // Treat the operational import card as a bootstrap invariant. The pre-app
