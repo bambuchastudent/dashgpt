@@ -6,3 +6,4 @@ Disallow: /.well-known/
 Disallow: /demo/result/
 Disallow: /demo/dashes/
 Disallow: /demo/dash/
+Sitemap: https://dashgpt.dimkashir.workers.dev/sitemap.xml
