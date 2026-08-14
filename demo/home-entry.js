@@ -78,11 +78,15 @@ function updateImportStatus(section) {
   status.textContent = progress ? messages.progress(progress) : messages.emptyStatus;
 }
 
-function clickCanonical(selector, section) {
+function clickCanonical(selector, section, attemptsLeft = 8) {
   const target = document.querySelector(selector);
   if (target && !target.disabled && !target.hidden) {
     target.click();
     return true;
+  }
+  if (attemptsLeft > 0) {
+    setTimeout(() => clickCanonical(selector, section, attemptsLeft - 1), 100);
+    return false;
   }
   const status = section.querySelector(`#${STATUS_ID}`);
   if (status) status.textContent = copy().unavailable;
