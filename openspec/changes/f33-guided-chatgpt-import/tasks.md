@@ -8,29 +8,29 @@
 
 ## Implementation
 
-- [ ] Add a focused guided-import UI module that reuses `importChatGptExportFiles()` rather than duplicating parser/import logic.
-- [ ] Add a permanent secondary `Import ChatGPT` entry for the personal dashboard.
-- [ ] Add a separate ChatGPT-history import section to Storage.
-- [ ] Add the three-step official export guide, local-only privacy copy, official help link, and supported ZIP/JSON copy.
-- [ ] Show reading/importing/completion/error progress through the guided entry.
-- [ ] Preserve the existing live importer as a secondary quick/recent action.
-- [ ] Rename Storage Vault actions to `Export DashGPT Vault` and `Import DashGPT Vault` without changing Vault behavior.
-- [ ] Preserve existing optional remote Vault synchronization after successful local import.
+- [x] Add a focused guided-import UI module that reuses `importChatGptExportFiles()` rather than duplicating parser/import logic.
+- [x] Add a permanent secondary `Import ChatGPT` entry for the personal dashboard.
+- [x] Add a separate ChatGPT-history import section to Storage.
+- [x] Add the three-step official export guide, local-only privacy copy, official help link, and supported ZIP/JSON copy.
+- [x] Show reading/importing/completion/error progress through the guided entry.
+- [x] Preserve the existing live importer as a secondary quick/recent action.
+- [x] Rename Storage Vault actions to `Export DashGPT Vault` and `Import DashGPT Vault` without changing Vault behavior.
+- [x] Preserve existing optional remote Vault synchronization after successful local import.
 
 ## Regression coverage
 
-- [ ] Add deterministic/browser coverage proving the permanent entry is visible for a populated Vault.
-- [ ] Prove Storage visibly distinguishes ChatGPT history import from DashGPT Vault import.
-- [ ] Import a compatible `conversations.json` through the permanent entry and prove canonical card creation.
-- [ ] Import the same JSON twice through the permanent entry and prove no duplicate canonical card.
-- [ ] Import a compatible ZIP through the permanent entry and prove existing semantic enrichment is preserved.
-- [ ] Assert no archive upload POST/PUT/PATCH is introduced by the guided file-import path.
-- [ ] Verify the guided flow at a 360px viewport with no horizontal overflow.
+- [x] Add deterministic/browser coverage for the permanent entry on a populated Vault, Storage disambiguation, JSON/ZIP import, deduplication, local-only network behavior, F28 semantic enrichment, and 360px overflow.
+- [ ] Execute the committed Playwright regression proving the populated-Vault entry and Storage labels in a supported browser runner.
+- [ ] Execute the committed Playwright JSON import twice and prove one canonical card remains.
+- [ ] Execute the committed Playwright ZIP import and prove existing semantic enrichment is preserved.
+- [ ] Execute the committed browser assertion that the guided file-import path emits no archive POST/PUT/PATCH.
+- [ ] Execute the committed 360px viewport assertion with no horizontal overflow.
 
 ## Verification / handoff
 
-- [ ] Run targeted syntax/deterministic checks for changed modules/tests.
-- [ ] Run `npm run verify:fast` when executable infrastructure is available.
-- [ ] Run canonical `npm run verify:full` once before merge when executable infrastructure is available.
-- [ ] Verify the Cloudflare production preview and relevant 360px/mobile state.
-- [ ] Update this checklist with concrete verification evidence and keep the PR draft if mandatory gates cannot run.
+- [x] Run targeted syntax/deterministic checks for changed modules/tests. `npm run verify:fast` completed successfully inside the Cloudflare build for verification-only commit `14590fb07a0ecea0dd29521c581aae527e043d25`.
+- [x] Run `npm run verify:fast` with the new F33 verifier registered in the canonical fast gate; Cloudflare deployment succeeded only after that gate completed.
+- [ ] Run canonical `npm run verify:full` once before merge. GitHub Actions still cannot start jobs because of the account billing/spending-limit blocker.
+- [ ] Execute Playwright/browser acceptance in an environment able to launch Chromium. Cloudflare can download the Chromium bundle (`5540c113208e36cf02406db484fc950da63b9384`) but a minimal headless `chromium.launch()` fails in that build environment (`207ca0d3fd9d628c8f06f2048cb8ce06224eaa25`), so the failed Cloudflare Playwright attempts are environment evidence, not a product-test result.
+- [ ] Verify the final clean Cloudflare branch preview after diagnostic hooks are removed.
+- [x] Keep the PR draft while the mandatory full/browser gate remains unavailable; no browser-pass claim is made.
