@@ -5,7 +5,7 @@
   "compatibility_date": "2026-08-09",
   "preview_urls": true,
   "build": {
-    "command": "node scripts/verify-gallery-overview-sorting.mjs"
+    "command": "node --check demo/gallery-overview-sorting.js && node scripts/verify-gallery-overview-sorting.mjs && npm run check"
   },
   "vars": {
     "GITHUB_APP_ID": "4544269",
