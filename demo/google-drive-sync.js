@@ -5,6 +5,7 @@ import {
   saveGoogleDriveBinding,
   syncGoogleDriveVault
 } from "./google-drive-storage.js";
+import { formatGoogleAccountIdentity, loadGoogleDriveAccountIdentity } from "./google-account-identity.js";
 import { loadBrowserVault, saveBrowserVault } from "./vault.js";
 
 const GIS_SRC = "https://accounts.google.com/gsi/client";
@@ -12,6 +13,8 @@ const AUTO_SYNC_DELAY_MS = 1400;
 
 let config = null;
 let tokenState = null;
+let googleAccountIdentity = null;
+let googleAccountIdentityUnavailable = false;
 let githubPaired = false;
 let syncing = false;
 let syncTimer = null;
@@ -35,6 +38,7 @@ function ensureProviderUi() {
     <div class="provider-content">
       <strong id="google-drive-storage-title">Google account</strong>
       <p id="googleDriveStatus">Checking Google account…</p>
+      <p id="googleDriveIdentity" class="storage-provider-identity" hidden></p>
       <div class="dialog-actions compact-actions google-drive-actions">
         <button id="connectGoogleDriveButton" class="button primary" type="button">Continue with Google</button>
         <button id="syncGoogleDriveButton" class="button primary" type="button" hidden>Sync now</button>
@@ -93,6 +97,52 @@ function tokenValid() {
   return Boolean(tokenState?.accessToken && tokenState.expiresAt > Date.now() + 30_000);
 }
 
+function clearGoogleAccountIdentity() {
+  googleAccountIdentity = null;
+  googleAccountIdentityUnavailable = false;
+}
+
+function renderGoogleAccountIdentity() {
+  const node = $("#googleDriveIdentity");
+  if (!node) return;
+  if (!tokenValid()) {
+    node.hidden = true;
+    node.textContent = "";
+    return;
+  }
+  const label = formatGoogleAccountIdentity(googleAccountIdentity);
+  if (label) {
+    node.hidden = false;
+    node.textContent = `Authorized as ${label}`;
+    return;
+  }
+  if (googleAccountIdentityUnavailable) {
+    node.hidden = false;
+    node.textContent = "Google account details are unavailable for this session.";
+    return;
+  }
+  node.hidden = true;
+  node.textContent = "";
+}
+
+async function refreshGoogleAccountIdentity() {
+  if (!tokenValid()) {
+    clearGoogleAccountIdentity();
+    renderGoogleAccountIdentity();
+    return null;
+  }
+  try {
+    googleAccountIdentity = await loadGoogleDriveAccountIdentity({ token: tokenState.accessToken });
+    googleAccountIdentityUnavailable = !googleAccountIdentity;
+  } catch (error) {
+    if (String(error?.code || "") === "google_reconnect_required") throw error;
+    googleAccountIdentity = null;
+    googleAccountIdentityUnavailable = true;
+  }
+  renderGoogleAccountIdentity();
+  return googleAccountIdentity;
+}
+
 function setStorageBadge(label, state = "unsynced") {
   const button = $("#storageButton");
   if (!button) return;
@@ -124,6 +174,7 @@ function render(message = "") {
 
   const googleBinding = binding();
   applyProviderExclusivity();
+  renderGoogleAccountIdentity();
 
   if (!config?.configured) {
     status.textContent = message || "Google sign-in is not available on this deployment yet. DashGPT keeps working locally on this device.";
@@ -193,6 +244,8 @@ function render(message = "") {
 
   if (!tokenValid()) {
     tokenState = null;
+    clearGoogleAccountIdentity();
+    renderGoogleAccountIdentity();
     status.textContent = message || "Your Google Vault is linked to this browser. Reconnect Google when you want to sync again; cards already on this device remain available offline.";
     connect.hidden = false;
     connect.disabled = false;
@@ -310,10 +363,18 @@ function connectGoogleDrive() {
   accessRequest
     .then(async nextToken => {
       tokenState = nextToken;
+      clearGoogleAccountIdentity();
       await refreshGithubStatus();
       if (githubPaired && !binding()) {
         tokenState = null;
+        clearGoogleAccountIdentity();
         render("GitHub sync became active before Google could bootstrap your Vault. Disconnect GitHub, then continue with Google again.");
+        return;
+      }
+      try {
+        await refreshGoogleAccountIdentity();
+      } catch (error) {
+        renderHumanError(error);
         return;
       }
       await syncNow({ allowMigration: false });
@@ -379,6 +440,7 @@ function renderHumanError(error) {
   const code = String(error?.code || "");
   if (code === "google_reconnect_required") {
     tokenState = null;
+    clearGoogleAccountIdentity();
     render("Google authorization expired. Reconnect to sync; local changes are safe on this device.");
     return;
   }
@@ -393,9 +455,11 @@ function disconnectGoogleDrive() {
   clearTimeout(syncTimer);
   syncTimer = null;
   tokenState = null;
+  clearGoogleAccountIdentity();
   pendingMigration = null;
   clearGoogleDriveBinding(globalThis.localStorage);
   $("#googleDriveMigration")?.setAttribute("hidden", "");
+  renderGoogleAccountIdentity();
   const githubConnect = $("#connectGithubButton");
   if (githubConnect && !githubPaired) {
     githubConnect.disabled = false;
@@ -408,6 +472,8 @@ function disconnectGoogleDrive() {
 function scheduleSync() {
   if (!binding() || syncing || githubPaired) return;
   if (!tokenValid()) {
+    clearGoogleAccountIdentity();
+    renderGoogleAccountIdentity();
     setStorageBadge("LOCAL + GOOGLE DRIVE · RECONNECT", "unsynced");
     return;
   }
@@ -427,6 +493,7 @@ function installLocalChangeWatch() {
 
 async function initialize() {
   ensureProviderUi();
+  clearGoogleAccountIdentity();
   await loadConfig();
   await refreshGithubStatus();
   render();
