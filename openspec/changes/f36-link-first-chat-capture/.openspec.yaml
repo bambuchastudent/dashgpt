@@ -1,0 +1,3 @@
+schema: spec-driven
+created: 2026-08-14
+goal: Make personal Save chat start with a ChatGPT Share link that resolves directly into one canonical card while preserving the existing structured handoff fallback and local-first sync behavior.

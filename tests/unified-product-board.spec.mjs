@@ -1,5 +1,10 @@
 import { expect, test } from "@playwright/test";
 
+test("personal dashboard does not promote Product Board in global navigation", async ({ page }) => {
+  await page.goto("/demo/");
+  await expect(page.locator('.topbar-actions a[href="/demo/dash/dashgpt-product/"]')).toHaveCount(0);
+});
+
 test("Product Board keeps its stable route inside the unified Dash context", async ({ page }) => {
   await page.goto("/demo/dash/dashgpt-product/");
 
