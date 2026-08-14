@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 const VAULT_KEY = "dashgpt.demo.vault.v1";
 const SCOPE = "https://www.googleapis.com/auth/drive.file";
+const SHARE_URL = "https://chatgpt.com/share/share-123";
 
 function result(id, title = id) {
   return { id, schemaVersion: 1, title, summary: `${title} summary`, category: "Test", tags: [], decisions: [], immutable: false, contentVersion: 1 };
@@ -20,6 +21,27 @@ async function routeStorage(page, { googleConfigured = false, githubConfigured =
   await page.route("**/api/storage/github/status", async route => {
     if (githubDelayMs) await new Promise(resolve => setTimeout(resolve, githubDelayMs));
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ configured: githubConfigured, paired: githubPaired, locator: null }) });
+  });
+}
+
+async function routeSharedChat(page, { expectedUrl = SHARE_URL, title = "Импортированный чат", summary = "Полезный итог из публичного ChatGPT Share-чата.", onRequest } = {}) {
+  await page.route("**/api/shared-chat?*", route => {
+    const requestUrl = new URL(route.request().url());
+    const sourceUrl = requestUrl.searchParams.get("url");
+    onRequest?.(sourceUrl);
+    expect(sourceUrl).toBe(expectedUrl);
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        sourceUrl,
+        title,
+        replies: [
+          { type: "user", statement: "Сохрани этот разговор" },
+          { type: "assistant", statement: summary }
+        ]
+      })
+    });
   });
 }
 
@@ -49,25 +71,101 @@ async function routeFakeGoogle(page, remoteVault) {
   });
 }
 
+async function saveSharedChat(page, inputUrl = SHARE_URL) {
+  await page.locator("#addResultButton").click();
+  await page.locator("#saveChatLink").fill(inputUrl);
+  await page.locator("#saveChatLinkForm").getByRole("button", { name: "Добавить карточку" }).click();
+  await expect(page.locator("#saveChatReview")).toBeVisible();
+  await page.locator("#saveChatCommit").click();
+  await page.waitForURL(/\/demo\/$/);
+}
+
 const CAPTURE = JSON.stringify({ title: "Сохранённый разговор", summary: "Сохранили полезный итог существующего разговора через нормальный Save chat flow.", category: "DashGPT", tags: ["capture"], decisions: ["Одна карточка, один Vault"], facts: [], constraints: [], userPreferences: [], openQuestions: [], next: "Продолжить с карточки" });
 
-test("existing user Save chat opens the dedicated capture flow, not generic Add Result", async ({ page }) => {
+test("existing user Save chat opens link-first capture, not generic Add Result", async ({ page }) => {
   await seedExistingUser(page);
   await routeStorage(page);
   await page.goto("/demo/?personal=1");
   await page.locator("#addResultButton").click();
   await expect(page.locator("#saveChatDialog")).toBeVisible();
   await expect(page.locator("#addDialog")).not.toBeVisible();
+  await expect(page.locator("#saveChatLink")).toBeVisible();
+  await expect(page.locator("#saveChatLink")).toBeFocused();
+  const linkComesFirst = await page.evaluate(() => {
+    const link = document.querySelector("#saveChatLink");
+    const handoff = document.querySelector("#saveChatPayload");
+    return Boolean(link && handoff && (link.compareDocumentPosition(handoff) & Node.DOCUMENT_POSITION_FOLLOWING));
+  });
+  expect(linkComesFirst).toBe(true);
   await expect(page.locator("#saveChatDialog")).toContainText("Это устройство");
   await expect(page.locator("#saveChatDialog")).toContainText("Google Drive");
   await expect(page.locator("#saveChatDialog")).toContainText("GitHub");
 });
 
-test("Save chat creates one local ChatGPT-handoff card without requiring a remote provider", async ({ page }) => {
+test("Save chat resolves a public Share link into one local canonical card", async ({ page }) => {
+  await seedExistingUser(page);
+  await routeStorage(page, { googleConfigured: false, githubConfigured: false });
+  await routeSharedChat(page);
+  await page.goto("/demo/?personal=1");
+  await page.locator("#addResultButton").click();
+  await page.locator("#saveChatLink").fill("https://chat.openai.com/share/e/share-123?utm_source=test#fragment");
+  await page.locator("#saveChatLinkForm").getByRole("button", { name: "Добавить карточку" }).click();
+  await expect(page.locator("#saveChatReview")).toBeVisible();
+  await expect(page.locator("#saveChatReviewTitle")).toHaveValue("Импортированный чат");
+  await expect(page.locator("#saveChatReviewSummary")).toHaveValue("Полезный итог из публичного ChatGPT Share-чата.");
+  await page.locator("#saveChatCommit").click();
+  await page.waitForURL(/\/demo\/$/);
+  await expect(page.locator(".result-card")).toContainText("Импортированный чат");
+
+  const stored = await page.evaluate(key => JSON.parse(localStorage.getItem(key) || "null"), VAULT_KEY);
+  const saved = stored.results.filter(item => item.source?.url === SHARE_URL);
+  expect(saved).toHaveLength(1);
+  expect(saved[0].source).toEqual({ type: "chatgpt-share", url: SHARE_URL, title: "Импортированный чат" });
+  expect(saved[0].tags).toEqual(expect.arrayContaining(["chatgpt", "share"]));
+});
+
+test("Save chat updates the same card when the same Share URL is imported again", async ({ page }) => {
+  await seedExistingUser(page);
+  await routeStorage(page, { googleConfigured: false, githubConfigured: false });
+  await routeSharedChat(page);
+  await page.goto("/demo/?personal=1");
+
+  await saveSharedChat(page);
+  await saveSharedChat(page, "https://chat.openai.com/s/share-123");
+
+  const stored = await page.evaluate(key => JSON.parse(localStorage.getItem(key) || "null"), VAULT_KEY);
+  const saved = stored.results.filter(item => item.source?.url === SHARE_URL);
+  expect(saved).toHaveLength(1);
+  expect(saved[0].contentVersion).toBe(2);
+});
+
+test("Save chat explains that a private /c link must be shared first", async ({ page }) => {
+  let resolverCalls = 0;
+  await seedExistingUser(page);
+  await routeStorage(page, { googleConfigured: false, githubConfigured: false });
+  await page.route("**/api/shared-chat?*", route => {
+    resolverCalls += 1;
+    return route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "raw backend failure" }) });
+  });
+  await page.goto("/demo/?personal=1");
+  await page.locator("#addResultButton").click();
+  await page.locator("#saveChatLink").fill("https://chatgpt.com/c/private-conversation-id");
+  await page.locator("#saveChatLinkForm").getByRole("button", { name: "Добавить карточку" }).click();
+
+  await expect(page.locator("#saveChatLinkStatus")).toContainText("приватная ссылка");
+  await expect(page.locator("#saveChatLinkStatus")).toContainText("Share");
+  await expect(page.locator("#saveChatLinkStatus")).not.toContainText("backend");
+  expect(resolverCalls).toBe(0);
+  const stored = await page.evaluate(key => JSON.parse(localStorage.getItem(key) || "null"), VAULT_KEY);
+  expect(stored.results).toHaveLength(1);
+});
+
+test("Save chat keeps structured ChatGPT handoff as a secondary local fallback", async ({ page }) => {
   await seedExistingUser(page);
   await routeStorage(page, { googleConfigured: false, githubConfigured: false });
   await page.goto("/demo/?personal=1");
   await page.locator("#addResultButton").click();
+  await page.locator("#saveChatFallback > summary").click();
   await page.locator("#saveChatPayload").fill(CAPTURE);
   await page.locator("#saveChatForm").getByRole("button", { name: "Проверить карточку" }).click();
   await expect(page.locator("#saveChatReview")).toBeVisible();
@@ -110,6 +208,7 @@ test("Save chat remains usable without horizontal overflow at 360px", async ({ p
   await page.goto("/demo/?personal=1");
   await page.locator("#addResultButton").click();
   await expect(page.locator("#saveChatDialog")).toBeVisible();
+  await expect(page.locator("#saveChatLink")).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);
   await expect(page.locator("#saveChatCommit")).toBeAttached();
