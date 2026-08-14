@@ -5,11 +5,11 @@ import {
   recordResultActivity,
   saveBrowserVault
 } from "./vault.js";
+import { inspectChatGptSharedUrl } from "./chatgpt-share-url.js";
 
 const params = new URLSearchParams(window.location.search);
 const isPersonalRoot = /^\/demo\/?$/.test(window.location.pathname) && params.get("showcase") !== "1";
 const CHATGPT_IMPORT_RESULT_ID = "dashgpt-chatgpt-history-import";
-const CHATGPT_SHARE_HOSTS = new Set(["chatgpt.com", "chat.openai.com"]);
 
 const DASHGPT_CAPTURE_COMMAND = `DashGPT. Подготовь полезный итог ЭТОГО текущего разговора для сохранения.
 Верни только один JSON-объект без markdown, пояснений и code fence:
@@ -128,31 +128,17 @@ if (isPersonalRoot) {
   }
 
   function normalizeChatGptShareUrl(raw) {
-    let url;
-    try {
-      url = new URL(String(raw || "").trim());
-    } catch {
-      throw new Error("Вставь ссылку Share из ChatGPT вида chatgpt.com/share/…");
+    const inspected = inspectChatGptSharedUrl(raw);
+    if (inspected.kind === "invalid-url") {
+      throw new Error("Вставь ссылку Share из ChatGPT.");
     }
-
-    if (url.protocol !== "https:" || !CHATGPT_SHARE_HOSTS.has(url.hostname)) {
-      throw new Error("Нужна публичная ссылка Share из ChatGPT.");
+    if (inspected.kind === "private") {
+      throw new Error("Это приватная ссылка на чат. В ChatGPT нажми Share и вставь сюда получившуюся общую ссылку.");
     }
-
-    const parts = url.pathname.split("/").filter(Boolean);
-    if (parts[0] === "c" && parts[1]) {
-      throw new Error("Это приватная ссылка на чат. В ChatGPT нажми Share и вставь сюда получившуюся ссылку chatgpt.com/share/…");
+    if (inspected.kind !== "shared") {
+      throw new Error("Нужна ссылка Share из ChatGPT — обычная /share/… или общая ссылка чата из проекта /shared/c/…");
     }
-
-    const shareId = parts[0] === "s" && parts[1]
-      ? parts[1]
-      : parts[0] === "share" && parts[1] === "e" && parts[2]
-        ? parts[2]
-        : parts[0] === "share" && parts[1]
-          ? parts[1]
-          : "";
-    if (!shareId) throw new Error("Нужна публичная ссылка Share из ChatGPT вида chatgpt.com/share/…");
-    return `https://chatgpt.com/share/${shareId}`;
+    return inspected.url;
   }
 
   function summaryFromSharedChat(payload) {
@@ -177,10 +163,10 @@ if (isPersonalRoot) {
       response = await fetch(`/api/shared-chat?url=${encodeURIComponent(sourceUrl)}`, { cache: "no-store" });
       payload = await response.json();
     } catch {
-      throw new Error("Не удалось прочитать публичный чат. Проверь Share-ссылку или используй запасной способ ниже.");
+      throw new Error("Не удалось прочитать общий чат. Проверь доступ к нему или используй запасной способ ниже.");
     }
     if (!response.ok || payload?.error) {
-      throw new Error("Не удалось прочитать публичный чат. Проверь Share-ссылку или используй запасной способ ниже.");
+      throw new Error("Ссылка распознана, но общий чат не удалось прочитать. Если он доступен только участникам проекта, используй запасной способ ниже.");
     }
 
     const title = cleanText(payload?.title, 120) || "Сохранённый разговор";
@@ -430,7 +416,7 @@ if (isPersonalRoot) {
           <h3 id="save-chat-capture-title">ChatGPT Share → готовая карточка</h3>
           <form id="saveChatLinkForm" class="public-share-link-form save-chat-link-form">
             <label>Ссылка ChatGPT Share
-              <input id="saveChatLink" type="url" required inputmode="url" autocomplete="off" placeholder="https://chatgpt.com/share/…" />
+              <input id="saveChatLink" type="url" required inputmode="url" autocomplete="off" placeholder="https://chatgpt.com/share/… или …/shared/c/…" />
             </label>
             <button type="submit" class="button primary public-handoff-submit">Добавить карточку</button>
             <p id="saveChatLinkStatus" class="public-share-status" aria-live="polite"></p>
@@ -506,7 +492,7 @@ if (isPersonalRoot) {
       event.preventDefault();
       review.hidden = true;
       linkStatus.classList.remove("error");
-      linkStatus.textContent = "Читаю публичный разговор…";
+      linkStatus.textContent = "Читаю общий разговор…";
       linkSubmit.disabled = true;
       try {
         prepared = await resolveSharedChatCard(linkInput.value);
@@ -520,7 +506,7 @@ if (isPersonalRoot) {
         linkStatus.classList.add("error");
         linkStatus.textContent = error instanceof Error
           ? error.message
-          : "Не удалось прочитать публичный чат. Проверь Share-ссылку или используй запасной способ ниже.";
+          : "Не удалось прочитать общий чат. Проверь доступ к нему или используй запасной способ ниже.";
       } finally {
         linkSubmit.disabled = false;
       }

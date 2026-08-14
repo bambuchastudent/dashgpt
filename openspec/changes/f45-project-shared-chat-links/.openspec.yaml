@@ -1,0 +1,3 @@
+schema: spec-driven
+created: 2026-08-14
+goal: Accept ChatGPT Project shared-chat URLs as first-class chat capture sources without weakening URL validation or pretending membership-gated chats are publicly readable.
