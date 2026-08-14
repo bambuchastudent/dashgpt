@@ -8,29 +8,29 @@
 
 ## 2. Card-content implementation
 
-- [ ] Add provider-neutral card-content normalization/section-extraction utility with no schema migration.
-- [ ] Preserve rich block structure from F36 Share capture and strip provider-internal rendering markers.
-- [ ] Extract only explicit Decisions/Решения and Next/Следующий шаг sections; do not infer missing values.
-- [ ] Add safe DOM renderer for the bounded Markdown subset without captured `innerHTML`.
-- [ ] Use rich summary rendering in modal and standalone card detail.
-- [ ] Omit empty Decisions/Next detail blocks.
-- [ ] Keep existing source provenance, repeat-capture identity, continuation, Dashes/search and fallback structured capture unchanged.
-- [ ] Add minimal CSS needed for readable rich content and 360px wrapping.
+- [x] Add provider-neutral card-content normalization/section-extraction utility with no schema migration.
+- [x] Preserve rich block structure from F36 Share capture and strip provider-internal rendering markers.
+- [x] Extract only explicit Decisions/Решения and Next/Следующий шаг sections; do not infer missing values.
+- [x] Add safe DOM renderer for the bounded Markdown subset without captured `innerHTML`.
+- [x] Use rich summary rendering in modal and standalone card detail.
+- [x] Omit empty Decisions/Next detail blocks.
+- [x] Keep existing source provenance, repeat-capture identity, continuation, Dashes/search and fallback structured capture unchanged.
+- [x] Add minimal CSS needed for readable rich content and 360px wrapping.
 
 ## 3. Regression coverage
 
-- [ ] Internal marker cleanup regression.
-- [ ] Block/newline preservation regression.
-- [ ] Explicit Decisions/Next extraction and no-invention regressions.
-- [ ] Strong/code/list/heading/link renderer regression.
-- [ ] Unsafe-link and captured-HTML inertness regressions.
-- [ ] Modal and standalone detail omit empty Decisions/Next placeholders.
-- [ ] F36 mocked Share capture saves structured rich card while preserving canonical source URL and duplicate behavior.
-- [ ] 360px rich detail has no horizontal page overflow and primary actions remain reachable.
+- [x] Internal marker cleanup regression.
+- [x] Block/newline preservation regression.
+- [x] Explicit Decisions/Next extraction and no-invention regressions.
+- [x] Strong/code/list/heading/link renderer regression.
+- [x] Unsafe-link and captured-HTML inertness regressions.
+- [x] Modal and standalone detail omit empty Decisions/Next placeholders.
+- [x] F36 mocked Share capture saves structured rich card while preserving canonical source URL and duplicate behavior.
+- [x] 360px rich detail has no horizontal page overflow and primary actions remain reachable.
 
 ## 4. Verification / delivery
 
-- [ ] Run focused syntax/deterministic checks for changed card-content/capture/render files.
+- [x] Run focused syntax/deterministic checks for changed card-content/capture/render files.
 - [ ] Run canonical `npm run verify:fast` and record evidence.
 - [ ] Attempt canonical `npm run verify:full` once before merge and record pass/failure evidence truthfully.
 - [ ] Verify production-shaped branch preview on desktop and 360px mobile.

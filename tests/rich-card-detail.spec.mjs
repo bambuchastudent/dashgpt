@@ -28,7 +28,9 @@ async function seed(page, results = [{
   immutable: false,
   contentVersion: 1
 }]) {
-  await page.addInitScript(({ key, value }) => localStorage.setItem(key, JSON.stringify(value)), {
+  await page.addInitScript(({ key, value }) => {
+    if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify(value));
+  }, {
     key: VAULT_KEY,
     value: vault(results)
   });
@@ -79,7 +81,9 @@ test("link-first capture preserves rich card structure and renders it safely on 
 
   await page.setViewportSize({ width: 360, height: 780 });
   await page.goto("/demo/?personal=1");
-  await page.locator("#addResultButton").click();
+  const addButton = page.locator("#addResultButton");
+  await expect(addButton).toHaveText("+ Сохранить чат");
+  await addButton.click();
   await page.locator("#saveChatLink").fill(SHARE_URL);
   await page.locator("#saveChatLinkForm").getByRole("button", { name: "Добавить карточку" }).click();
 
@@ -102,6 +106,21 @@ test("link-first capture preserves rich card structure and renders it safely on 
     "Исходная ссылка остаётся source of truth"
   ]);
   expect(saved.next).toBe("Проверить UX в develop.");
+
+  await expect(page.locator("#addResultButton")).toHaveText("+ Сохранить чат");
+  await page.locator("#addResultButton").click();
+  await page.locator("#saveChatLink").fill(SHARE_URL);
+  await page.locator("#saveChatLinkForm").getByRole("button", { name: "Добавить карточку" }).click();
+  await expect(page.locator("#saveChatReview")).toBeVisible();
+  await page.locator("#saveChatCommit").click();
+  await page.waitForURL(/\/demo\/$/);
+  const repeated = await page.evaluate(({ key, sourceUrl }) => {
+    const stored = JSON.parse(localStorage.getItem(key) || "null");
+    return stored.results.filter(item => item.source?.url === sourceUrl);
+  }, { key: VAULT_KEY, sourceUrl: SHARE_URL });
+  expect(repeated).toHaveLength(1);
+  expect(repeated[0].id).toBe(saved.id);
+  expect(repeated[0].contentVersion).toBe(2);
 
   const card = page.locator(".result-card").filter({ hasText: "Rich Share card" });
   await card.locator(".open-button").click();
