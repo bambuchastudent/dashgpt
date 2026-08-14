@@ -132,10 +132,12 @@ test("conversation JSON imports locally and repeated import does not duplicate a
   expect(writes).toEqual([]);
 });
 
-test("official export ZIP imports conversations", async ({ page }) => {
+test("official export ZIP imports semantic canonical cards", async ({ page }) => {
   await seed(page);
   await openChoice(page);
-  const buffer = zipBuffer("account/conversations.json", JSON.stringify([conversation("zip-one")]));
+  const exported = conversation("zip-one", " with GitHub Safari browser import and OpenSpec");
+  exported.title = "GitHub Safari import";
+  const buffer = zipBuffer("account/conversations.json", JSON.stringify([exported]));
   await page.locator("#chatgptExportImportInput").setInputFiles({ name: "chatgpt-export.zip", mimeType: "application/zip", buffer });
   await expect(page.locator("#chatgptExportShowCards")).toBeVisible();
   const saved = await page.evaluate(({ key, sourceId }) => {
@@ -144,6 +146,10 @@ test("official export ZIP imports conversations", async ({ page }) => {
   }, { key: VAULT_KEY, sourceId: "zip-one" });
   expect(saved?.id).toBe("chatgpt-conversation-zip-one");
   expect(saved?.summary).toContain("Useful exported outcome");
+  expect(saved?.category).toBe("Software");
+  expect(saved?.tags).toContain("github");
+  expect(saved?.tags).not.toContain("chatgpt");
+  expect(saved?.result?.semanticEnrichmentVersion).toBe(1);
 });
 
 test("malformed conversations are isolated and successful cards remain durable", async ({ page }) => {
