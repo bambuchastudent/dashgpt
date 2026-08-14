@@ -52,8 +52,9 @@ function refreshAccountButton() {
   const disconnect = document.querySelector("#disconnectGoogleDriveButton");
   const status = document.querySelector("#googleDriveStatus")?.textContent || "";
 
-  const unconfigured = /not available on this deployment/i.test(status);
-  if (unconfigured || (!canonical && !disconnect)) {
+  const unavailable = /not available on this deployment/i.test(status);
+  const preparing = /checking google|preparing google/i.test(status);
+  if (unavailable || preparing || (!canonical && !disconnect)) {
     setButtonState(button, { hidden: true, disabled: true, text: "", title: "" });
     return;
   }
