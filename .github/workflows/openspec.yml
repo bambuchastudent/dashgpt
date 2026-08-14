@@ -11,7 +11,11 @@ permissions:
 
 jobs:
   validate:
-    runs-on: ubuntu-latest
+    if: >-
+      github.actor == github.repository_owner &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, macOS, ARM64, dashgpt]
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
         with:
@@ -37,4 +41,3 @@ jobs:
             echo "Validating ${change}"
             openspec validate "${change}" --type change --strict --no-interactive
           done
-
