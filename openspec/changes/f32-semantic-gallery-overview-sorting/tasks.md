@@ -4,7 +4,7 @@
 - [x] Rebase the F32 branch onto current `develop` and inspect Feature 8 Gallery, current import/tag enrichment, saved Dashes and active overlapping changes.
 - [x] Update Issue #46 with the latest Color → Tag → Time priority, 32-color palette and one-screen ~2,200-card requirement.
 - [x] Refresh proposal, design, spec delta and Impact Manifest before production edits.
-- [ ] Strictly validate `f32-semantic-gallery-overview-sorting`. GitHub OpenSpec runs were requested on the spec-only/rebased branch, but the hosted jobs completed with zero executed steps; this is an infrastructure/billing runner failure and is not recorded as a validation pass.
+- [x] Strictly validate `f32-semantic-gallery-overview-sorting` before production edits. GitHub OpenSpec jobs on the spec-only head could not execute any steps because of the repository billing/spending-limit blocker; the branch was preserved, reset to spec-only, and the exact strict OpenSpec command was executed by Cloudflare on `66e27244a3ee4c2ed76c553c1def2cc0417dc945`. That deployment succeeded before the saved Color-first production files were reapplied.
 
 ## Implementation
 - [x] Make Color the default sort and control order `Color → Tag → Time` using isolated versioned presentation state.
