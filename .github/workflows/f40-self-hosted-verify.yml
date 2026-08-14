@@ -8,11 +8,21 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: f40-self-hosted-verification
+  cancel-in-progress: true
+
 jobs:
-  openspec:
+  verify:
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v5
       - run: node --version && npm --version
       - run: npm install --global @fission-ai/openspec@latest
       - run: openspec validate f40-one-sentence-product-explanation --type change --strict --no-interactive
+      - run: npm install --ignore-scripts
+      - run: npx playwright install chromium
+      - name: Targeted branding verification
+        run: node scripts/verify-demo-branding.mjs && npx playwright test tests/demo-branding.spec.mjs
+      - name: Canonical full verification
+        run: npm run verify:full
