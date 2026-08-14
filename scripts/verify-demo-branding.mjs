@@ -14,11 +14,12 @@ function requireText(haystack, needle, label) {
 }
 
 const title = "DashGPT — Save, find and continue useful AI work";
-const description = "DashGPT keeps useful outcomes from AI conversations as cards so you can find them and continue your work later.";
+const description = "DashGPT is your personal AI memory: it turns useful parts of conversations with ChatGPT and other assistants into connected cards you can find, combine, and continue later with the context preserved.";
 const faviconLink = '<link rel="icon" type="image/svg+xml" href="/demo/favicon.svg" />';
 
 requireText(index, `<title>${title}</title>`, "document title");
 requireText(index, `<meta name="description" content="${description}" />`, "meta description");
+requireText(index, `<p class="subtitle">${description}</p>`, "visible one-sentence product explanation");
 requireText(index, faviconLink, "favicon link");
 for (const [name, html] of [["support", support], ["privacy", privacy], ["terms", terms]]) {
   requireText(html, faviconLink, `${name} favicon link`);
