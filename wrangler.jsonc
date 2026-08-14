@@ -5,7 +5,7 @@
   "compatibility_date": "2026-08-09",
   "preview_urls": true,
   "build": {
-    "command": "npx --yes @fission-ai/openspec@latest validate f27-profile-project-metrics --type change --strict --no-interactive"
+    "command": "node --check demo/chatgpt-history-source-runner.js && node --check demo/chatgpt-profile-metrics-import-store.js && node --check demo/chatgpt-profile-metrics-import-bridge.js && node --check demo/profile-metrics.js && node --check demo/catalog-bootstrap.js && npx playwright test tests/profile-metrics-source-version.spec.mjs tests/profile-metrics-backfill.spec.mjs tests/profile-metrics-portability.spec.mjs --workers=1 && node scripts/verify-chatgpt-history-import-f25.mjs && node scripts/verify-chatgpt-history-import-f26.mjs"
   },
   "vars": {
     "GITHUB_APP_ID": "4544269",
