@@ -260,8 +260,8 @@ assert.throws(() => chatGptImportedResultId("https://evil.invalid/x"));
   assert.ok(observedHistoryEstimate < 5_100_000, `Observed 2,123-chat worst-case estimate is ${observedHistoryEstimate} bytes; projection needs tightening`);
 }
 
-// The final shared runner keeps F24 task-local deferral while F25 adds a
-// bounded provider-pressure circuit breaker around new detail acquisitions.
+// The final shared runner keeps F24 task-local deferral, the F25 bounded
+// provider-pressure circuit breaker, and F26 wakeable deferred retries.
 {
   const runner = buildChatGptHistorySourceRunner({
     receiverOrigin: "https://dashgpt.example",
@@ -269,13 +269,13 @@ assert.throws(() => chatGptImportedResultId("https://evil.invalid/x"));
     sessionId: "session-test",
     nonce: "nonce-test"
   });
-  assert.equal(CHATGPT_HISTORY_SOURCE_VERSION, 5);
-  assert.match(runner, /"sourceVersion":5/);
+  assert.equal(CHATGPT_HISTORY_SOURCE_VERSION, 6);
+  assert.match(runner, /"sourceVersion":6/);
   assert.match(runner, /"initialConcurrency":2/);
   assert.match(runner, /"maxConcurrency":3/);
   assert.match(runner, /"batchSize":32/);
   assert.match(runner, /"maxDetailRateLimitAttempts":8/);
-  assert.match(runner, /scheduler\.rateLimited\(\)/);
+  assert.match(runner, /scheduler\.rateLimited\(delay\)/);
   assert.match(runner, /scheduler\.serviceThrottled\(delay\)/);
   assert.match(runner, /ChatGptDetailDeferredError/);
   assert.match(runner, /const ready = pending\.map/);
@@ -295,7 +295,7 @@ assert.throws(() => chatGptImportedResultId("https://evil.invalid/x"));
   const detail429End = runner.indexOf("const delay = serviceRetryDelay", detail429Start);
   assert.ok(detail429Start >= 0 && detail429End > detail429Start, "Detail 429 branch not found");
   const detail429Block = runner.slice(detail429Start, detail429End);
-  assert.match(detail429Block, /scheduler\.rateLimited\(\)/);
+  assert.match(detail429Block, /scheduler\.rateLimited\(delay\)/);
   assert.doesNotMatch(detail429Block, /serviceThrottled|await sleep/);
 
   const serviceBlock = runner.slice(detail429End, runner.indexOf("function extractItems", detail429End));
@@ -318,7 +318,7 @@ assert.throws(() => chatGptImportedResultId("https://evil.invalid/x"));
   assert.match(action, /const nonce=makeId\("nonce"\)/);
   assert.match(action, /connect\.click\(\)/);
   assert.match(action, /postMessage/);
-  assert.match(action, /scheduler\.rateLimited\(\)/);
+  assert.match(action, /scheduler\.rateLimited\(delay\)/);
   assert.match(action, /ChatGptDetailDeferredError/);
   assert.match(action, /nextRetryAt/);
   assert.match(action, /rateLimitStreak/);
