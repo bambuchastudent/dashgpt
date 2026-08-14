@@ -11,11 +11,13 @@ import {
   deriveChatGptSemanticMetadata
 } from "./chatgpt-semantic-enrichment.js";
 
-export const CHATGPT_HISTORY_SOURCE_VERSION = CORE_CHATGPT_HISTORY_SOURCE_VERSION + 3;
+export const CHATGPT_VISIBLE_TEXT_ESTIMATOR = "visible-text-v1";
+export const CHATGPT_HISTORY_SOURCE_VERSION = CORE_CHATGPT_HISTORY_SOURCE_VERSION + 4;
 export { computeChatGptDetailRetryDelay };
 
 const HANDSHAKE_HOOK = "    postToReceiver({ type: \"HELLO\", sourceVersion });\n    const ready = await waitForReply(\"READY\", () => true, 5000);";
 const PROJECT_TITLE_HOOK = "    const title = clip(conversation?.title || summary?.title || \"Untitled ChatGPT conversation\", 140);\n    return {";
+const FACTS_HOOK = "      facts: [`${messages.length} visible messages`],";
 const TAG_HOOK = "      tags: titleTags(title),";
 const OPENER_CONNECT_HOOK = "  if (window.opener && !window.opener.closed) connectAndRun(window.opener).catch(() => {});";
 const ACTION_SESSION_SENTINEL = "__DASHGPT_ACTION_SESSION__";
@@ -59,9 +61,33 @@ const QUEUE_STATE_HOOK = `    function updateQueueState(retryAfterMs = 0) {
 
 export const MAX_CHATGPT_IMPORT_ACTION_CHARS = 64 * 1024;
 
+export function estimateVisibleTextTokens(text) {
+  const value = String(text || "");
+  if (!value) return 0;
+  const bytes = new TextEncoder().encode(value).length;
+  return Math.max(1, Math.ceil(bytes / 4));
+}
+
 function replaceRequired(runner, hook, replacement, label) {
   if (!runner.includes(hook)) throw new Error(`ChatGPT source runner hook not found: ${label}`);
   return runner.replace(hook, replacement);
+}
+
+function injectUsageProjection(runner) {
+  const estimator = estimateVisibleTextTokens.toString();
+  let next = replaceRequired(
+    runner,
+    "  function projectConversation(payload, summary) {",
+    `  const estimateVisibleTextTokens = ${estimator};\n\n  function projectConversation(payload, summary) {`,
+    "visible-text token estimator"
+  );
+  next = replaceRequired(
+    next,
+    FACTS_HOOK,
+    `      facts: [\`${'${messages.length}'} visible messages\`],\n      usage: {\n        tokenCount: messages.reduce((total, item) => total + estimateVisibleTextTokens(item.text), 0),\n        tokenCountKind: \"estimated\",\n        estimator: \"${CHATGPT_VISIBLE_TEXT_ESTIMATOR}\"\n      },`,
+    "usage card fields"
+  );
+  return next;
 }
 
 function injectSemanticProjection(runner) {
@@ -84,7 +110,7 @@ function injectHandshakeRetry(runner) {
   return replaceRequired(
     runner,
     HANDSHAKE_HOOK,
-    `    let ready = null;\n    let lastHandshakeError = null;\n    for (let attempt = 0; attempt < 10 && !ready; attempt += 1) {\n      postToReceiver({ type: \"HELLO\", sourceVersion });\n      try {\n        ready = await waitForReply(\"READY\", data => Number(data.semanticEnrichmentVersion || 0) >= ${CHATGPT_SEMANTIC_ENRICHMENT_VERSION}, 1200);\n      } catch (error) {\n        lastHandshakeError = error;\n        if (attempt < 9) await sleep(250);\n      }\n    }\n    if (!ready) throw lastHandshakeError || new Error(\"DashGPT receiver did not become semantic-enrichment aware\");`,
+    `    let ready = null;\n    let lastHandshakeError = null;\n    for (let attempt = 0; attempt < 10 && !ready; attempt += 1) {\n      postToReceiver({ type: \"HELLO\", sourceVersion });\n      try {\n        ready = await waitForReply(\"READY\", data => data.usageAware === true && Number(data.semanticEnrichmentVersion || 0) >= ${CHATGPT_SEMANTIC_ENRICHMENT_VERSION}, 1200);\n      } catch (error) {\n        lastHandshakeError = error;\n        if (attempt < 9) await sleep(250);\n      }\n    }\n    if (!ready) throw lastHandshakeError || new Error(\"DashGPT receiver did not become usage and semantic-enrichment aware\");`,
     "handshake"
   );
 }
@@ -198,7 +224,7 @@ function injectF26RetryWakeup(runner) {
 }
 
 export function buildChatGptHistorySourceRunner(options) {
-  return injectHandshakeRetry(injectSemanticProjection(injectF26RetryWakeup(buildCoreRunner(options))));
+  return injectHandshakeRetry(injectUsageProjection(injectSemanticProjection(injectF26RetryWakeup(buildCoreRunner(options)))));
 }
 
 export function buildChatGptHistoryImportAction({ receiverOrigin, receiverPath = "/demo/" }) {
