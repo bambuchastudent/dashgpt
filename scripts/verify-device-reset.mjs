@@ -48,6 +48,13 @@ function jsonResponse(payload, { ok = true, status = ok ? 200 : 500 } = {}) {
 }
 
 {
+  await assert.rejects(
+    ensureGithubDisconnected(async () => jsonResponse({ configured: true })),
+    error => error?.code === "github_reset_status_unavailable"
+  );
+}
+
+{
   const calls = [];
   const result = await ensureGithubDisconnected(async (url, init = {}) => {
     calls.push([url, init.method || "GET"]);
@@ -133,6 +140,22 @@ function jsonResponse(payload, { ok = true, status = ok ? 200 : 500 } = {}) {
 
 {
   const local = new MemoryStorage({ "dashgpt.demo.vault.v1": "old-vault" });
+  local.removeItem = () => { throw new Error("storage cleanup failed"); };
+  let restored = false;
+  await assert.rejects(performDeviceReset({
+    localStorage: local,
+    sessionStorage: new MemoryStorage(),
+    fetchFn: async () => jsonResponse({ configured: false, paired: false }),
+    installWriteBarrier: () => () => { restored = true; },
+    dispatchReset: () => {},
+    navigate: () => { throw new Error("must not navigate"); }
+  }), /storage cleanup failed/);
+  assert.equal(restored, true);
+  assert.equal(local.getItem("dashgpt.demo.vault.v1"), "old-vault");
+}
+
+{
+  const local = new MemoryStorage({ "dashgpt.demo.vault.v1": "old-vault" });
   let restored = false;
   await assert.rejects(performDeviceReset({
     localStorage: local,
@@ -142,7 +165,8 @@ function jsonResponse(payload, { ok = true, status = ok ? 200 : 500 } = {}) {
     dispatchReset: () => {},
     navigate: () => { throw new Error("navigation failed"); }
   }), /navigation failed/);
-  assert.equal(restored, true);
+  assert.equal(restored, false);
+  assert.equal(local.getItem("dashgpt.demo.vault.v1"), null);
 }
 
 console.log("verify-device-reset: ok");
