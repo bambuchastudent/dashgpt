@@ -68,6 +68,14 @@ When the portal gives the verification token, set the Cloudflare Worker secret/e
 - `destructiveHint: false`;
 - `openWorldHint: true` because it may read a caller-selected public HTTPS DashGPT instance.
 
+### `search_results`
+
+- searches intentionally exposed published Result metadata using a required topic, decision or fact query;
+- reuses the same ranking and compatible-instance boundary as `list_results.query`;
+- `readOnlyHint: true`;
+- `destructiveHint: false`;
+- `openWorldHint: true` because it may read a caller-selected public HTTPS DashGPT instance.
+
 ### `open_semantic_dash`
 
 - resolves one intentionally exposed saved Dash, returns a short ambiguous choice, or builds a temporary Dash from exposed Results;
@@ -99,7 +107,7 @@ When the portal gives the verification token, set the Cloudflare Worker secret/e
 - `destructiveHint: false`;
 - `openWorldHint: false`.
 
-All five tools currently return `structuredContent` but do not yet declare MCP `outputSchema`. This is not a submission-packet blocker, but adding output schemas is a reliability hardening item for a later source change.
+All six tools return `structuredContent` and advertise object-root MCP `outputSchema` contracts. Fixed service copy supports explicit `en` / `ru`; stored Result and Dash content is not automatically translated.
 
 ## Starter prompts
 
@@ -111,33 +119,39 @@ All five tools currently return `structuredContent` but do not yet declare MCP `
 
 ## Positive reviewer test cases
 
-The five cases below mirror `chatgpt-app-submission.json` exactly at the workflow level.
+The six cases below mirror `chatgpt-app-submission.json` exactly at the workflow level.
 
-### P1 — search published Results
+### P1 — browse published Results
+
+**Prompt:** `Show me recent published DashGPT Results.`
+
+**Expected behavior**: call `list_results` without a query; return compact Result metadata from the selected public catalog.
+
+### P2 — search published Results
 
 **Prompt:** `Use DashGPT to find the camping and fishing Result.`
 
-**Expected:** call `list_results`; return the relevant immutable Result metadata and stable Result page URL.
+**Expected behavior**: call `search_results` with the relevant query; return the immutable Result about El Regajo / Fuente Muñoz.
 
-### P2 — reopen one saved Semantic Dash
+### P3 — reopen one saved Semantic Dash
 
 **Prompt:** `Открой мой даш про DashGPT.`
 
 **Expected:** call `open_semantic_dash`; resolve the confident published DashGPT Dash and return the bounded saved view without creating another Dash.
 
-### P3 — read a Result by stable id
+### P4 — read a Result by stable id
 
 **Prompt:** `Show me the DashGPT Result camping-fishing-el-regajo-fuente-munoz.`
 
 **Expected:** call `get_result`; return the Result with durable fields, immutable metadata and its stable page URL.
 
-### P4 — get portable continuation context
+### P5 — get portable continuation context
 
 **Prompt:** `Get the Context Pack for camping-fishing-el-regajo-fuente-munoz so I can continue the work.`
 
 **Expected:** call `get_context_pack`; return portable continuation context derived from that immutable Result.
 
-### P5 — prepare an explicit import
+### P6 — prepare an explicit import
 
 **Prompt:** `Save this outcome to DashGPT: we decided that imports must stay explicit and reviewable.`
 
@@ -171,7 +185,7 @@ Do not select regions mechanically. For the initial submission, choose only coun
 
 ## Release notes — initial submission
 
-Version 0.4 adds Semantic Dashes: natural topic lookup, confident/ambiguous saved-Dash resolution, Review-mode proposals, bounded current-chat presentation, and explicit temporary-Dash import. Dashes reference Results rather than copying them, and the public MCP surface can read only catalogs intentionally exposed by the selected compatible instance. Version 0.3 introduced user-selected instance routing and explicit immutable Result import.
+Version 0.5 adds validated structured output schemas, dedicated Result search, and deterministic Russian/English service responses. Version 0.4 added Semantic Dashes: natural topic lookup, confident/ambiguous saved-Dash resolution, Review-mode proposals, bounded current-chat presentation, and explicit temporary-Dash import. Dashes reference Results rather than copying them, and the public MCP surface can read only catalogs intentionally exposed by the selected compatible instance. Version 0.3 introduced user-selected instance routing and explicit immutable Result import.
 
 ## Portal runbook
 
@@ -182,9 +196,9 @@ Version 0.4 adds Semantic Dashes: natural topic lookup, confident/ambiguous save
 5. Select **Universal** MCP URL and enter `https://dashgpt.dimkashir.workers.dev/mcp`.
 6. Authentication: **None** for this public-read/explicit-import MVP.
 7. Start domain verification. Copy the portal token into Cloudflare as `OPENAI_APPS_CHALLENGE`, then complete verification.
-8. **Scan Tools** and confirm the five tool names, schemas and annotations match the server and submission JSON.
+8. **Scan Tools** and confirm the six tool names, schemas and annotations match the server and submission JSON.
 9. Upload the reviewed `use-dashgpt` skill bundle if the portal asks for the bundled skill separately.
-10. Confirm the five positive and three negative reviewer tests.
+10. Confirm the six positive and three negative reviewer tests.
 11. Select explicitly reviewed availability regions.
 12. Add release notes, complete attestations and submit for review.
 13. After approval, publish the approved version.

@@ -20,6 +20,18 @@
         "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible actions."
       }
     },
+    "search_results": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only retrieves and ranks intentionally exposed Result metadata for a required query without creating or updating DashGPT data.",
+        "open_world_justification": "May read a caller-selected public HTTPS DashGPT instance outside the default service.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible actions."
+      }
+    },
     "open_semantic_dash": {
       "annotations": {
         "readOnlyHint": true,
@@ -71,10 +83,18 @@
   },
   "test_cases": [
     {
+      "description": "Browse published DashGPT Results without a specific query.",
+      "user_prompt": "Show me recent published DashGPT Results.",
+      "file_attachment_urls": null,
+      "tools_triggered": "list_results",
+      "expected_output": "Returns compact intentionally exposed Result metadata and stable DashGPT Result page URLs.",
+      "expected_output_url": null
+    },
+    {
       "description": "Search published DashGPT Results for a known topic.",
       "user_prompt": "Use DashGPT to find the camping and fishing Result.",
       "file_attachment_urls": null,
-      "tools_triggered": "list_results",
+      "tools_triggered": "search_results",
       "expected_output": "Returns the relevant immutable Result metadata and a stable DashGPT Result page URL.",
       "expected_output_url": null
     },

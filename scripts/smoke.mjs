@@ -134,7 +134,7 @@ function decodeDashImportUrl(importUrl) {
 
 assert.equal(plugin.name, "dashgpt");
 assert.equal(plugin.interface?.displayName, "DashGPT");
-assert.equal(plugin.version, "0.4.0");
+assert.equal(plugin.version, "0.5.0");
 assert.equal(plugin.interface?.privacyPolicyURL.endsWith("/demo/privacy.html"), true);
 assert.equal(plugin.interface?.termsOfServiceURL.endsWith("/demo/terms.html"), true);
 assert.match(supportHtml, /DashGPT support/);
@@ -166,27 +166,29 @@ const initialize = await rpc(1, "initialize", {
   clientInfo: { name: "dashgpt-smoke", version: "1" }
 });
 assert.equal(initialize.result.serverInfo.name, "dashgpt");
-assert.equal(initialize.result.serverInfo.version, "0.4.0");
+assert.equal(initialize.result.serverInfo.version, "0.5.0");
 assert.ok(initialize.result.capabilities.tools);
 
 const tools = await rpc(2, "tools/list");
 assert.deepEqual(
   tools.result.tools.map((tool) => tool.name),
-  ["list_results", "open_semantic_dash", "get_result", "get_context_pack", "prepare_result_import"]
+  ["list_results", "search_results", "open_semantic_dash", "get_result", "get_context_pack", "prepare_result_import"]
 );
-assert.ok(tools.result.tools.slice(0, 4).every((tool) => tool.annotations?.readOnlyHint === true));
-assert.ok(tools.result.tools.slice(0, 4).every((tool) => tool.annotations?.openWorldHint === true));
-assert.equal(tools.result.tools[4].annotations?.readOnlyHint, true);
-assert.equal(tools.result.tools[4].annotations?.openWorldHint, false);
+assert.ok(tools.result.tools.every((tool) => tool.outputSchema?.type === "object"));
+assert.ok(tools.result.tools.slice(0, 5).every((tool) => tool.annotations?.readOnlyHint === true));
+assert.ok(tools.result.tools.slice(0, 5).every((tool) => tool.annotations?.openWorldHint === true));
+assert.equal(tools.result.tools[5].annotations?.readOnlyHint, true);
+assert.equal(tools.result.tools[5].annotations?.openWorldHint, false);
 
 const list = await rpc(3, "tools/call", { name: "list_results", arguments: { limit: 10 } });
 assert.ok(list.result.structuredContent.results.length >= 4);
 const semanticList = await rpc(31, "tools/call", {
-  name: "list_results",
-  arguments: { query: "еда", category: "Еда", limit: 10 }
+  name: "search_results",
+  arguments: { query: "еда", category: "Еда", limit: 10, language: "ru" }
 });
 assert.ok(semanticList.result.structuredContent.results.length >= 2);
 assert.ok(semanticList.result.structuredContent.results.every((result) => result.category === "Еда"));
+assert.equal(semanticList.result.structuredContent.language, "ru");
 
 const savedDash = await rpc(32, "tools/call", {
   name: "open_semantic_dash",

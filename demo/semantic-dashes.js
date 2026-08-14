@@ -641,32 +641,64 @@ export function refreshDash(revision, events, results, options = {}) {
 
 export function formatDashForChat(view, options = {}) {
   const limit = Math.max(1, Math.min(Number(options.limit || 6), 12));
+  const language = options.language === "ru" ? "ru" : "en";
+  const copy = language === "ru"
+    ? {
+        temporary: "временный",
+        updated: "Обновлено",
+        notYet: "ещё не обновлялся",
+        mode: "Режим",
+        results: "Результаты",
+        noResults: "- Доступные подходящие результаты не найдены.",
+        original: "оригинал",
+        moreResults: (count) => `- …и ещё результатов: ${count}.`,
+        proposals: "Новые предложения",
+        moreProposals: (count) => `- …и ещё предложений: ${count}.`,
+        unavailable: (count) => `Сейчас недоступно связанных результатов: ${count}; сохранённое содержимое не показано.`,
+        related: "Связанные даши",
+        continue: "Чтобы продолжить в этом чате, назовите результат или попросите раскрыть этот даш."
+      }
+    : {
+        temporary: "temporary",
+        updated: "Updated",
+        notYet: "not yet",
+        mode: "Mode",
+        results: "Results",
+        noResults: "- No accessible matching Results.",
+        original: "original",
+        moreResults: (count) => `- …and ${count} more Results.`,
+        proposals: "New proposals",
+        moreProposals: (count) => `- …and ${count} more proposals.`,
+        unavailable: (count) => `${count} referenced Result${count === 1 ? " is" : "s are"} currently unavailable; no saved content was shown.`,
+        related: "Related Dashes",
+        continue: "Continue in this chat by naming a Result or asking to expand this Dash."
+      };
   const lines = [
-    `# ${view.title}${view.temporary ? " · temporary" : ""}`,
+    `# ${view.title}${view.temporary ? ` · ${copy.temporary}` : ""}`,
     "",
     view.summary,
     "",
-    `Updated: ${view.lastUpdatedAt || "not yet"}`,
-    `Mode: ${view.updateMode || "review"}`,
+    `${copy.updated}: ${view.lastUpdatedAt || copy.notYet}`,
+    `${copy.mode}: ${view.updateMode || "review"}`,
     "",
-    "## Results"
+    `## ${copy.results}`
   ];
-  if (!view.members.length) lines.push("- No accessible matching Results.");
+  if (!view.members.length) lines.push(copy.noResults);
   for (const member of view.members.slice(0, limit)) {
     const result = member.result;
     const page = result.pageUrl ? ` — ${result.pageUrl}` : "";
-    const source = result.source?.url ? ` (original: ${result.source.url})` : "";
+    const source = result.source?.url ? ` (${copy.original}: ${result.source.url})` : "";
     lines.push(`- ${result.title}${page}${source}`);
   }
-  if (view.members.length > limit) lines.push(`- …and ${view.members.length - limit} more Results.`);
+  if (view.members.length > limit) lines.push(copy.moreResults(view.members.length - limit));
   if (view.proposals.length) {
-    lines.push("", "## New proposals");
+    lines.push("", `## ${copy.proposals}`);
     for (const proposal of view.proposals.slice(0, limit)) lines.push(`- ${proposal.result.title}`);
-    if (view.proposals.length > limit) lines.push(`- …and ${view.proposals.length - limit} more proposals.`);
+    if (view.proposals.length > limit) lines.push(copy.moreProposals(view.proposals.length - limit));
   }
-  if (view.unavailable.length) lines.push("", `${view.unavailable.length} referenced Result${view.unavailable.length === 1 ? " is" : "s are"} currently unavailable; no saved content was shown.`);
-  if (view.relatedDashes.length) lines.push("", `Related Dashes: ${view.relatedDashes.map((item) => item.title).join(", ")}`);
-  lines.push("", "Continue in this chat by naming a Result or asking to expand this Dash.");
+  if (view.unavailable.length) lines.push("", copy.unavailable(view.unavailable.length));
+  if (view.relatedDashes.length) lines.push("", `${copy.related}: ${view.relatedDashes.map((item) => item.title).join(", ")}`);
+  lines.push("", copy.continue);
   return lines.join("\n");
 }
 
