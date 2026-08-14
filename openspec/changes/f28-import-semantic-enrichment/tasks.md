@@ -6,16 +6,16 @@
 - [x] Choose deterministic local semantic enrichment; no mandatory external LLM/API key.
 - [x] Define bounded projection-version/backfill semantics preserving canonical source identity.
 - [x] Update F28 OpenSpec for current `develop`, including official ZIP/JSON import and F25 composition.
-- [ ] Strictly validate the rebased `f28-import-semantic-enrichment` change before production edits.
-- [ ] Add shared local semantic classifier with useful canonical topic tags and generic/provider filtering.
-- [ ] Compose semantic projection with merged F25 source runner and advance the semantic-aware source revision.
-- [ ] Add semantic-aware receiver ownership/freshness/same-timestamp backfill without duplicate legacy fast-path processing.
-- [ ] Make official ZIP/JSON import use the same semantic projection/store contract.
-- [ ] Tighten direct DashGPT skill to require 2–5 meaning-oriented tags and no summarize-skill dependency.
-- [ ] Add deterministic RU/EN/mixed classifier and semantic hue/signature coverage.
-- [ ] Add same-timestamp backfill, identity preservation, idempotent rerun and live/export parity coverage.
-- [ ] Wire F28 checks into current `check` and `verify:fast` without dropping F25/F29 checks.
-- [ ] Run F28 targeted verification and existing F25/F29 import verification.
-- [ ] Run `npm run verify:full` once before merge while applicable and record infrastructure/runtime blockers truthfully.
-- [ ] Verify production-shaped preview; metadata uses the existing card/tag/color renderer so no new layout is introduced.
-- [ ] Update PR body/tasks with final verification and compatibility state, then merge to `develop` only if clean.
+- [x] Strictly validate the rebased `f28-import-semantic-enrichment` change before production edits.
+- [x] Add shared local semantic classifier with useful canonical topic tags and generic/provider filtering.
+- [x] Compose semantic projection with merged F25 source runner and advance the semantic-aware source revision to v5.
+- [x] Add semantic-aware receiver ownership/freshness/same-timestamp backfill without duplicate legacy fast-path processing.
+- [x] Make official ZIP/JSON import use the same semantic projection/store contract.
+- [x] Tighten direct DashGPT skill to require 2–5 meaning-oriented tags and no summarize-skill dependency.
+- [x] Add deterministic RU/EN/mixed classifier and semantic hue/signature coverage.
+- [x] Add same-timestamp backfill, identity preservation, idempotent rerun and live/export parity coverage.
+- [x] Wire F28 checks into current `check` and `verify:fast` without dropping F25/F29 checks.
+- [x] Run F28 targeted verification and existing F25/F29 import verification; `verify:fast` and full non-browser `check` pass.
+- [x] Run `npm run verify:full` once before merge and record the browser-runner blocker truthfully: Cloudflare reaches Playwright and fails there; targeted desktop/mobile Playwright also cannot execute in that build environment, while GitHub Actions are rejected before steps by the account billing/spending-limit gate.
+- [x] Verify the clean production-shaped Cloudflare preview deploy; metadata reuses the existing card/tag/color renderer so no new layout is introduced.
+- [x] Update PR body/tasks with final verification and compatibility state and confirm the PR remains mergeable against the unchanged `develop` head before the authorized merge.
