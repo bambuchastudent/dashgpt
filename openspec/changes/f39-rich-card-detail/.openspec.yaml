@@ -1,0 +1,3 @@
+schema: spec-driven
+created: 2026-08-14
+goal: Make canonical card detail preserve useful structured Markdown from link-first ChatGPT capture, suppress provider-internal markers, and present only meaningful structured fields without changing card identity or storage semantics.
