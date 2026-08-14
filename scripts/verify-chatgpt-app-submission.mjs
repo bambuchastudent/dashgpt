@@ -7,6 +7,7 @@ const submission = JSON.parse(
 
 const expectedTools = [
   "list_results",
+  "search_results",
   "open_semantic_dash",
   "get_result",
   "get_context_pack",
@@ -29,7 +30,7 @@ for (const name of expectedTools) {
   assert.ok(tool.justifications?.destructive_justification, `${name}: missing destructive justification`);
 }
 
-assert.equal(submission.test_cases?.length, 5, "submission must contain exactly five positive test cases");
+assert.equal(submission.test_cases?.length, 6, "submission must contain exactly six positive test cases");
 assert.equal(submission.negative_test_cases?.length, 3, "submission must contain exactly three negative test cases");
 
 for (const testCase of submission.test_cases) {

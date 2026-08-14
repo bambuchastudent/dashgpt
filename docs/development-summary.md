@@ -145,7 +145,7 @@ Google Drive, explicit Profile and broader provider portability remain future wo
 
 ### MCP / ChatGPT App compatibility
 
-Current Worker/MCP still exposes legacy tool names such as `list_results`, `get_result`, `get_context_pack`, `prepare_result_import`, plus Semantic Dash support. Keep their literal names accurate in implementation documentation until a dedicated compatibility migration changes them.
+Current Worker/MCP still exposes legacy compatibility names such as `list_results`, `search_results`, `get_result`, `get_context_pack`, `prepare_result_import`, plus Semantic Dash support. All six public tools advertise object-root output schemas for successful structured responses. `search_results` is the explicit required-query route while `list_results.query` remains compatible. Fixed service messages accept `language: en | ru` with English default; stored Card/Result/Dash content is never automatically translated. Keep literal tool names accurate in implementation documentation until a dedicated compatibility migration changes them.
 
 Public app submission remains an external release track under `f4-plugin-directory-submission`; implementation/submission artifacts are present, but public review/approval/publication/second-user acceptance are not complete merely because `/mcp` works.
 
