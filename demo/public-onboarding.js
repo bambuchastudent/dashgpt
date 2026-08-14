@@ -9,6 +9,7 @@ import {
 const params = new URLSearchParams(window.location.search);
 const isPersonalRoot = /^\/demo\/?$/.test(window.location.pathname) && params.get("showcase") !== "1";
 const CHATGPT_IMPORT_RESULT_ID = "dashgpt-chatgpt-history-import";
+const CHATGPT_SHARE_HOSTS = new Set(["chatgpt.com", "chat.openai.com"]);
 
 const DASHGPT_CAPTURE_COMMAND = `DashGPT. Подготовь полезный итог ЭТОГО текущего разговора для сохранения.
 Верни только один JSON-объект без markdown, пояснений и code fence:
@@ -126,32 +127,117 @@ if (isPersonalRoot) {
     };
   }
 
+  function normalizeChatGptShareUrl(raw) {
+    let url;
+    try {
+      url = new URL(String(raw || "").trim());
+    } catch {
+      throw new Error("Вставь ссылку Share из ChatGPT вида chatgpt.com/share/…");
+    }
+
+    if (url.protocol !== "https:" || !CHATGPT_SHARE_HOSTS.has(url.hostname)) {
+      throw new Error("Нужна публичная ссылка Share из ChatGPT.");
+    }
+
+    const parts = url.pathname.split("/").filter(Boolean);
+    if (parts[0] === "c" && parts[1]) {
+      throw new Error("Это приватная ссылка на чат. В ChatGPT нажми Share и вставь сюда получившуюся ссылку chatgpt.com/share/…");
+    }
+
+    const shareId = parts[0] === "s" && parts[1]
+      ? parts[1]
+      : parts[0] === "share" && parts[1] === "e" && parts[2]
+        ? parts[2]
+        : parts[0] === "share" && parts[1]
+          ? parts[1]
+          : "";
+    if (!shareId) throw new Error("Нужна публичная ссылка Share из ChatGPT вида chatgpt.com/share/…");
+    return `https://chatgpt.com/share/${shareId}`;
+  }
+
+  function summaryFromSharedChat(payload) {
+    const replies = Array.isArray(payload?.replies) ? payload.replies : [];
+    const assistantReplies = replies
+      .filter(reply => reply?.type === "assistant")
+      .map(reply => cleanText(reply?.statement, 2600))
+      .filter(Boolean);
+    const visibleReplies = replies
+      .map(reply => cleanText(reply?.statement, 2600))
+      .filter(Boolean);
+    return assistantReplies.at(-1)
+      || visibleReplies.at(-1)
+      || "Разговор сохранён. Открой карточку, чтобы вернуться к нему позже.";
+  }
+
+  async function resolveSharedChatCard(rawUrl) {
+    const sourceUrl = normalizeChatGptShareUrl(rawUrl);
+    let response;
+    let payload;
+    try {
+      response = await fetch(`/api/shared-chat?url=${encodeURIComponent(sourceUrl)}`, { cache: "no-store" });
+      payload = await response.json();
+    } catch {
+      throw new Error("Не удалось прочитать публичный чат. Проверь Share-ссылку или используй запасной способ ниже.");
+    }
+    if (!response.ok || payload?.error) {
+      throw new Error("Не удалось прочитать публичный чат. Проверь Share-ссылку или используй запасной способ ниже.");
+    }
+
+    const title = cleanText(payload?.title, 120) || "Сохранённый разговор";
+    return {
+      title,
+      summary: summaryFromSharedChat(payload),
+      category: "Мои чаты",
+      tags: ["share"],
+      decisions: [],
+      facts: [],
+      constraints: [],
+      userPreferences: [],
+      openQuestions: [],
+      next: "Вернуться к сохранённому разговору и продолжить с полезного итога.",
+      source: {
+        type: "chatgpt-share",
+        url: sourceUrl,
+        title
+      }
+    };
+  }
+
   function persistFirstResult(prepared) {
     const loaded = load();
-    const tags = [...new Set(["chatgpt", ...prepared.tags])];
+    const source = prepared?.source?.type === "chatgpt-share" && prepared.source.url
+      ? {
+          type: "chatgpt-share",
+          url: normalizeChatGptShareUrl(prepared.source.url),
+          title: cleanText(prepared.source.title || prepared.title, 120) || "ChatGPT conversation"
+        }
+      : { type: "chatgpt-handoff", title: "ChatGPT conversation" };
+    const existing = source.type === "chatgpt-share"
+      ? materializeResults(loaded.vault).find(result => result.source?.type === "chatgpt-share" && result.source?.url === source.url)
+      : null;
+    const tags = [...new Set(["chatgpt", ...(source.type === "chatgpt-share" ? ["share"] : []), ...(prepared.tags || [])])];
     const result = {
-      id: `result-${crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`,
+      id: existing?.id || `result-${crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`,
       schemaVersion: 1,
       title: prepared.title,
       summary: prepared.summary,
       category: prepared.category,
       tags,
-      favorite: false,
-      decisions: prepared.decisions,
-      facts: prepared.facts,
-      constraints: prepared.constraints,
-      userPreferences: prepared.userPreferences,
-      openQuestions: prepared.openQuestions,
+      decisions: prepared.decisions || [],
+      facts: prepared.facts || [],
+      constraints: prepared.constraints || [],
+      userPreferences: prepared.userPreferences || [],
+      openQuestions: prepared.openQuestions || [],
       next: prepared.next || "Вернуться к сохранённому итогу, когда он снова понадобится.",
-      source: { type: "chatgpt-handoff", title: "ChatGPT conversation" },
+      source,
       immutable: false,
-      contentVersion: 1,
+      contentVersion: existing ? Number(existing.contentVersion || 1) + 1 : 1,
       status: "Сохранено"
     };
     putResult(loaded.vault, result);
-    recordResultActivity(loaded.vault, result.id, "created");
+    recordResultActivity(loaded.vault, result.id, existing ? "updated" : "created");
     saveBrowserVault(globalThis.localStorage, loaded.vault);
-    return result;
+    return { result, updated: Boolean(existing) };
   }
 
   async function copyCaptureCommand() {
@@ -337,11 +423,45 @@ if (isPersonalRoot) {
     dialog.innerHTML = `
       <article>
         <p class="eyebrow">СОХРАНИТЬ ЧАТ</p>
-        <h2>Одна карточка — один Vault</h2>
-        <p class="muted save-chat-lead">Карточка сначала сохраняется на этом устройстве. Google Drive или GitHub можно подключить до или после — они синхронизируют те же карточки, а не создают отдельные копии.</p>
+        <h2>Вставь ссылку на чат</h2>
+        <p class="muted save-chat-lead">В ChatGPT нажми Share и вставь ссылку. DashGPT сам достанет название и главное — руками заполнять карточку не нужно.</p>
+        <section class="save-chat-capture" aria-labelledby="save-chat-capture-title">
+          <p class="public-step-label">1 · ССЫЛКА</p>
+          <h3 id="save-chat-capture-title">ChatGPT Share → готовая карточка</h3>
+          <form id="saveChatLinkForm" class="public-share-link-form save-chat-link-form">
+            <label>Ссылка ChatGPT Share
+              <input id="saveChatLink" type="url" required inputmode="url" autocomplete="off" placeholder="https://chatgpt.com/share/…" />
+            </label>
+            <button type="submit" class="button primary public-handoff-submit">Добавить карточку</button>
+            <p id="saveChatLinkStatus" class="public-share-status" aria-live="polite"></p>
+          </form>
+          <section id="saveChatReview" class="public-share-review" hidden>
+            <h3>Вот что сохранится</h3>
+            <label>Название<input id="saveChatReviewTitle" maxlength="120" /></label>
+            <label>Главное<textarea id="saveChatReviewSummary" rows="6"></textarea></label>
+            <button id="saveChatCommit" type="button" class="button primary public-save-first">Сохранить карточку</button>
+          </section>
+          <details id="saveChatFallback" class="save-chat-fallback">
+            <summary>Нет Share-ссылки? Использовать ответ ChatGPT</summary>
+            <div class="save-chat-fallback-body">
+              <p class="public-step-label">ЗАПАСНОЙ СПОСОБ</p>
+              <h3>Попроси ChatGPT выделить полезный итог</h3>
+              <div class="public-command-panel save-chat-command-panel">
+                <code class="public-command">DashGPT, сохрани этот разговор</code>
+                <button id="saveChatCopyCommand" type="button" class="button primary public-copy-command">Скопировать DashGPT-команду</button>
+                <p id="saveChatCommandStatus" class="public-share-status" aria-live="polite"></p>
+              </div>
+              <form id="saveChatForm" class="public-handoff-form">
+                <label>Вставь ответ ChatGPT<textarea id="saveChatPayload" required rows="7" autocomplete="off" placeholder='{"title":"…","summary":"…"}'></textarea></label>
+                <button type="submit" class="button primary public-handoff-submit">Проверить карточку</button>
+                <p id="saveChatStatus" class="public-share-status" aria-live="polite"></p>
+              </form>
+            </div>
+          </details>
+        </section>
         <section class="save-chat-storage" aria-labelledby="save-chat-storage-title">
           <div class="save-chat-section-heading">
-            <div><p class="public-step-label">КУДА СОХРАНИТСЯ</p><h3 id="save-chat-storage-title">Храни локально, синхронизируй при желании</h3></div>
+            <div><p class="public-step-label">СИНХРОНИЗАЦИЯ · НЕОБЯЗАТЕЛЬНО</p><h3 id="save-chat-storage-title">Карточка сохраняется здесь сразу</h3></div>
             <button id="saveChatStorageDetails" type="button" class="button ghost small">Все настройки</button>
           </div>
           <div class="save-chat-provider-grid">
@@ -363,30 +483,14 @@ if (isPersonalRoot) {
           </div>
           <p class="save-chat-storage-note">Одновременно используется один удалённый провайдер. Без него DashGPT полностью работает локально.</p>
         </section>
-        <section class="save-chat-capture" aria-labelledby="save-chat-capture-title">
-          <p class="public-step-label">САМА КАРТОЧКА</p>
-          <h3 id="save-chat-capture-title">Попроси ChatGPT выделить полезный итог</h3>
-          <div class="public-command-panel save-chat-command-panel">
-            <code class="public-command">DashGPT, сохрани этот разговор</code>
-            <button id="saveChatCopyCommand" type="button" class="button primary public-copy-command">Скопировать DashGPT-команду</button>
-            <p id="saveChatCommandStatus" class="public-share-status" aria-live="polite"></p>
-          </div>
-          <form id="saveChatForm" class="public-handoff-form">
-            <label>Вставь ответ ChatGPT<textarea id="saveChatPayload" required rows="7" autocomplete="off" placeholder='{"title":"…","summary":"…"}'></textarea></label>
-            <button type="submit" class="button primary public-handoff-submit">Проверить карточку</button>
-            <p id="saveChatStatus" class="public-share-status" aria-live="polite"></p>
-          </form>
-          <section id="saveChatReview" class="public-share-review" hidden>
-            <h3>Вот что сохранится</h3>
-            <label>Название<input id="saveChatReviewTitle" maxlength="120" /></label>
-            <label>Главное<textarea id="saveChatReviewSummary" rows="6"></textarea></label>
-            <button id="saveChatCommit" type="button" class="button primary public-save-first">Сохранить карточку</button>
-          </section>
-        </section>
       </article>
       <form method="dialog" class="dialog-footer"><button class="button">Закрыть</button></form>`;
     document.body.append(dialog);
 
+    const linkForm = dialog.querySelector("#saveChatLinkForm");
+    const linkInput = dialog.querySelector("#saveChatLink");
+    const linkStatus = dialog.querySelector("#saveChatLinkStatus");
+    const linkSubmit = linkForm.querySelector('button[type="submit"]');
     const copyButton = dialog.querySelector("#saveChatCopyCommand");
     const commandStatus = dialog.querySelector("#saveChatCommandStatus");
     const form = dialog.querySelector("#saveChatForm");
@@ -397,6 +501,30 @@ if (isPersonalRoot) {
     const summaryInput = dialog.querySelector("#saveChatReviewSummary");
     const save = dialog.querySelector("#saveChatCommit");
     let prepared = null;
+
+    linkForm.addEventListener("submit", async event => {
+      event.preventDefault();
+      review.hidden = true;
+      linkStatus.classList.remove("error");
+      linkStatus.textContent = "Читаю публичный разговор…";
+      linkSubmit.disabled = true;
+      try {
+        prepared = await resolveSharedChatCard(linkInput.value);
+        titleInput.value = prepared.title;
+        summaryInput.value = prepared.summary;
+        review.hidden = false;
+        linkStatus.textContent = "Готово. Проверь карточку и сохрани.";
+        review.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      } catch (error) {
+        prepared = null;
+        linkStatus.classList.add("error");
+        linkStatus.textContent = error instanceof Error
+          ? error.message
+          : "Не удалось прочитать публичный чат. Проверь Share-ссылку или используй запасной способ ниже.";
+      } finally {
+        linkSubmit.disabled = false;
+      }
+    });
 
     copyButton.addEventListener("click", async () => {
       commandStatus.classList.remove("error");
@@ -430,13 +558,16 @@ if (isPersonalRoot) {
     save.addEventListener("click", async () => {
       if (!prepared) return;
       save.disabled = true;
-      persistFirstResult({
+      const saved = persistFirstResult({
         ...prepared,
         title: cleanText(titleInput.value, 120) || prepared.title,
         summary: cleanText(summaryInput.value, 5000) || prepared.summary
       });
-      status.classList.remove("error");
-      status.textContent = "Сохранено на этом устройстве. Если синхронизация подключена — отправляю ту же карточку туда.";
+      const saveStatus = prepared.source?.type === "chatgpt-share" ? linkStatus : status;
+      saveStatus.classList.remove("error");
+      saveStatus.textContent = saved.updated
+        ? "Карточка обновлена на этом устройстве. Если синхронизация подключена — отправляю ту же карточку туда."
+        : "Сохранено на этом устройстве. Если синхронизация подключена — отправляю ту же карточку туда.";
       await syncConnectedProviderBeforeReload();
       window.location.replace("/demo/");
     });
@@ -464,6 +595,7 @@ if (isPersonalRoot) {
     refreshSaveChatProviders(dialog);
     installProviderWatch(dialog);
     if (!dialog.open) dialog.showModal();
+    requestAnimationFrame(() => dialog.querySelector("#saveChatLink")?.focus());
   }
 
   function humanizeDashboard() {
