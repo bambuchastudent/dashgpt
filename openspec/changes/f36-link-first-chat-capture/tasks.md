@@ -39,4 +39,4 @@
 - [x] Verify a clean production-shaped branch deployment after implementation and verification-hook cleanup. Clean F36 head `74aae6ddf69ba36fb4f66cdf1aea944f27a9160f` deployed successfully at the stable branch preview before the later documentation-only verification notes.
 - [ ] Independently exercise the 360px flow in an actual browser preview; regression coverage is committed, but browser execution is not claimed while the available runners are blocked/unusable.
 - [x] Open PR #87 against `develop`, linked to Issue #86 and this OpenSpec change.
-- [ ] Merge PR #87 to `develop` and verify the resulting `develop` head.
+- [x] Merge PR #87 to `develop` and verify the resulting `develop` head. Squash merge `764298e58a642d8d6a408e0b3bd21a6a5b992bc8` became the `develop` head on 2026-08-14.
