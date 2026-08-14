@@ -120,6 +120,8 @@ if (feature20PersonalEntry) {
 }
 
 await import("./app.js");
+const galleryOverviewSorting = await import("./gallery-overview-sorting.js");
+galleryOverviewSorting.initializeGalleryOverviewSorting();
 await import("./google-drive-sync.js");
 await import("./google-account-entry.js");
 await import("./share-link-compat.js");
