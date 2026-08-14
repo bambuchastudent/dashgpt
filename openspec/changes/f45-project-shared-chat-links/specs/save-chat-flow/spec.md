@@ -1,7 +1,7 @@
-## MODIFIED Requirements
+## ADDED Requirements
 
-### Requirement: Save chat supports link-first shared ChatGPT capture
-The system SHALL accept supported ChatGPT shared-chat URLs in the primary Save-chat field, including classic public Share links and Project shared-chat links, SHALL resolve them through the canonical shared-chat capability, and SHALL prepare a reviewable canonical card without requiring manual title or summary entry first.
+### Requirement: Save chat accepts ChatGPT Project shared-chat links
+The system SHALL accept supported ChatGPT Project shared-chat URLs in the primary Save-chat field, SHALL resolve them through the canonical shared-chat capability, and SHALL preserve their canonical Project URL as source provenance when capture succeeds.
 
 #### Scenario: Project shared-chat link is submitted
 - **WHEN** the user submits a supported `chatgpt.com/g/<project-or-gpt-slug>/shared/c/<conversation-id>` URL
