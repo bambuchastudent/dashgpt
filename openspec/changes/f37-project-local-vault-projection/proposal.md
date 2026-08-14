@@ -1,45 +1,47 @@
 ## Why
 
-DashGPT already keeps canonical Cards in a local-first Vault and can optionally carry that same Vault between devices through Google Drive or GitHub. Developer work still has a missing bridge: a repository opened in an IDE cannot see the relevant DashGPT memory as ordinary local project files.
+DashGPT already keeps canonical Cards in a local-first Vault and can optionally carry that same Vault between devices through Google Drive or GitHub. Developer work still has a missing bridge: the same project memory that is understandable on the DashGPT site is not available as ordinary local project files to an IDE or coding agent.
 
-The earlier F19/PR #34 prototype explored a provider-neutral developer-memory visualization, but it explicitly deferred filesystem persistence, Vault integration and synchronization. Implementing those concerns inside F19 now would silently widen a prototype that was designed to remain isolated.
+The earlier F19/PR #34 prototype explored a provider-neutral developer-memory visualization, but it explicitly deferred Vault integration and project-local persistence. F37 turns that direction into one coherent product capability rather than inventing a second developer-memory product.
 
-The production capability therefore needs a separate contract: derive a project-local `.dashgpt/` folder from the same canonical Vault, scoped to one saved Dash, without turning the project folder into a second source of truth or exposing the user's unrelated personal memory.
+The core requirement is: **one saved Dash is the project memory on the site, and `.dashgpt/` is the local filesystem representation of that same Dash for IDEs and AI agents.**
 
 ## What Changes
 
-- Add a deterministic project-memory projection from one saved Dash in Vault v1.
-- Keep canonical Cards in the existing Vault as the authoritative memory; `.dashgpt/` is generated read-only output.
-- Preserve existing Dash membership semantics: accepted/current members are exported; proposals, excluded/unavailable references and unrelated Vault cards are not.
-- Generate an IDE-readable `.dashgpt/` tree containing a manifest, compact project index and one Markdown file per exported canonical Card.
-- Add a saved-Dash action that downloads a deterministic archive containing the `.dashgpt/` tree so Safari and Chromium users do not depend on direct arbitrary host-filesystem write APIs.
-- Reuse the existing source `vaultId`, Dash ID/revision and canonical Card IDs in the projection so identity survives ordinary Google-backed second-device restore.
-- Keep Google Drive as an optional remote copy of `dashgpt-vault.json`; do not create a second Google sync artifact or widen OAuth scope.
-- Add deterministic and browser regression coverage for membership, identity, privacy, archive contents and narrow/mobile UX.
+- Treat one existing saved Dash as the project-memory boundary over canonical Vault Cards.
+- Add a **Project view** inside the normal saved-Dash site experience, derived from the same Card IDs/membership rather than a separate Product Board or developer database.
+- The Project view SHALL visually summarize the current project: Cards, concise state, next steps and relationships, while retaining normal Card navigation.
+- Add a deterministic `.dashgpt/` projection of that exact same saved Dash for local repositories.
+- Keep canonical Cards in the existing Vault as authoritative memory; both the site Project view and `.dashgpt/` are projections of the same source state.
+- Generate an IDE/agent-readable `.dashgpt/` tree containing a tiny README, machine manifest, visual/human `project.md` and one Markdown file per current accepted Card.
+- Keep Card IDs, Dash ID/revision and `vaultId` stable between site and filesystem representations.
+- Reuse existing Google Drive/GitHub Vault synchronization for cross-device continuity; do not create another Google storage mechanism for `.dashgpt`.
+- Provide a browser-compatible way to materialize the local `.dashgpt/` snapshot; archive download is a fallback transport, not a new user-facing memory model.
+- Add deterministic/browser regression coverage proving that the site Project view and filesystem projection are derived from the same current Dash members.
 
 ## Capabilities
 
 ### New Capabilities
 
-- `project-local-vault-projection`: saved-Dash-to-`.dashgpt` export over canonical Vault Cards.
+- `project-local-vault-projection`: one saved Dash rendered as a developer-readable Project view on the site and as a portable `.dashgpt/` filesystem representation.
 
 ### Modified Capabilities
 
-None. Vault v1, Google Drive sync, saved Dash semantics, provider exclusivity, Card identity and continuation contracts remain unchanged.
+None. Vault v1, Google Drive sync, saved Dash membership semantics, provider exclusivity, Card identity, search and continuation contracts remain unchanged.
 
 ## Scope Boundaries
 
-This change does not implement `.dashgpt` write-back, filesystem watching, a coding-agent capture adapter, an IDE extension, MCP write tools, raw session export, arbitrary whole-Vault export into repositories, a new Google Drive object, broader Google scopes, or direct synchronization between `.dashgpt/` folders.
+This change does not create a parallel Product Board, Project entity or second Card store. It does not implement `.dashgpt` write-back, filesystem watching, automatic coding-agent capture, an IDE extension, MCP write tools, raw session export, arbitrary whole-Vault repository export, a new Google Drive object, broader Google scopes, or direct synchronization between `.dashgpt/` folders.
 
-The archive is transport only. Extracted project files are a derived snapshot and can always be regenerated from the source Vault/Dash.
+The site remains the normal visual management surface. `.dashgpt/` exists so local tools can understand the same saved Dash without access to browser storage.
 
 ## Impact and Intersections
 
-- **Cards:** canonical Cards/legacy Results remain authoritative. Export uses sanitized portable fields only.
-- **Dashes:** a saved Dash defines project membership. No project-membership entity is added.
-- **Vault:** source `vaultId` and Vault timestamps are referenced in the projection; Vault schema is unchanged.
-- **Google Drive:** existing F25/F34 account/Vault flow remains the cross-device path. The projection never stores OAuth/account identity.
-- **GitHub storage:** provider exclusivity and Vault adapter behavior are unchanged; a repository may separately commit generated `.dashgpt` files if the user chooses.
-- **Privacy:** only selected Dash member Card content is exported. Profile revisions, credentials, provider bindings and unrelated Vault state are excluded.
-- **Structured Continuation:** the generated Markdown exposes compatible project context but does not alter current continuation payloads.
-- **F19 / PR #34:** retained as a visualization prototype; F37 owns production projection/download behavior.
+- **Cards:** canonical Cards/legacy Results remain authoritative and are reused everywhere.
+- **Dashes/site UX:** an opened saved Dash gains a Project view over its current members; normal Gallery/Card views continue to use the same IDs.
+- **Vault:** source `vaultId` and Vault timestamps identify the underlying memory; Vault schema is unchanged.
+- **Google Drive:** existing F25/F34 account/Vault flow remains the cross-device path. Restoring the same Vault restores the same Dash/Card IDs that regenerate both site Project view and `.dashgpt`.
+- **GitHub storage:** provider exclusivity and Vault adapter behavior are unchanged; generated project files are independent of the remote Vault provider.
+- **Privacy:** only selected Dash member Card content enters the project representation. Profile revisions, credentials, provider bindings and unrelated Vault state stay out.
+- **Structured Continuation:** Project view/Markdown expose compatible state but do not change current continuation payloads.
+- **F19 / PR #34:** its useful Project State visualization direction is folded into the saved-Dash Project view; F37 owns the production Vault-backed behavior rather than exposing F19 as a separate general-user surface.
