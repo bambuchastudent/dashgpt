@@ -1,0 +1,20 @@
+name: F40 self-hosted verification
+
+on:
+  push:
+    branches:
+      - f40-one-sentence-product-explanation
+
+permissions:
+  contents: read
+
+jobs:
+  openspec:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: npm install --global @fission-ai/openspec@latest
+      - run: openspec validate f40-one-sentence-product-explanation --type change --strict --no-interactive
