@@ -4,7 +4,7 @@
 - [x] Rebase the F32 branch onto current `develop` and inspect Feature 8 Gallery, current import/tag enrichment, saved Dashes and active overlapping changes.
 - [x] Update Issue #46 with the latest Color → Tag → Time priority, 32-color palette and one-screen ~2,200-card requirement.
 - [x] Refresh proposal, design, spec delta and Impact Manifest before production edits.
-- [x] Strictly validate `f32-semantic-gallery-overview-sorting` before production edits. GitHub OpenSpec jobs on the spec-only head could not execute any steps because of the repository billing/spending-limit blocker; the branch was preserved, reset to spec-only, and the exact strict OpenSpec command was executed by Cloudflare on `66e27244a3ee4c2ed76c553c1def2cc0417dc945`. That deployment succeeded before the saved Color-first production files were reapplied.
+- [x] Strictly validate `f32-semantic-gallery-overview-sorting` before production edits. GitHub OpenSpec jobs on the spec-only head could not execute any steps because of the repository billing/spending-limit blocker; the branch was preserved, reset to spec-only, and the exact strict OpenSpec command was executed by Cloudflare on `66e27244a3ee4c2ed76c553c1def2cc0417dc945`. That deployment succeeded before the Color-first production files were reapplied.
 
 ## Implementation
 - [x] Make Color the default sort and control order `Color → Tag → Time` using isolated versioned presentation state.
@@ -23,8 +23,9 @@
 - [x] Add browser regression asserting 2,200 mounted tiles remain focusable/openable and create no horizontal overflow.
 
 ## Verification / release
-- [x] Run the focused F32 deterministic verifier. Cloudflare verification build `74da3ecb4a18d96c8dfd255273591c2adeb3e73b` completed successfully before the temporary build hook was removed.
-- [ ] Canonical `npm run verify:full` was requested through a temporary Cloudflare build hook on `99f4261cfa5d36a5d5d17f0f6d6f278526c2f43b`, but no completed browser/full result was available before restoring the clean production config. GitHub-hosted checks also cannot execute steps. No full-suite pass is claimed.
-- [x] A production-shaped branch preview containing the F32 runtime implementation deployed successfully on `74da3ecb4a18d96c8dfd255273591c2adeb3e73b`; final branch config was then restored byte-for-byte to the `develop` Wrangler config.
+- [x] Run the focused F32 deterministic verifier. Cloudflare verification build `74da3ecb4a18d96c8dfd255273591c2adeb3e73b` completed successfully for the same production tree before the temporary build hook was removed.
+- [x] Run canonical `npm run verify:full` once through the Cloudflare build gate on `007f281708b420bb026fda951b9e9db617b97a7c`. The build completed as failed, so no full-suite pass is claimed; GitHub-hosted jobs remain unable to execute steps in the current repository runner state.
+- [x] Restore `wrangler.jsonc` byte-for-byte to the `develop` production configuration after all temporary validation/verification hooks.
+- [ ] Confirm the final clean production-shaped branch preview deployment after `91356339e83496c3029e961a004e1760c3fc909c`.
 - [ ] Physical/browser acceptance at both desktop and 360/390px remains unavailable in the current runner environment; committed Playwright coverage defines the acceptance contract.
-- [ ] Merge PR #71 to `develop` after recording the remaining infrastructure verification gap.
+- [ ] Merge PR #71 to `develop` after recording the remaining browser/full-suite infrastructure gap.
