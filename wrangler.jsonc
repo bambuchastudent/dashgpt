@@ -4,6 +4,9 @@
   "main": "./src/worker.js",
   "compatibility_date": "2026-08-09",
   "preview_urls": true,
+  "build": {
+    "command": "npx --yes @fission-ai/openspec@latest validate f32-semantic-gallery-overview-sorting --type change --strict --no-interactive"
+  },
   "vars": {
     "GITHUB_APP_ID": "4544269",
     "GITHUB_APP_SLUG": "dashgpt-storage"
