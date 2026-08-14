@@ -165,6 +165,18 @@ function safeWebUrl(value) {
   }
 }
 
+function linkTargetEnd(text, start) {
+  let depth = 1;
+  for (let index = start; index < text.length; index += 1) {
+    if (text[index] === "(") depth += 1;
+    else if (text[index] === ")") {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+  }
+  return -1;
+}
+
 function pushText(tokens, text) {
   if (!text) return;
   const previous = tokens.at(-1);
@@ -190,10 +202,11 @@ export function parseCardInline(value) {
     if (text[index] === "[") {
       const labelEnd = text.indexOf("](", index + 1);
       if (labelEnd > index + 1) {
-        const hrefEnd = text.indexOf(")", labelEnd + 2);
-        if (hrefEnd > labelEnd + 2) {
+        const hrefStart = labelEnd + 2;
+        const hrefEnd = linkTargetEnd(text, hrefStart);
+        if (hrefEnd > hrefStart) {
           const label = text.slice(index + 1, labelEnd);
-          const href = safeWebUrl(text.slice(labelEnd + 2, hrefEnd));
+          const href = safeWebUrl(text.slice(hrefStart, hrefEnd));
           if (href) tokens.push({ type: "link", href, children: parseCardInline(label) });
           else tokens.push(...parseCardInline(label));
           index = hrefEnd + 1;
