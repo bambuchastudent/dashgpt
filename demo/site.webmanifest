@@ -1,7 +1,7 @@
 {
   "name": "DashGPT",
   "short_name": "DashGPT",
-  "description": "DashGPT keeps useful outcomes from AI conversations as cards so you can find them and continue your work later.",
+  "description": "DashGPT is your personal AI memory: it turns useful parts of conversations with ChatGPT and other assistants into connected cards you can find, combine, and continue later with the context preserved.",
   "start_url": "/demo/",
   "scope": "/demo/",
   "display": "standalone",
