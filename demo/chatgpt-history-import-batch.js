@@ -19,8 +19,12 @@ const VAULT_UPDATED_EVENT = "dashgpt:chatgpt-import-vault-updated";
 const MAX_BATCH_CARDS = 48;
 const MAX_MESSAGE_CHARS = 240_000;
 const SOURCE_STATES = new Set(["running", "rate_limited"]);
+const RETRY_WAKE_INTERVAL_MS = 5_000;
 let installed = false;
 let returnRefreshScheduled = false;
+let retryWakeTimer = null;
+let retryWakeTarget = null;
+let retryWakeConfig = null;
 
 function safeMessageSize(data) {
   try { return JSON.stringify(data).length; } catch { return Number.POSITIVE_INFINITY; }
@@ -75,7 +79,7 @@ function validEnvelope(event) {
     if (!SOURCE_STATES.has(data.state)) return null;
     const retryAfterMs = Number(data.retryAfterMs || 0);
     const deferred = Number(data.deferred || 0);
-    if (!Number.isFinite(retryAfterMs) || retryAfterMs < 0) return null;
+    if (!Number.isFinite(retryAfterMs) || retryAfterMs < 0 || retryAfterMs > 24 * 60 * 60 * 1000) return null;
     if (!Number.isFinite(deferred) || deferred < 0 || deferred > 100_000) return null;
     return {
       config,
@@ -99,6 +103,32 @@ function postReply(target, config, payload) {
     nonce: config.nonce,
     ...payload
   }, CHATGPT_IMPORT_SOURCE_ORIGIN);
+}
+
+function stopRetryWakeHeartbeat() {
+  if (retryWakeTimer != null) globalThis.clearInterval?.(retryWakeTimer);
+  retryWakeTimer = null;
+  retryWakeTarget = null;
+  retryWakeConfig = null;
+}
+
+function sendRetryWake() {
+  if (!retryWakeTarget || retryWakeTarget.closed || !retryWakeConfig) {
+    stopRetryWakeHeartbeat();
+    return;
+  }
+  postReply(retryWakeTarget, retryWakeConfig, { type: "CONTROL_WAKE" });
+}
+
+function syncRetryWakeHeartbeat(event, config, data) {
+  if (data.state !== "rate_limited") {
+    stopRetryWakeHeartbeat();
+    return;
+  }
+  retryWakeTarget = event.source;
+  retryWakeConfig = config;
+  sendRetryWake();
+  if (retryWakeTimer == null) retryWakeTimer = globalThis.setInterval?.(sendRetryWake, RETRY_WAKE_INTERVAL_MS) ?? null;
 }
 
 function mutableResultIndex(vault) {
@@ -234,6 +264,7 @@ function humanizedSourceState(current, data) {
 }
 
 function handleSourceState(event, config, data) {
+  syncRetryWakeHeartbeat(event, config, data);
   const loaded = loadBrowserVault(globalThis.localStorage);
   const current = materializeResults(loaded.vault).find(result => result.id === CHATGPT_IMPORT_RESULT_ID);
   const updated = humanizedSourceState(current, data);
@@ -266,5 +297,6 @@ export function installChatGptImportBatchFastPath() {
     else handleSourceState(event, envelope.config, envelope.data);
   }, true);
   document.addEventListener("visibilitychange", refreshProgressiveCardsOnReturn);
+  window.addEventListener("pagehide", stopRetryWakeHeartbeat, { once: true });
   queueMicrotask(refreshProgressiveCardsOnReturn);
 }
