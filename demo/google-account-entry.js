@@ -11,6 +11,13 @@ function visible(node) {
   return Boolean(node && !node.hidden);
 }
 
+function setButtonState(button, { hidden, disabled, text, title = "" }) {
+  if (button.hidden !== hidden) button.hidden = hidden;
+  if (button.disabled !== disabled) button.disabled = disabled;
+  if (text !== undefined && button.textContent !== text) button.textContent = text;
+  if (button.title !== title) button.title = title;
+}
+
 function ensureAccountButton() {
   if (!isPersonalHome()) return null;
   const existing = document.querySelector("#googleAccountButton");
@@ -47,34 +54,36 @@ function refreshAccountButton() {
 
   const unconfigured = /not available on this deployment/i.test(status);
   if (unconfigured || (!canonical && !disconnect)) {
-    button.hidden = true;
-    button.disabled = true;
+    setButtonState(button, { hidden: true, disabled: true, text: "", title: "" });
     return;
   }
 
   const connected = visible(disconnect);
   const reconnect = visible(canonical) && /reconnect/i.test(canonical.textContent || "");
-  button.hidden = false;
 
   if (connected && !reconnect) {
-    button.disabled = false;
-    button.textContent = russian() ? "Google ✓" : "Google ✓";
-    button.title = russian() ? "Google Vault подключён" : "Google Vault connected";
+    setButtonState(button, {
+      hidden: false,
+      disabled: false,
+      text: "Google ✓",
+      title: russian() ? "Google Vault подключён" : "Google Vault connected"
+    });
     return;
   }
 
   if (canonical?.disabled) {
-    button.disabled = true;
-    button.textContent = russian() ? "Google…" : "Google…";
-    button.title = status;
+    setButtonState(button, { hidden: false, disabled: true, text: "Google…", title: status });
     return;
   }
 
-  button.disabled = false;
-  button.textContent = reconnect
-    ? (russian() ? "Переподключить Google" : "Reconnect Google")
-    : (russian() ? "Войти через Google" : "Continue with Google");
-  button.title = status;
+  setButtonState(button, {
+    hidden: false,
+    disabled: false,
+    text: reconnect
+      ? (russian() ? "Переподключить Google" : "Reconnect Google")
+      : (russian() ? "Войти через Google" : "Continue with Google"),
+    title: status
+  });
 }
 
 export function initializeGoogleAccountEntry() {
@@ -85,11 +94,6 @@ export function initializeGoogleAccountEntry() {
   if (provider) {
     new MutationObserver(() => queueMicrotask(refreshAccountButton))
       .observe(provider, { childList: true, subtree: true, attributes: true, characterData: true });
-  }
-  const topbar = document.querySelector(".topbar-actions");
-  if (topbar) {
-    new MutationObserver(() => queueMicrotask(refreshAccountButton))
-      .observe(topbar, { childList: true, subtree: true, attributes: true, characterData: true });
   }
 }
 
