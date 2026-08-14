@@ -11,7 +11,7 @@ Validation is exact-path, HTTPS-only, and restricted to ChatGPT hosts. Credentia
 
 ## Browser normalization
 
-A small shared browser helper owns URL recognition so the Save chat form and legacy share-link compatibility adapter cannot drift apart. `public-onboarding.js` keeps its existing exported `normalizeChatGptShareUrl` API as a compatibility wrapper.
+A small shared browser helper owns URL recognition so the Save chat form and legacy share-link compatibility adapter cannot drift apart. `public-onboarding.js` keeps its existing internal normalization/error boundary while delegating URL recognition to that shared helper.
 
 ## Resolver behavior
 
