@@ -1,3 +1,8 @@
+import {
+  CHATGPT_SEMANTIC_ENRICHMENT_VERSION,
+  deriveChatGptSemanticMetadata
+} from "./chatgpt-semantic-enrichment.js";
+
 function asIso(value) {
   if (value == null || value === "") return null;
   const date = typeof value === "number" ? new Date(value > 10_000_000_000 ? value : value * 1000) : new Date(value);
@@ -84,11 +89,6 @@ export function selectedChatGptExportMessages(payload) {
   return messages;
 }
 
-function titleTags(title) {
-  const words = String(title || "").toLocaleLowerCase().split(/[^\p{L}\p{N}]+/u).filter(word => word.length >= 4);
-  return ["chatgpt", ...words.slice(0, 3)].slice(0, 4);
-}
-
 export function projectChatGptExportConversation(payload) {
   const conversation = payload?.conversation && typeof payload.conversation === "object" ? payload.conversation : payload;
   if (!conversation || typeof conversation !== "object" || Array.isArray(conversation)) throw new Error("Invalid ChatGPT conversation");
@@ -100,12 +100,15 @@ export function projectChatGptExportConversation(payload) {
   const assistant = assistants[assistants.length - 1]?.text || "";
   const user = users[users.length - 1]?.text || "";
   const title = clip(conversation?.title || "Untitled ChatGPT conversation", 140);
+  const semantic = deriveChatGptSemanticMetadata({ title, messages });
   return {
     sourceId,
     title,
     summary: clip(assistant || user || title, 520),
     currentState: clip(user, 180),
-    tags: titleTags(title),
+    category: semantic.category,
+    tags: semantic.tags,
+    semanticEnrichmentVersion: CHATGPT_SEMANTIC_ENRICHMENT_VERSION,
     facts: [`${messages.length} visible messages`],
     updatedAt: asIso(conversation?.update_time ?? conversation?.create_time) || "1970-01-01T00:00:00.000Z"
   };

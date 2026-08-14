@@ -6,11 +6,17 @@ import {
 import {
   computeChatGptDetailRetryDelay
 } from "./chatgpt-history-import-policy.js";
+import {
+  CHATGPT_SEMANTIC_ENRICHMENT_VERSION,
+  deriveChatGptSemanticMetadata
+} from "./chatgpt-semantic-enrichment.js";
 
-export const CHATGPT_HISTORY_SOURCE_VERSION = CORE_CHATGPT_HISTORY_SOURCE_VERSION + 1;
+export const CHATGPT_HISTORY_SOURCE_VERSION = CORE_CHATGPT_HISTORY_SOURCE_VERSION + 2;
 export { computeChatGptDetailRetryDelay };
 
 const HANDSHAKE_HOOK = "    postToReceiver({ type: \"HELLO\", sourceVersion });\n    const ready = await waitForReply(\"READY\", () => true, 5000);";
+const PROJECT_TITLE_HOOK = "    const title = clip(conversation?.title || summary?.title || \"Untitled ChatGPT conversation\", 140);\n    return {";
+const TAG_HOOK = "      tags: titleTags(title),";
 const OPENER_CONNECT_HOOK = "  if (window.opener && !window.opener.closed) connectAndRun(window.opener).catch(() => {});";
 const ACTION_SESSION_SENTINEL = "__DASHGPT_ACTION_SESSION__";
 const ACTION_NONCE_SENTINEL = "__DASHGPT_ACTION_NONCE__";
@@ -52,11 +58,27 @@ function replaceRequired(runner, hook, replacement, label) {
   return runner.replace(hook, replacement);
 }
 
+function injectSemanticProjection(runner) {
+  let next = runner;
+  const semanticHook = PROJECT_TITLE_HOOK.replace(
+    "    return {",
+    `    const semantic = (${deriveChatGptSemanticMetadata.toString()})({ title, messages });\n    return {`
+  );
+  next = replaceRequired(next, PROJECT_TITLE_HOOK, semanticHook, "semantic projection");
+  next = replaceRequired(
+    next,
+    TAG_HOOK,
+    `      category: semantic.category,\n      tags: semantic.tags,\n      semanticEnrichmentVersion: ${CHATGPT_SEMANTIC_ENRICHMENT_VERSION},`,
+    "semantic card fields"
+  );
+  return next;
+}
+
 function injectHandshakeRetry(runner) {
   return replaceRequired(
     runner,
     HANDSHAKE_HOOK,
-    `    let ready = null;\n    let lastHandshakeError = null;\n    for (let attempt = 0; attempt < 10 && !ready; attempt += 1) {\n      postToReceiver({ type: \"HELLO\", sourceVersion });\n      try {\n        ready = await waitForReply(\"READY\", () => true, 1200);\n      } catch (error) {\n        lastHandshakeError = error;\n        if (attempt < 9) await sleep(250);\n      }\n    }\n    if (!ready) throw lastHandshakeError || new Error(\"DashGPT receiver did not become ready\");`,
+    `    let ready = null;\n    let lastHandshakeError = null;\n    for (let attempt = 0; attempt < 10 && !ready; attempt += 1) {\n      postToReceiver({ type: \"HELLO\", sourceVersion });\n      try {\n        ready = await waitForReply(\"READY\", data => Number(data.semanticEnrichmentVersion || 0) >= ${CHATGPT_SEMANTIC_ENRICHMENT_VERSION}, 1200);\n      } catch (error) {\n        lastHandshakeError = error;\n        if (attempt < 9) await sleep(250);\n      }\n    }\n    if (!ready) throw lastHandshakeError || new Error(\"DashGPT receiver did not become semantic-enrichment aware\");`,
     "handshake"
   );
 }
@@ -141,7 +163,7 @@ function injectF25Policy(runner) {
 }
 
 export function buildChatGptHistorySourceRunner(options) {
-  return injectHandshakeRetry(injectF25Policy(buildCoreRunner(options)));
+  return injectHandshakeRetry(injectSemanticProjection(injectF25Policy(buildCoreRunner(options))));
 }
 
 export function buildChatGptHistoryImportAction({ receiverOrigin, receiverPath = "/demo/" }) {

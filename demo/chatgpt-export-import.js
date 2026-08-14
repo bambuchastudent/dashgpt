@@ -1,7 +1,5 @@
-import {
-  CHATGPT_IMPORT_RESULT_ID,
-  applyChatGptImportBatch
-} from "./chatgpt-history-import.js";
+import { CHATGPT_IMPORT_RESULT_ID } from "./chatgpt-history-import.js";
+import { applyChatGptSemanticImportBatch } from "./chatgpt-semantic-import-store.js";
 import { readChatGptExportFiles } from "./chatgpt-export-parser.js";
 import {
   loadBrowserVault,
@@ -87,7 +85,7 @@ export async function importChatGptExportFiles(files, {
 
   for (let index = 0; index < parsed.candidates.length; index += BATCH_SIZE) {
     const batch = parsed.candidates.slice(index, index + BATCH_SIZE);
-    const result = applyChatGptImportBatch(vault, batch, {
+    const result = applyChatGptSemanticImportBatch(vault, batch, {
       discovered,
       unresolved: parsed.malformed,
       deferred: 0

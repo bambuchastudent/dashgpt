@@ -14,6 +14,7 @@ const { readChatGptExportFiles } = await import("../demo/chatgpt-export-parser.j
 const { importChatGptExportFiles } = await import("../demo/chatgpt-export-import.js");
 const { createVault, materializeResults, putResult, saveBrowserVault } = await import("../demo/vault.js");
 const { sanitizeChatGptCardCandidate } = await import("../demo/chatgpt-history-import.js");
+const { semanticEnrichmentVersionOf } = await import("../demo/chatgpt-semantic-enrichment.js");
 
 class MemoryStorage {
   constructor() { this.values = new Map(); this.writes = 0; }
@@ -105,10 +106,12 @@ assert.equal(isChatGptConversationJsonPath("nested/conversations-002.json"), tru
 assert.equal(isChatGptConversationJsonPath("user.json"), false);
 
 {
-  const projected = projectChatGptExportConversation(conversation("alpha"));
+  const projected = projectChatGptExportConversation(conversation("alpha", { title: "GitHub Safari import" }));
   assert.equal(projected.sourceId, "alpha");
   assert.match(projected.summary, /Useful assistant outcome/);
   assert.equal(selectedChatGptExportMessages(conversation("alpha")).length, 2);
+  assert.equal(projected.semanticEnrichmentVersion, 1);
+  assert.equal(projected.tags.includes("chatgpt"), false);
 }
 
 {
@@ -162,7 +165,7 @@ assert.equal(isChatGptConversationJsonPath("user.json"), false);
 {
   const storage = new MemoryStorage();
   const vault = createVault({ vaultId: "vault-live-dedup", createdAt: "2026-08-13T00:00:00.000Z" });
-  putResult(vault, sanitizeChatGptCardCandidate({
+  const legacy = sanitizeChatGptCardCandidate({
     sourceId: "live-first",
     title: "Live first",
     summary: "Already imported through the live browser path.",
@@ -170,13 +173,20 @@ assert.equal(isChatGptConversationJsonPath("user.json"), false);
     tags: ["chatgpt"],
     facts: ["2 visible messages"],
     updatedAt: new Date(1_720_000_000 * 1000).toISOString()
-  }));
+  });
+  putResult(vault, legacy);
   saveBrowserVault(storage, vault);
-  const result = await importChatGptExportFiles([jsonFile("conversations.json", [conversation("live-first", { update: 1_720_000_000 })])], { storage, yieldFn: async () => {} });
+  const result = await importChatGptExportFiles([jsonFile("conversations.json", [conversation("live-first", { title: "GitHub Safari import", update: 1_720_000_000 })])], { storage, yieldFn: async () => {} });
   assert.equal(result.imported, 0);
-  assert.equal(result.skipped, 1);
+  assert.equal(result.updated, 1);
+  assert.equal(result.skipped, 0);
   const finalVault = JSON.parse(storage.getItem("dashgpt.demo.vault.v1"));
-  assert.equal(materializeResults(finalVault).filter(item => item.source?.sourceId === "live-first").length, 1);
+  const cards = materializeResults(finalVault).filter(item => item.source?.sourceId === "live-first");
+  assert.equal(cards.length, 1);
+  assert.equal(cards[0].id, legacy.id);
+  assert.equal(cards[0].category, "Software");
+  assert.equal(cards[0].tags.includes("chatgpt"), false);
+  assert.equal(semanticEnrichmentVersionOf(cards[0]), 1);
 }
 
 {
