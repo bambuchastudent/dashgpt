@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">DashGPT</title>
+  <desc id="desc">DashGPT D monogram inside a rounded square.</desc>
+  <rect width="512" height="512" rx="112" fill="#0b1220"/>
+  <path fill="#7dd3fc" d="M112 116h126c105 0 174 54 174 140s-69 140-174 140H112V116Zm80 70v140h42c54 0 88-26 88-70s-34-70-88-70h-42Z"/>
+  <circle cx="392" cy="120" r="28" fill="#c4b5fd"/>
+</svg>

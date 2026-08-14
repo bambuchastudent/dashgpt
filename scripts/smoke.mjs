@@ -290,7 +290,7 @@ const resultPageResponse = await worker.fetch(
   ctx
 );
 assert.equal(resultPageResponse.status, 200);
-assert.match(await resultPageResponse.text(), /DashGPT Demo/);
+assert.match(await resultPageResponse.text(), /DashGPT — Save, find and continue useful AI work/);
 
 const challengeMissing = await worker.fetch(
   request("https://dashgpt.example/.well-known/openai-apps-challenge"),
