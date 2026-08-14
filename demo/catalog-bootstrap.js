@@ -101,19 +101,8 @@ if (!document.querySelector('link[data-dashgpt-unified-dashboard]')) {
   document.head.append(stylesheet);
 }
 
-if (!document.querySelector('link[data-dashgpt-profile-metrics]')) {
-  const stylesheet = document.createElement("link");
-  stylesheet.rel = "stylesheet";
-  stylesheet.href = "/demo/profile-metrics.css";
-  stylesheet.dataset.dashgptProfileMetrics = "true";
-  document.head.append(stylesheet);
-}
-
 const chatGptImportReceiverEntry = new URLSearchParams(window.location.search).get("chatgptImportReceiver") === "1";
 const feature20PersonalEntry = chatGptHistoryImportAllowed();
-const chatGptProfileMetricsImportPromise = feature20PersonalEntry
-  ? import("./chatgpt-profile-metrics-import-bridge.js")
-  : null;
 let chatGptHistoryImport = null;
 if (feature20PersonalEntry) {
   const chatGptSemanticImport = await import("./chatgpt-semantic-import-bridge.js");
@@ -122,11 +111,6 @@ if (feature20PersonalEntry) {
   chatGptBatchFastPath.installChatGptImportBatchFastPath();
   chatGptHistoryImport = await import("./chatgpt-history-import.js");
   chatGptHistoryImport.initializeChatGptHistoryImport({ phase: "pre-app" });
-
-  // Start loading usage support with the other receiver modules, but do not
-  // delay the existing dashboard/import handlers. A usage-aware source keeps
-  // retrying HELLO until this capture-phase bridge is installed.
-  chatGptProfileMetricsImportPromise.then(module => module.installChatGptProfileMetricsImportBridge());
 
   // Safari may sever the original DashGPT -> ChatGPT opener and require the
   // source runner to open a replacement DashGPT receiver. Keep that receiver
@@ -140,6 +124,7 @@ const galleryOverviewSorting = await import("./gallery-overview-sorting.js");
 galleryOverviewSorting.initializeGalleryOverviewSorting();
 await import("./google-drive-sync.js");
 await import("./google-account-entry.js");
+await import("./device-reset.js");
 await import("./share-link-compat.js");
 await import("./public-onboarding.js");
 await import("./anonymous-share-onboarding.js");
@@ -159,10 +144,6 @@ if (chatGptHistoryImport) {
   const repair = chatGptHistoryImport.seedDefaultChatGptImportCard(globalThis.localStorage);
   if (repair.seeded) {
     window.location.reload();
-    // Do not expose or interact with the transient pre-reload document. The
-    // replacement load will install post-app handlers against the repaired
-    // durable Vault.
-    await new Promise(() => {});
   } else {
     chatGptHistoryImport.initializeChatGptHistoryImport({ phase: "post-app" });
     const chatGptExportImport = await import("./chatgpt-export-import.js");
@@ -173,10 +154,3 @@ if (chatGptHistoryImport) {
     importOnboardingConnector.initializeImportOnboardingConnector();
   }
 }
-
-if (feature20PersonalEntry) await import("./profile-metrics.js");
-
-// Browser regressions must exercise the settled application, not the
-// transient document used to repair a first-run Vault.
-await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-document.documentElement.dataset.dashgptReady = "true";
