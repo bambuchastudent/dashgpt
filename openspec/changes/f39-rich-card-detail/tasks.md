@@ -4,7 +4,7 @@
 
 - [x] Inspect current `develop`, product/development summaries, roadmap, OpenSpec guide, F36 link-first capture, F18 unified card dashboard, affected renderer/capture code, package verification commands, and overlapping open PRs.
 - [x] Create Issue #97 plus dedicated `f39-rich-card-detail` proposal, design, spec delta, tasks and Impact Manifest.
-- [ ] Run `openspec validate f39-rich-card-detail --type change --strict --no-interactive` before production edits and record evidence.
+- [x] Run `openspec validate f39-rich-card-detail --type change --strict --no-interactive` before production edits and record evidence. Evidence: validation-only commit `a931a9092e55817d9a54492a49681a5b5b80da10` ran the exact strict command from `postinstall`; Cloudflare Workers Build `9d5f0072-ddec-4c86-a639-305dcfeeb330` completed successfully. The temporary hook was removed in `c075970ed89d55b4d7d68d5a1333434a8225ae4a` before production implementation. GitHub-hosted checks on the same commit failed with the known zero-runner billing/spending-limit condition and are not treated as validation evidence.
 
 ## 2. Card-content implementation
 
@@ -34,5 +34,5 @@
 - [ ] Run canonical `npm run verify:fast` and record evidence.
 - [ ] Attempt canonical `npm run verify:full` once before merge and record pass/failure evidence truthfully.
 - [ ] Verify production-shaped branch preview on desktop and 360px mobile.
-- [ ] Open PR against `develop`, link Issue #97 and this OpenSpec change.
+- [x] Open PR #98 against `develop`, linked to Issue #97 and this OpenSpec change.
 - [ ] Merge only when implementation scope is complete and verification evidence is explicit; then verify resulting `develop` head.
