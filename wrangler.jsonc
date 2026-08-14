@@ -5,7 +5,7 @@
   "compatibility_date": "2026-08-09",
   "preview_urls": true,
   "build": {
-    "command": "node --check demo/chatgpt-history-source-runner.js && node --check demo/chatgpt-profile-metrics-import-store.js && node --check demo/chatgpt-profile-metrics-import-bridge.js && node --check demo/profile-metrics.js && node --check demo/catalog-bootstrap.js"
+    "command": "node scripts/verify-chatgpt-history-import-f25.mjs"
   },
   "vars": {
     "GITHUB_APP_ID": "4544269",
