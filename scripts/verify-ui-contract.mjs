@@ -5,7 +5,9 @@ const css = ["../demo/styles.css", "../demo/semantic.css", "../demo/semantic-das
   .map((path) => readFileSync(new URL(path, import.meta.url), "utf8"))
   .join("\n");
 const app = readFileSync(new URL("../demo/app.js", import.meta.url), "utf8");
-const gallery = readFileSync(new URL("../demo/semantic-gallery.js", import.meta.url), "utf8");
+const gallery = ["../demo/semantic-gallery.js", "../demo/semantic-gallery-base.js"]
+  .map((path) => readFileSync(new URL(path, import.meta.url), "utf8"))
+  .join("\n");
 const vault = readFileSync(new URL("../demo/vault.js", import.meta.url), "utf8");
 const githubSync = readFileSync(new URL("../demo/github-sync.js", import.meta.url), "utf8");
 const dashUi = readFileSync(new URL("../demo/semantic-dash-ui.js", import.meta.url), "utf8");
