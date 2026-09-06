@@ -5,8 +5,9 @@ const css = ["../demo/styles.css", "../demo/semantic.css", "../demo/semantic-das
   .map((path) => readFileSync(new URL(path, import.meta.url), "utf8"))
   .join("\n");
 const app = readFileSync(new URL("../demo/app.js", import.meta.url), "utf8");
-const gallery = readFileSync(new URL("../demo/semantic-gallery.js", import.meta.url), "utf8");
-const galleryBase = readFileSync(new URL("../demo/semantic-gallery-base.js", import.meta.url), "utf8");
+const gallery = ["../demo/semantic-gallery.js", "../demo/semantic-gallery-base.js"]
+  .map((path) => readFileSync(new URL(path, import.meta.url), "utf8"))
+  .join("\n");
 const vault = readFileSync(new URL("../demo/vault.js", import.meta.url), "utf8");
 const githubSync = readFileSync(new URL("../demo/github-sync.js", import.meta.url), "utf8");
 const dashUi = readFileSync(new URL("../demo/semantic-dash-ui.js", import.meta.url), "utf8");
@@ -14,7 +15,7 @@ const semanticDashes = readFileSync(new URL("../demo/semantic-dashes.js", import
 const continuation = readFileSync(new URL("../demo/continuation.js", import.meta.url), "utf8");
 const html = readFileSync(new URL("../demo/index.html", import.meta.url), "utf8");
 
-assert.match(galleryBase, /function semanticHue\(result\)/, "semanticHue(result) renderer is required");
+assert.match(gallery, /function semanticHue\(result\)/, "semanticHue(result) renderer is required");
 assert.match(app, /--semantic-hue/, "renderer must expose semantic hue to CSS");
 assert.match(app, /applySemanticVisual\(card,\s*result\)/, "dashboard cards must receive semantic visuals");
 
