@@ -56,6 +56,31 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  canonical-full:
+    if: >-
+      github.actor == github.repository_owner &&
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      contains(github.event.pull_request.title, '[verify:full]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: npm install --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: npm run verify:full
+      - name: Upload canonical Playwright failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-canonical-full-${{ github.run_attempt }}
+          path: test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
   check:
     if: >-
       always() &&
@@ -65,6 +90,7 @@ jobs:
     needs:
       - deterministic
       - browser
+      - canonical-full
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -72,6 +98,13 @@ jobs:
         env:
           DETERMINISTIC_RESULT: ${{ needs.deterministic.result }}
           BROWSER_RESULT: ${{ needs.browser.result }}
+          CANONICAL_RESULT: ${{ needs.canonical-full.result }}
+          CANONICAL_REQUIRED: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.title, '[verify:full]') }}
         run: |
           test "$DETERMINISTIC_RESULT" = "success"
           test "$BROWSER_RESULT" = "success"
+          if [ "$CANONICAL_REQUIRED" = "true" ]; then
+            test "$CANONICAL_RESULT" = "success"
+          else
+            test "$CANONICAL_RESULT" = "skipped"
+          fi
