@@ -37,7 +37,6 @@ async function openFixture(page, count = 100) {
     sessionStorage.setItem("dashgpt.f32-fixture-ready", "1");
   }, { key: VAULT_KEY, sortKey: SORT_KEY, vault: fixtureVault(count) });
   await page.goto("/demo/");
-  await page.locator("#searchInput").fill("F32 Fixture");
   await expect(page.locator("#resultsGrid > .result-card")).toHaveCount(count);
   await expect(page.locator("#galleryRegion .gallery-sort")).toBeVisible();
   await expect.poll(async () => page.locator("#resultsGrid > .result-card").evaluateAll(
@@ -133,7 +132,6 @@ test("Color is default, controls are Color Tag Time, and palette is bounded to 3
   await expect(cards.first().locator(".title")).toHaveText("F32 Fixture 0099");
 
   await page.reload();
-  await page.locator("#searchInput").fill("F32 Fixture");
   await expect(page.locator('button[data-gallery-sort="time"]')).toHaveAttribute("aria-pressed", "true");
 });
 
@@ -144,7 +142,6 @@ test("old v1 Time preference is superseded by Color-first v2 default", async ({ 
     localStorage.removeItem("dashgpt.demo.gallery-sort.v2");
   }, { key: VAULT_KEY, vault: fixtureVault(20) });
   await page.goto("/demo/");
-  await page.locator("#searchInput").fill("F32 Fixture");
   await expect(page.locator('button[data-gallery-sort="color"]')).toHaveAttribute("aria-pressed", "true");
 });
 
