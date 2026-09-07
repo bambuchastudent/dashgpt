@@ -40,6 +40,9 @@ async function openFixture(page, count = 100) {
   await page.locator("#searchInput").fill("F32 Fixture");
   await expect(page.locator("#resultsGrid > .result-card")).toHaveCount(count);
   await expect(page.locator("#galleryRegion .gallery-sort")).toBeVisible();
+  await expect.poll(async () => page.locator("#resultsGrid > .result-card").evaluateAll(nodes =>
+    nodes.length === count && nodes.every(node => /^\d+$/.test(node.dataset.semanticPalette || ""))
+  )).toBe(true);
 }
 
 async function setOverview(page) {
@@ -93,7 +96,6 @@ async function openGalleryStressHarness(page, count) {
     const module = await import("/demo/gallery-overview-sorting.js?f47-stress=1");
     module.initializeGalleryOverviewSorting();
   });
-  await stressPage.locator("#galleryRegion").waitFor();
   await expect(stressPage.locator("#galleryRegion")).toHaveAttribute("data-f32-overview", "heatmap", { timeout: 10_000 });
   return stressPage;
 }
