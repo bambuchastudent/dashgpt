@@ -3,8 +3,9 @@
 - [x] Confirm the hosted timeout reproduces on untouched `develop` as well as F46 exact head.
 - [x] Inspect current OpenSpec/development guidance and overlap with F46, product/UI, storage and continuation surfaces.
 - [x] Add proposal, design, spec delta and Impact Manifest for hosted canonical-verification performance.
+- [x] Confirm current `develop` has no committed npm lockfile and keep dependency-lock migration out of F47 scope.
 - [ ] Strictly validate `f47-hosted-ci-verification-performance` before repository CI/config edits.
-- [ ] Make hosted dependency installation deterministic/cache-friendly without enabling lifecycle scripts.
+- [ ] Remove avoidable npm audit/funding install overhead while preserving `--ignore-scripts`.
 - [ ] Configure bounded Playwright CI concurrency while preserving `fullyParallel: false`, both browser projects and `retries: 1`.
 - [ ] Add deterministic regression verification for the hosted CI performance/coverage contract and wire it into `npm run check`.
 - [ ] Run targeted deterministic verification for the new CI verifier.
