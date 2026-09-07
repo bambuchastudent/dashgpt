@@ -1,8 +1,8 @@
 ## ADDED Requirements
 
-### Requirement: Hosted canonical verification MUST preserve full healthy-run coverage within the CI feedback budget
+### Requirement: Hosted canonical verification MUST preserve full healthy-run coverage within a sub-10-minute CI feedback budget
 
-DashGPT pull-request and `develop` verification MUST preserve deterministic and browser coverage while using bounded hosted-runner parallelism, explicit browser-state isolation and fail-fast diagnostics so normal pull-request feedback completes in under 10 minutes under normal hosted execution.
+DashGPT pull-request and `develop` verification MUST preserve deterministic and browser coverage while using bounded hosted-runner parallelism, explicit browser-state isolation and fail-fast diagnostics so the hosted verification critical path remains below 10 minutes of execution.
 
 #### Scenario: Hosted verification runs
 - **WHEN** the repository-owner pull-request or `develop` push check executes on GitHub-hosted Ubuntu
@@ -10,12 +10,19 @@ DashGPT pull-request and `develop` verification MUST preserve deterministic and 
 - **AND** MUST execute both `desktop-chromium` and `mobile-chromium` Playwright projects
 - **AND** MUST retain CI browser retries
 - **AND** healthy runs MUST execute the complete deterministic and browser surface
-- **AND** the 30-minute job timeout MUST remain a safety ceiling rather than the expected runtime.
+- **AND** desktop/mobile browser jobs MUST run concurrently rather than serially
+- **AND** no browser job MAY have an execution timeout greater than 9 minutes.
 
 #### Scenario: Canonical full verification remains reproducible
 - **WHEN** a maintainer needs one local/full repository gate
 - **THEN** `npm run verify:full` MUST remain the canonical command covering deterministic checks plus both browser projects
 - **AND** it MUST be run once on the final F47 implementation head before merge.
+
+#### Scenario: Existing required check remains authoritative
+- **WHEN** hosted verification is decomposed into deterministic and browser jobs
+- **THEN** a final lightweight job named `check` MUST depend on all canonical shards
+- **AND** MUST fail if any deterministic, desktop or mobile shard fails
+- **AND** MUST preserve the existing required-check identity used by repository policy.
 
 #### Scenario: Demo navigation becomes ready
 - **WHEN** a browser test navigates to the local DashGPT demo
@@ -39,7 +46,7 @@ DashGPT pull-request and `develop` verification MUST preserve deterministic and 
 - **WHEN** multiple browser tests fail in one CI job
 - **THEN** the job MUST stop after a small bounded maximum-failure count
 - **AND** MUST retain enough failures to diagnose a systemic defect
-- **AND** MUST NOT spend the full job timeout repeating the same bootstrap failure.
+- **AND** MUST NOT spend the full job budget repeating the same bootstrap failure.
 
 #### Scenario: Hosted dependencies are installed
 - **WHEN** the canonical GitHub-hosted jobs prepare Node dependencies
