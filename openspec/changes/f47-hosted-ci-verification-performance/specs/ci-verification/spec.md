@@ -41,17 +41,12 @@ DashGPT pull-request and `develop` verification MUST preserve deterministic and 
 - **THEN** the test MUST synchronize on the completed post-navigation document/readiness state
 - **AND** storage seeding used by the test MUST NOT replay on that navigation and overwrite the behavior under test.
 
-#### Scenario: Large local Vault starts without reconciliation work
-- **WHEN** DashGPT starts from an already-durable local Vault and there are no published Results to reconcile into it
-- **THEN** startup MUST NOT re-upsert every materialized Result and favorite into the same Vault
-- **AND** MUST preserve the existing durable Results/events unchanged
-- **AND** MUST still render storage status, summary and the complete local card set
-- **AND** the 2200-card local stress fixture MUST reach the explicit readiness signal within the dedicated browser readiness budget under normal hosted execution.
-
-#### Scenario: Published Results require reconciliation
-- **WHEN** startup merges published Results with local durable state
-- **THEN** merged durable state MUST continue to use the existing persistence behavior
-- **AND** the large-Vault fast path MUST NOT skip writes required to preserve merged data semantics.
+#### Scenario: Large gallery layout is stress-tested
+- **WHEN** browser verification exercises the 2200-card gallery overview case
+- **THEN** it MUST retain 2200 real card nodes and use the real gallery overview module in Chromium
+- **AND** MUST assert the heat-map representation, complete card selection/order, bounded semantic palette and viewport overflow/layout behavior
+- **AND** SHOULD run through an isolated same-origin component harness rather than unrelated full-application bootstrap and persistence paths
+- **AND** MUST NOT reduce the card count or replace the browser layout assertion with a pure unit-only check solely to improve CI runtime.
 
 #### Scenario: Browser work is parallelized
 - **WHEN** Playwright runs in hosted CI
@@ -72,6 +67,6 @@ DashGPT pull-request and `develop` verification MUST preserve deterministic and 
 - **AND** MUST NOT claim lockfile/`npm ci` reproducibility unless a committed lockfile exists.
 
 #### Scenario: A future optimization proposes less healthy-run coverage
-- **WHEN** a CI performance change would skip deterministic verifiers, remove a browser project, or disable retries
+- **WHEN** a CI performance change would skip deterministic verifiers, remove a browser project, disable retries, reduce the 2200-card stress surface or otherwise reduce healthy-run coverage
 - **THEN** it MUST NOT be treated as an implementation of this requirement
 - **AND** MUST require a separate explicit specification and coverage decision.
