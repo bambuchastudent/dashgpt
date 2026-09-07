@@ -46,7 +46,8 @@ The hosted required gate may therefore be decomposed into:
 
 - deterministic `npm run check` job;
 - desktop Chromium browser job;
-- mobile Chromium browser job.
+- mobile Chromium browser job;
+- final lightweight `check` aggregator preserving the existing required-check name.
 
 Collectively these jobs MUST be equivalent to the canonical full verification surface. `npm run verify:full` remains the canonical local/full command and must be run once on the final implementation head before merge, while PR CI is optimized for wall-clock through equivalent parallel jobs.
 
@@ -56,7 +57,17 @@ Healthy runs execute the complete browser surface. Failing browser jobs should n
 
 This does not weaken healthy-run coverage; it bounds wasted runtime after the job is already conclusively failing.
 
-### 6. Keep dependency policy unchanged; remove avoidable install work
+### 6. Enforce a sub-10-minute hosted budget
+
+The old 30-minute timeout is no longer acceptable for the normal PR gate. Use explicit per-job budgets that keep the complete hosted verification result below 10 minutes of execution under failure as well as success:
+
+- deterministic job hard timeout: at most 5 minutes;
+- each desktop/mobile browser job hard timeout: at most 9 minutes;
+- final aggregator hard timeout: at most 2 minutes.
+
+Because browser projects run concurrently, the workflow critical path is bounded by the longest browser job plus a short aggregator step rather than by the sum of both projects.
+
+### 7. Keep dependency policy unchanged; remove avoidable install work
 
 Current `develop` has no committed `package-lock.json`, so F47 does not introduce `npm ci`, lockfile-keyed caching, or a new dependency-lock policy. Keep `npm install --ignore-scripts` semantics and suppress install-time audit/funding work that is not part of repository verification (`--no-audit --no-fund`).
 
@@ -73,19 +84,21 @@ Extend deterministic verification so accidental regressions are rejected, includ
 - reverting to serialized file-level execution without an explicit reason;
 - removing the CI max-failure bound;
 - hosted CI no longer collectively executing deterministic + desktop + mobile verification;
+- removing the existing required `check` aggregator name;
+- increasing browser-job timeout above the sub-10-minute budget;
 - switching required checks back to self-hosted runners.
 
 ## Performance acceptance
 
-The primary product-development target is pull-request feedback below 10 minutes under normal GitHub-hosted execution. Acceptance requires:
+Acceptance requires:
 
 - deterministic check completion in its own fast job;
 - desktop and mobile browser jobs executing concurrently;
 - healthy browser jobs completing their full project coverage;
-- systemic readiness/bootstrap failure becoming visible in well under 10 minutes and preferably under 2 minutes after setup;
+- normal PR feedback below 10 minutes;
+- systemic readiness/bootstrap failure becoming visible preferably under 2 minutes after setup;
+- no browser job allowed to run longer than 9 minutes;
 - final canonical `npm run verify:full` completing on the implementation head before merge.
-
-The existing 30-minute timeout remains a hard safety ceiling, not an expected runtime.
 
 ## Risks and trade-offs
 
