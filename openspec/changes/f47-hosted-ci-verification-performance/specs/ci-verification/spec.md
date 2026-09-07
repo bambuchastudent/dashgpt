@@ -36,6 +36,23 @@ DashGPT pull-request and `develop` verification MUST preserve deterministic and 
 - **AND** cookies, localStorage, sessionStorage and configured storage state MUST NOT leak from another test
 - **AND** the browser suite MUST NOT rely on shared mutable filesystem or persistent browser-profile state for ordering.
 
+#### Scenario: Browser navigation mutates persistent state
+- **WHEN** a test action causes DashGPT to reload or replace the document after changing local state
+- **THEN** the test MUST synchronize on the completed post-navigation document/readiness state
+- **AND** storage seeding used by the test MUST NOT replay on that navigation and overwrite the behavior under test.
+
+#### Scenario: Large local Vault starts without reconciliation work
+- **WHEN** DashGPT starts from an already-durable local Vault and there are no published Results to reconcile into it
+- **THEN** startup MUST NOT re-upsert every materialized Result and favorite into the same Vault
+- **AND** MUST preserve the existing durable Results/events unchanged
+- **AND** MUST still render storage status, summary and the complete local card set
+- **AND** the 2200-card local stress fixture MUST reach the explicit readiness signal within the dedicated browser readiness budget under normal hosted execution.
+
+#### Scenario: Published Results require reconciliation
+- **WHEN** startup merges published Results with local durable state
+- **THEN** merged durable state MUST continue to use the existing persistence behavior
+- **AND** the large-Vault fast path MUST NOT skip writes required to preserve merged data semantics.
+
 #### Scenario: Browser work is parallelized
 - **WHEN** Playwright runs in hosted CI
 - **THEN** desktop and mobile projects SHOULD execute in independent hosted jobs
