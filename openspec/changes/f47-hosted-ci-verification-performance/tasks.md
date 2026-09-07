@@ -18,12 +18,14 @@
 - [x] Extend deterministic regression verification for readiness, isolation, parallelism, fail-fast behavior and complete hosted coverage.
 - [x] Profile the first parallel exact-head run and isolate remaining failures to reset navigation, Google disconnect navigation and the 2200-card full-app stress path.
 - [x] Update OpenSpec to keep production semantics unchanged while isolating navigation tests and the real gallery stress module before test edits.
-- [ ] Strictly validate the final navigation/stress-harness scope before editing affected tests.
-- [ ] Make reload-causing browser tests synchronize on the completed new document and use one-shot storage seeds where applicable.
-- [ ] Make ordinary gallery fixtures exclude unrelated operational cards.
-- [ ] Move the 2200-card gallery case to a same-origin isolated Chromium component harness using the real gallery module and preserve its card-count/order/palette/layout assertions.
-- [ ] Run targeted browser verification for reset, Google Drive, gallery stress, profile metrics and isolation.
-- [ ] Run exact-head hosted jobs and confirm healthy pull-request wall-clock is below 10 minutes with full coverage.
-- [ ] Run canonical `npm run verify:full` once on the final implementation head before merge.
+- [x] Strictly validate the final navigation/stress-harness scope before editing affected tests.
+- [x] Make reload-causing browser tests synchronize on the completed new document and use one-shot storage seeds where applicable.
+- [x] Keep ordinary gallery sorting fixtures focused on fixture cards without unrelated operational-card/search rerender interference.
+- [x] Move the 2200-card gallery case to a same-origin isolated Chromium component harness using the real gallery module and preserve its card-count/order/palette/layout assertions.
+- [x] Run targeted/exact-head browser verification while iterating reset, Google Drive, gallery stress, profile metrics and isolation failures.
+- [x] Run exact-head hosted jobs and confirm healthy pull-request wall-clock is below 10 minutes with full coverage: run `34168588829` passed deterministic + desktop + mobile + aggregator; desktop completed 93 passed + 1 skipped in 1.7 minutes after setup.
+- [x] Update and strictly validate the opt-in hosted literal-canonical proof scope before workflow edits: OpenSpec run `34171486960` passed.
+- [x] Add the opt-in `[verify:full]` hosted lane plus deterministic regression coverage without adding duplicate work to normal PRs.
+- [ ] Run literal `npm run verify:full` once on the final F47 implementation head before merge.
 - [ ] Reconcile PR body/task evidence and merge #118 only after final checks are green.
 - [ ] Rebase/re-run PR #113 on the fixed `develop`, finish its final verification evidence, then handle #113 separately.
