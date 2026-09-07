@@ -7,12 +7,12 @@ After PR #117 moved DashGPT canonical verification from the dedicated macOS self
 Profiling the hosted run shows this is not ordinary Playwright throughput:
 
 - dependency setup is about one minute total;
-- `npm run check` completes in about five seconds;
-- Playwright starts 186 tests;
-- repeated tests then consume the full 60-second test timeout waiting for `html[data-dashgpt-ready="true"]`, and CI retry repeats the same wait;
-- the current browser fixture requires that readiness marker after every local demo navigation, but the application bootstrap does not emit it.
+- `npm run check` completes in seconds;
+- repeated tests consumed the 60-second test timeout waiting for `html[data-dashgpt-ready="true"]`, and CI retry repeated the same wait;
+- the browser fixture required that readiness marker after every local demo navigation, while the application bootstrap did not emit it;
+- after repairing readiness, the 2200-card stress case exposed a second real bottleneck: local-only startup materializes the existing Vault and then redundantly persists every already-stored Result again, while `putResult()` validates/searches the growing Vault on every call, producing superlinear startup cost.
 
-This turns one bootstrap/test-harness defect into a long sequence of 60s + 60s failures. The same behavior on untouched `develop` demonstrates a baseline verification defect rather than an F46 regression. Raising the job timeout would only hide it.
+The same baseline behavior on untouched `develop` demonstrates a verification defect rather than an F46 regression. Raising the job timeout would only hide it.
 
 ## Goal
 
@@ -24,8 +24,9 @@ Restore fast, reliable GitHub-hosted canonical verification with a pull-request 
 - make demo readiness explicit and bounded so bootstrap failures fail in seconds rather than minutes;
 - make browser tests independently runnable with fresh browser state;
 - enable safe Playwright parallelism after isolation is explicit;
-- parallelize desktop and mobile CI work at the GitHub-job level when useful for wall-clock time;
+- parallelize desktop and mobile CI work at the GitHub-job level;
 - stop systemic failing browser jobs after a small bounded number of failures while retaining full coverage on healthy runs;
+- remove redundant local-only Vault re-persistence so large existing Vaults can become ready within the fast readiness budget without changing stored content semantics;
 - avoid non-verification install overhead where it is safe to do so.
 
 ## Scope
@@ -33,8 +34,9 @@ Restore fast, reliable GitHub-hosted canonical verification with a pull-request 
 - `.github/workflows/check.yml` hosted CI setup and job-level parallelization;
 - `playwright.config.mjs` bounded CI concurrency, fail-fast budget and isolation-compatible scheduling;
 - `tests/playwright-fixture.mjs` bounded readiness waiting and explicit per-test state hygiene;
-- demo bootstrap readiness signaling used by the test harness, without user-visible UI/API behavior changes;
-- browser regression coverage for readiness/isolation behavior;
+- demo bootstrap readiness signaling used by the test harness, without user-facing UI/API behavior changes;
+- `demo/app.js` startup persistence path, limited to avoiding redundant rewrites of an already-materialized local-only Vault while preserving merge/persistence semantics when published data must be reconciled;
+- browser regression coverage for readiness, isolation, reload synchronization and large-Vault startup behavior;
 - deterministic regression verification for the hosted-CI contract;
 - `package.json` wiring needed for those verifiers;
 - OpenSpec/current development-state documentation for the verification behavior.
@@ -45,7 +47,7 @@ Current `develop` has no committed `package-lock.json`. F47 therefore MUST NOT p
 
 ## Non-goals
 
-- changing user-facing product/API behavior;
+- changing user-facing product/API behavior or Vault data semantics;
 - changing F46 Shared Chat smoke classification semantics;
 - removing desktop or mobile browser coverage;
 - disabling CI retries merely to reduce runtime;
