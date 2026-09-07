@@ -221,7 +221,11 @@ test("different meaningful Vaults require explicit merge before Google account V
   const remote = vault("vault-drive-existing", [result("drive-card")]);
   const drive = await routeFakeDrive(page, remote);
 
-  await page.addInitScript(({ key, local }) => localStorage.setItem(key, JSON.stringify(local)), {
+  await page.addInitScript(({ key, local }) => {
+    if (sessionStorage.getItem("dashgpt.google-merge-fixture-ready") === "1") return;
+    localStorage.setItem(key, JSON.stringify(local));
+    sessionStorage.setItem("dashgpt.google-merge-fixture-ready", "1");
+  }, {
     key: VAULT_KEY,
     local: vault("vault-device-local", [result("device-card")])
   });
@@ -251,7 +255,10 @@ test("disconnect removes browser Google binding but preserves the local Vault", 
   await page.goto("/demo/?personal=1");
   await page.locator("#storageButton").click();
   await page.waitForFunction(() => Boolean(globalThis.google?.accounts?.oauth2));
-  const adoptionReload = page.waitForEvent("framenavigated", frame => frame === page.mainFrame(), { timeout: 5_000 });
+  const adoptionReload = page.waitForEvent("framenavigated", {
+    predicate: frame => frame === page.mainFrame(),
+    timeout: 5_000
+  });
   await page.locator("#connectGoogleDriveButton").click();
   await expect.poll(async () => page.evaluate(key => Boolean(localStorage.getItem(key)), BINDING_KEY)).toBe(true);
   await adoptionReload;
