@@ -9,47 +9,42 @@ Two independent hosted runs on the same repository baseline shape exhausted the 
 
 Profiling showed dependency setup around one minute, `npm run check` in seconds, and almost all remaining time in browser waits. The first root cause was an impossible readiness condition: the fixture waited for `html[data-dashgpt-ready="true"]` although bootstrap never emitted it, turning failures into repeated 60s + retry waits.
 
-After readiness/fail-fast/parallel scheduling was implemented, exact-head run `34164814621` completed 89 desktop tests in 4.8 minutes and 91 mobile tests in 5.8 minutes before bounded failure completion. The remaining runtime was concentrated in three concrete cases rather than general suite throughput:
+After readiness/fail-fast/parallel scheduling was implemented, exact-head run `34164814621` completed 89 desktop tests in 4.8 minutes and 91 mobile tests in 5.8 minutes before bounded failure completion. The remaining runtime was concentrated in test-harness problems rather than general suite throughput:
 
-- device-reset test synchronization raced the navigation it was trying to observe;
-- Google Drive disconnect clicked while the account-adoption reload was still replacing the DOM;
-- the 2200-card stress fixture exceeded the 5-second readiness budget because local-only startup redundantly re-persisted the already-materialized Vault.
+- device-reset synchronization treated an already-matching pathname as proof a replacement navigation had completed;
+- Google Drive disconnect clicked while the earlier account-adoption reload was still replacing the DOM;
+- the 2200-card gallery layout stress case bootstrapped the full application and Vault machinery even though its assertion target is gallery ordering/layout behavior.
 
 ## Optimization strategy
 
 ### 1. Repair the readiness contract and make it fail fast
 
-Expose one explicit testability readiness signal after DashGPT demo bootstrap is genuinely complete. Keep readiness waiting separate from the general Playwright test timeout. CI uses a dedicated timeout no greater than 5 seconds; a broken bootstrap must fail in seconds, not consume the 60-second test timeout.
-
-Preserve `retries: 1`, but a retry of a readiness failure repeats only the small readiness budget.
+Expose one explicit testability readiness signal after DashGPT demo bootstrap is genuinely complete. Keep readiness waiting separate from the general Playwright test timeout. CI uses a dedicated timeout no greater than 5 seconds; a broken bootstrap fails in seconds rather than consuming the 60-second test timeout. Preserve `retries: 1`.
 
 ### 2. Make browser state isolation explicit
 
-Every test runs in a fresh Playwright BrowserContext with no persisted cookies/localStorage/sessionStorage/storageState from another test. Add regression coverage proving browser-local state written by one context is not visible to another. Do not introduce shared mutable filesystem fixtures or a shared persistent profile.
-
-With this isolation contract in place, use `fullyParallel: true` so tests from the same spec file may run concurrently without relying on ordering.
+Every test runs in a fresh Playwright BrowserContext with no persisted cookies/localStorage/sessionStorage/storageState from another test. Add regression coverage proving browser-local state does not leak. With this isolation contract in place, use `fullyParallel: true`.
 
 ### 3. Synchronize tests with completed navigation, not incidental intermediate state
 
-Tests that intentionally cause a reload/navigation must wait for the post-navigation URL/readiness condition that uniquely identifies the new document. They must not treat an already-matching pathname, a binding write that occurs before reload, or a transiently visible button as proof that navigation has completed.
+Tests that intentionally cause reload/navigation wait for the post-navigation document/readiness condition that uniquely identifies the new document. They do not treat an already-matching pathname, a binding write that occurs before reload, or a transiently visible button as proof navigation completed.
 
-Fixtures that seed browser storage through `addInitScript` must be one-shot when the tested behavior itself reloads the page; otherwise the seed can overwrite the result after navigation and create false failures.
+Storage seeding through `addInitScript` is one-shot when the tested behavior itself reloads; otherwise the seed can overwrite the behavior under test after navigation.
 
-### 4. Remove redundant local-only large-Vault persistence
+### 4. Isolate the 2200-card gallery stress case from unrelated app startup
 
-`reloadFromVault()` loads the existing local Vault, materializes Results and then currently calls `persistRuntimeResults()`. On a local-only personal route there is no published catalog to merge, so this writes the same already-stored Results back into the same Vault.
+The stress test exists to verify that the gallery module can order and lay out 2200 cards as a one-screen heat map in a real Chromium viewport. Bootstrapping the entire application, import plumbing, Vault persistence and unrelated UI for that one assertion adds cost and confounds failures.
 
-That is disproportionately expensive because each `putResult()` validates the whole Vault and linearly searches Results, and each favorite update also validates state. Repeating those operations for thousands of already-present Results creates superlinear startup work and blocked the main thread for the 2200-card stress case.
+Use a same-origin component harness inside the Playwright test:
 
-The startup fast path is semantic, not test-only:
+- open a lightweight same-origin resource without DashGPT application bootstrap;
+- install minimal gallery DOM required by `gallery-overview-sorting.js`;
+- seed the real Vault-shaped 2200 Result fixture in that isolated test context;
+- dynamically import and initialize the real gallery overview module;
+- drive the real density control and assert the same heat-map representation, card count/order, palette bounds and viewport overflow/layout properties;
+- keep ordinary end-to-end app tests responsible for bootstrap, routing and card interaction behavior.
 
-- when no published Results are being reconciled, treat the materialized local Vault as already durable;
-- skip Result/favorite re-upsert and avoid a redundant Vault save;
-- still update runtime rendering/storage status/summary normally;
-- when published Results are present and must be merged with local state, preserve the existing persistence path so merged durable state is written exactly as before;
-- explicit user mutations such as create/update/favorite continue using the normal persistence path.
-
-Regression coverage must prove large local Vault startup reaches readiness within the dedicated readiness budget and that stored Results are not lost or rewritten semantically.
+This preserves real browser/CSS/module coverage while removing unrelated startup work. The stress test must not be replaced with a pure unit test or reduced card count merely for speed.
 
 ### 5. Use bounded worker parallelism
 
@@ -67,13 +62,7 @@ Healthy runs execute the complete browser surface. Failing browser jobs stop aft
 
 ### 8. Enforce a sub-10-minute hosted budget
 
-Use explicit per-job budgets:
-
-- deterministic job: at most 5 minutes;
-- each desktop/mobile browser job: at most 9 minutes;
-- final aggregator: at most 2 minutes.
-
-Because browser projects run concurrently, workflow wall-clock is the longest browser shard plus a short aggregator rather than the sum of both projects.
+Use explicit per-job budgets: deterministic at most 5 minutes, each desktop/mobile browser job at most 9 minutes, and final aggregator at most 2 minutes. Because browser projects run concurrently, workflow wall-clock is the longest browser shard plus a short aggregator rather than the sum of both projects.
 
 ### 9. Keep dependency policy unchanged; remove avoidable install work
 
@@ -81,24 +70,12 @@ Current `develop` has no committed `package-lock.json`, so F47 does not introduc
 
 ## Regression contract
 
-Deterministic/browser verification rejects accidental regressions including:
-
-- readiness marker required but not emitted;
-- readiness timeout reverting to the 60-second test timeout;
-- shared/persistent Playwright state;
-- loss of desktop or mobile Chromium coverage;
-- disabled CI retries;
-- loss of bounded worker scheduling or `maxFailures`;
-- hosted CI no longer collectively executing deterministic + desktop + mobile verification;
-- loss of the final required `check` aggregator;
-- browser-job timeout above the sub-10-minute budget;
-- local-only startup reintroducing redundant per-Result persistence that makes the large-Vault readiness stress case miss the fast readiness budget;
-- switching required checks back to self-hosted runners.
+Verification rejects accidental regressions including a missing readiness signal, readiness timeout reverting to the 60-second test timeout, shared/persistent Playwright state, loss of desktop/mobile coverage, disabled CI retries, loss of bounded workers or `maxFailures`, loss of the final `check` aggregator, browser-job timeout above the sub-10-minute budget, navigation tests regressing to transient pre-reload synchronization, the 2200-card stress test returning to a slow full-app bootstrap path or reducing its real card/layout coverage, and any return to self-hosted runners.
 
 ## Performance acceptance
 
-Acceptance requires deterministic checks in their own fast job, desktop/mobile browser jobs running concurrently, complete healthy-run project coverage, normal PR feedback below 10 minutes, systemic readiness failure preferably visible under 2 minutes after setup, no browser job longer than 9 minutes, the 2200-card local startup stress case completing inside the browser readiness contract, and final canonical `npm run verify:full` succeeding on the implementation head before merge.
+Acceptance requires deterministic checks in their own fast job, desktop/mobile browser jobs running concurrently, complete healthy-run project coverage, normal PR feedback below 10 minutes, systemic readiness failure preferably visible under 2 minutes after setup, no browser job longer than 9 minutes, the isolated 2200-card gallery stress case retaining real Chromium layout coverage without dominating shard runtime, and final canonical `npm run verify:full` succeeding on the implementation head before merge.
 
 ## Risks and trade-offs
 
-Job-level parallelization increases concurrent runner usage while reducing developer wall-clock. `fullyParallel: true` exposes hidden order coupling, so context isolation and navigation synchronization are explicit. The large-Vault fast path must only skip writes that are provably redundant; published/local reconciliation and user mutations retain the durable write path. The repository still resolves npm dependencies without a committed lockfile; F47 does not broaden into dependency-policy work.
+Job-level parallelization increases concurrent runner usage while reducing developer wall-clock. `fullyParallel: true` exposes hidden order coupling, so context isolation and navigation synchronization are explicit. The isolated gallery harness must exercise the real module and CSS behavior rather than a simplified mock. The repository still resolves npm dependencies without a committed lockfile; F47 does not broaden into dependency-policy work.
