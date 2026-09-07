@@ -16,14 +16,13 @@
 - [x] Add a bounded CI maximum-failure count so systemic browser failures fail quickly.
 - [x] Remove avoidable npm audit/funding install overhead while preserving `--ignore-scripts`.
 - [x] Extend deterministic regression verification for readiness, isolation, parallelism, fail-fast behavior and complete hosted coverage.
-- [x] Profile the first parallel exact-head run and isolate remaining failures to reset navigation, Google disconnect navigation, fixture counting and 2200-card local startup.
-- [x] Update OpenSpec scope for navigation synchronization and redundant large-Vault startup persistence before those edits.
-- [ ] Strictly validate the updated large-Vault/navigation scope before editing app/test behavior.
-- [ ] Make reload-causing browser tests synchronize on the completed new document and use one-shot storage seeds.
-- [ ] Make gallery fixtures count only fixture cards rather than unrelated operational cards.
-- [ ] Eliminate redundant local-only per-Result startup persistence while preserving published reconciliation and mutation persistence semantics.
-- [ ] Add/adjust regression coverage for large local Vault readiness and unchanged durable state.
-- [ ] Run targeted deterministic/browser verification for reset, Google Drive, gallery stress, profile metrics and isolation.
+- [x] Profile the first parallel exact-head run and isolate remaining failures to reset navigation, Google disconnect navigation and the 2200-card full-app stress path.
+- [x] Update OpenSpec to keep production semantics unchanged while isolating navigation tests and the real gallery stress module before test edits.
+- [ ] Strictly validate the final navigation/stress-harness scope before editing affected tests.
+- [ ] Make reload-causing browser tests synchronize on the completed new document and use one-shot storage seeds where applicable.
+- [ ] Make ordinary gallery fixtures exclude unrelated operational cards.
+- [ ] Move the 2200-card gallery case to a same-origin isolated Chromium component harness using the real gallery module and preserve its card-count/order/palette/layout assertions.
+- [ ] Run targeted browser verification for reset, Google Drive, gallery stress, profile metrics and isolation.
 - [ ] Run exact-head hosted jobs and confirm healthy pull-request wall-clock is below 10 minutes with full coverage.
 - [ ] Run canonical `npm run verify:full` once on the final implementation head before merge.
 - [ ] Reconcile PR body/task evidence and merge #118 only after final checks are green.
