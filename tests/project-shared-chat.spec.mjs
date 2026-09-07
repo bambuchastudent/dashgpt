@@ -4,6 +4,7 @@ const VAULT_KEY = "dashgpt.demo.vault.v1";
 const PROJECT_PATH = "/g/g-p-6a7ae11856fc8191aad4d68742133156-dashgpt/shared/c/6a7f3509-886c-83eb-af4c-cf71f8a3599b";
 const PROJECT_INPUT = `https://chatgpt.com${PROJECT_PATH}?owner_user_id=user-test&utm_source=ignored#fragment`;
 const PROJECT_CANONICAL = `https://chatgpt.com${PROJECT_PATH}?owner_user_id=user-test`;
+const SEED_KEY = "dashgpt.test.project-share.seeded";
 
 function vault() {
   return {
@@ -29,9 +30,11 @@ function vault() {
 }
 
 async function seed(page) {
-  await page.addInitScript(({ key, value }) => {
+  await page.addInitScript(({ key, seedKey, value }) => {
+    if (sessionStorage.getItem(seedKey) === "1") return;
     localStorage.setItem(key, JSON.stringify(value));
-  }, { key: VAULT_KEY, value: vault() });
+    sessionStorage.setItem(seedKey, "1");
+  }, { key: VAULT_KEY, seedKey: SEED_KEY, value: vault() });
   await page.route("**/api/storage/google/config", route => route.fulfill({
     status: 200,
     contentType: "application/json",
@@ -78,7 +81,7 @@ test("Save chat accepts a ChatGPT Project shared-chat URL and preserves canonica
   await page.locator("#saveChatCommit").click();
   await page.waitForURL(/\/demo\/$/);
   await page.waitForFunction(value => document.documentElement.dataset.testDocument !== value, token);
-  await page.locator('html[data-dashgpt-ready="true"]').waitFor();
+  await page.locator('html[data-dashgpt-ready="true"]').waitFor({ timeout: 5_000 });
 
   const stored = await page.evaluate(key => JSON.parse(localStorage.getItem(key) || "null"), VAULT_KEY);
   const saved = stored.results.filter(item => item.source?.url === PROJECT_CANONICAL);
