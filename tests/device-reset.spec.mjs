@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./playwright-fixture.mjs";
 
 const VAULT_KEY = "dashgpt.demo.vault.v1";
 
@@ -90,6 +90,7 @@ test("reset confirmation fits a 390px dashboard without horizontal overflow", as
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/demo/?personal=1");
   await page.locator("#storageButton").click();
+  await expect(page.locator("#deviceResetSection")).toBeVisible();
   await page.locator("#resetDeviceButton").click();
   await expect(page.locator("#deviceResetDialog")).toBeVisible();
 
