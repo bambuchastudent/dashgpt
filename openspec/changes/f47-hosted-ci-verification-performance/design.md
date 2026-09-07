@@ -7,103 +7,98 @@ Two independent hosted runs on the same repository baseline shape exhausted the 
 - clean `develop` at `89e173911d578d6dd6f922b4c64a369e48eac799` — run `34035512940`;
 - F46 exact head `4fef4918a16df6d870a599f9127983af819296bb` — run `34035886804`.
 
-The F47 profiling run confirms the time distribution:
+Profiling showed dependency setup around one minute, `npm run check` in seconds, and almost all remaining time in browser waits. The first root cause was an impossible readiness condition: the fixture waited for `html[data-dashgpt-ready="true"]` although bootstrap never emitted it, turning failures into repeated 60s + retry waits.
 
-- npm dependency install: ~31 seconds;
-- Chromium/dependency provisioning: ~25 seconds;
-- `npm run check`: ~5 seconds;
-- browser phase: virtually the entire remaining job budget.
+After readiness/fail-fast/parallel scheduling was implemented, exact-head run `34164814621` completed 89 desktop tests in 4.8 minutes and 91 mobile tests in 5.8 minutes before bounded failure completion. The remaining runtime was concentrated in three concrete cases rather than general suite throughput:
 
-The browser phase is not slow because healthy tests need 30 minutes. It is repeatedly waiting for an impossible readiness condition. `tests/playwright-fixture.mjs` waits for `html[data-dashgpt-ready="true"]` after local demo navigation, but current demo bootstrap never emits that marker. Each affected test therefore burns the global 60-second test timeout, then `retries: 1` burns another 60 seconds. With many affected tests, the job reaches 30 minutes before useful suite completion.
+- device-reset test synchronization raced the navigation it was trying to observe;
+- Google Drive disconnect clicked while the account-adoption reload was still replacing the DOM;
+- the 2200-card stress fixture exceeded the 5-second readiness budget because local-only startup redundantly re-persisted the already-materialized Vault.
 
 ## Optimization strategy
 
 ### 1. Repair the readiness contract and make it fail fast
 
-Expose one explicit testability readiness signal after DashGPT demo bootstrap is genuinely complete. The signal is not user-facing product state; it exists so browser automation can distinguish "application ready" from "application failed to initialize".
-
-Keep the browser fixture readiness wait separate from the general Playwright test timeout. Local demo readiness should normally settle in well under a second; CI therefore uses a small bounded readiness timeout (target 5 seconds). A broken bootstrap must fail in seconds, not consume the 60-second test timeout.
+Expose one explicit testability readiness signal after DashGPT demo bootstrap is genuinely complete. Keep readiness waiting separate from the general Playwright test timeout. CI uses a dedicated timeout no greater than 5 seconds; a broken bootstrap must fail in seconds, not consume the 60-second test timeout.
 
 Preserve `retries: 1`, but a retry of a readiness failure repeats only the small readiness budget.
 
 ### 2. Make browser state isolation explicit
 
-Every test must run in a fresh Playwright BrowserContext with no persisted cookies/localStorage/sessionStorage/storageState from another test. The shared demo server remains read-only/static and is not a state-sharing channel.
+Every test runs in a fresh Playwright BrowserContext with no persisted cookies/localStorage/sessionStorage/storageState from another test. Add regression coverage proving browser-local state written by one context is not visible to another. Do not introduce shared mutable filesystem fixtures or a shared persistent profile.
 
-Add regression coverage proving browser-local state written by one isolated context is not visible to another. Do not introduce shared mutable filesystem fixtures or a shared persistent profile.
+With this isolation contract in place, use `fullyParallel: true` so tests from the same spec file may run concurrently without relying on ordering.
 
-Once this isolation contract is in place, enable `fullyParallel: true` so tests from the same spec file may run concurrently without relying on file ordering.
+### 3. Synchronize tests with completed navigation, not incidental intermediate state
 
-### 3. Use bounded worker parallelism
+Tests that intentionally cause a reload/navigation must wait for the post-navigation URL/readiness condition that uniquely identifies the new document. They must not treat an already-matching pathname, a binding write that occurs before reload, or a transiently visible button as proof that navigation has completed.
 
-Use a bounded worker count appropriate to GitHub-hosted runners rather than unbounded CPU-derived defaults. Two workers per browser job is the initial ceiling. This allows useful overlap without oversubscribing a standard hosted runner.
+Fixtures that seed browser storage through `addInitScript` must be one-shot when the tested behavior itself reloads the page; otherwise the seed can overwrite the result after navigation and create false failures.
 
-### 4. Parallelize desktop and mobile at the GitHub-job level
+### 4. Remove redundant local-only large-Vault persistence
 
-Desktop Chromium and mobile Chromium are independent projects. Run them as separate hosted jobs so they receive separate runner CPU/memory instead of competing inside one 2-core machine.
+`reloadFromVault()` loads the existing local Vault, materializes Results and then currently calls `persistRuntimeResults()`. On a local-only personal route there is no published catalog to merge, so this writes the same already-stored Results back into the same Vault.
 
-The hosted required gate may therefore be decomposed into:
+That is disproportionately expensive because each `putResult()` validates the whole Vault and linearly searches Results, and each favorite update also validates state. Repeating those operations for thousands of already-present Results creates superlinear startup work and blocked the main thread for the 2200-card stress case.
 
-- deterministic `npm run check` job;
-- desktop Chromium browser job;
-- mobile Chromium browser job;
-- final lightweight `check` aggregator preserving the existing required-check name.
+The startup fast path is semantic, not test-only:
 
-Collectively these jobs MUST be equivalent to the canonical full verification surface. `npm run verify:full` remains the canonical local/full command and must be run once on the final implementation head before merge, while PR CI is optimized for wall-clock through equivalent parallel jobs.
+- when no published Results are being reconciled, treat the materialized local Vault as already durable;
+- skip Result/favorite re-upsert and avoid a redundant Vault save;
+- still update runtime rendering/storage status/summary normally;
+- when published Results are present and must be merged with local state, preserve the existing persistence path so merged durable state is written exactly as before;
+- explicit user mutations such as create/update/favorite continue using the normal persistence path.
 
-### 5. Fail systemic browser breakage early
+Regression coverage must prove large local Vault startup reaches readiness within the dedicated readiness budget and that stored Results are not lost or rewritten semantically.
 
-Healthy runs execute the complete browser surface. Failing browser jobs should not continue through dozens of identical bootstrap failures. Configure a small CI `maxFailures` budget so a systemic defect returns a red signal quickly while still providing more than one failure for diagnosis.
+### 5. Use bounded worker parallelism
 
-This does not weaken healthy-run coverage; it bounds wasted runtime after the job is already conclusively failing.
+Use two Playwright workers per browser job. This allows useful overlap without oversubscribing a standard hosted runner.
 
-### 6. Enforce a sub-10-minute hosted budget
+### 6. Parallelize desktop and mobile at the GitHub-job level
 
-The old 30-minute timeout is no longer acceptable for the normal PR gate. Use explicit per-job budgets that keep the complete hosted verification result below 10 minutes of execution under failure as well as success:
+Run desktop Chromium and mobile Chromium as separate hosted jobs so they receive separate runner CPU/memory. The hosted required gate is decomposed into deterministic `npm run check`, desktop Chromium, mobile Chromium, and a lightweight final `check` aggregator preserving the existing required-check name.
 
-- deterministic job hard timeout: at most 5 minutes;
-- each desktop/mobile browser job hard timeout: at most 9 minutes;
-- final aggregator hard timeout: at most 2 minutes.
+Collectively these jobs remain equivalent to the canonical full verification surface. `npm run verify:full` remains the canonical local/full command and is run once on the final implementation head before merge.
 
-Because browser projects run concurrently, the workflow critical path is bounded by the longest browser job plus a short aggregator step rather than by the sum of both projects.
+### 7. Fail systemic browser breakage early
 
-### 7. Keep dependency policy unchanged; remove avoidable install work
+Healthy runs execute the complete browser surface. Failing browser jobs stop after a small `maxFailures` budget so a systemic defect returns a red signal quickly while retaining enough failures for diagnosis.
 
-Current `develop` has no committed `package-lock.json`, so F47 does not introduce `npm ci`, lockfile-keyed caching, or a new dependency-lock policy. Keep `npm install --ignore-scripts` semantics and suppress install-time audit/funding work that is not part of repository verification (`--no-audit --no-fund`).
+### 8. Enforce a sub-10-minute hosted budget
+
+Use explicit per-job budgets:
+
+- deterministic job: at most 5 minutes;
+- each desktop/mobile browser job: at most 9 minutes;
+- final aggregator: at most 2 minutes.
+
+Because browser projects run concurrently, workflow wall-clock is the longest browser shard plus a short aggregator rather than the sum of both projects.
+
+### 9. Keep dependency policy unchanged; remove avoidable install work
+
+Current `develop` has no committed `package-lock.json`, so F47 does not introduce `npm ci`, lockfile-keyed caching or a new dependency-lock policy. Keep `npm install --ignore-scripts` and suppress audit/funding work (`--no-audit --no-fund`).
 
 ## Regression contract
 
-Extend deterministic verification so accidental regressions are rejected, including:
+Deterministic/browser verification rejects accidental regressions including:
 
-- readiness marker required by the browser fixture but not emitted by bootstrap;
+- readiness marker required but not emitted;
 - readiness timeout reverting to the 60-second test timeout;
-- shared/persistent Playwright storage state across tests;
-- losing desktop or mobile Chromium coverage;
-- disabling CI retries;
-- removing bounded worker scheduling;
-- reverting to serialized file-level execution without an explicit reason;
-- removing the CI max-failure bound;
+- shared/persistent Playwright state;
+- loss of desktop or mobile Chromium coverage;
+- disabled CI retries;
+- loss of bounded worker scheduling or `maxFailures`;
 - hosted CI no longer collectively executing deterministic + desktop + mobile verification;
-- removing the existing required `check` aggregator name;
-- increasing browser-job timeout above the sub-10-minute budget;
+- loss of the final required `check` aggregator;
+- browser-job timeout above the sub-10-minute budget;
+- local-only startup reintroducing redundant per-Result persistence that makes the large-Vault readiness stress case miss the fast readiness budget;
 - switching required checks back to self-hosted runners.
 
 ## Performance acceptance
 
-Acceptance requires:
-
-- deterministic check completion in its own fast job;
-- desktop and mobile browser jobs executing concurrently;
-- healthy browser jobs completing their full project coverage;
-- normal PR feedback below 10 minutes;
-- systemic readiness/bootstrap failure becoming visible preferably under 2 minutes after setup;
-- no browser job allowed to run longer than 9 minutes;
-- final canonical `npm run verify:full` completing on the implementation head before merge.
+Acceptance requires deterministic checks in their own fast job, desktop/mobile browser jobs running concurrently, complete healthy-run project coverage, normal PR feedback below 10 minutes, systemic readiness failure preferably visible under 2 minutes after setup, no browser job longer than 9 minutes, the 2200-card local startup stress case completing inside the browser readiness contract, and final canonical `npm run verify:full` succeeding on the implementation head before merge.
 
 ## Risks and trade-offs
 
-Job-level desktop/mobile parallelization increases concurrent runner usage and may increase total runner-minutes while substantially lowering developer wall-clock. This is an intentional trade-off for PR feedback latency.
-
-`fullyParallel: true` is safe only because each test uses isolated browser context state and the test suite does not rely on shared mutable filesystem/server state. Regression coverage protects this assumption.
-
-The repository still resolves dependencies without a lockfile. F47 intentionally does not broaden into dependency-policy work.
+Job-level parallelization increases concurrent runner usage while reducing developer wall-clock. `fullyParallel: true` exposes hidden order coupling, so context isolation and navigation synchronization are explicit. The large-Vault fast path must only skip writes that are provably redundant; published/local reconciliation and user mutations retain the durable write path. The repository still resolves npm dependencies without a committed lockfile; F47 does not broaden into dependency-policy work.
