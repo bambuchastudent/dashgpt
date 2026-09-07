@@ -18,6 +18,12 @@ DashGPT pull-request and `develop` verification MUST preserve deterministic and 
 - **THEN** `npm run verify:full` MUST remain the canonical command covering deterministic checks plus both browser projects
 - **AND** it MUST be run once on the final F47 implementation head before merge.
 
+#### Scenario: Maintainer requests literal hosted canonical proof
+- **WHEN** the repository owner includes `[verify:full]` in a pull-request title
+- **THEN** hosted CI MUST run one additional Ubuntu job that executes the literal `npm run verify:full` command on that pull-request head
+- **AND** the final `check` aggregator MUST require that optional job to succeed while the marker is present
+- **AND** pull requests without the marker MUST skip that duplicate full lane so normal feedback retains the optimized parallel critical path.
+
 #### Scenario: Existing required check remains authoritative
 - **WHEN** hosted verification is decomposed into deterministic and browser jobs
 - **THEN** a final lightweight job named `check` MUST depend on all canonical shards
