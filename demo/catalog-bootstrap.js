@@ -37,6 +37,15 @@ function returnChatGptImportFocusToSource() {
   }, 0);
 }
 
+function markDashGptReadyWhenSettled() {
+  const summary = document.querySelector("#summaryText");
+  if (summary && summary.textContent !== "Loading Results…") {
+    document.documentElement.dataset.dashgptReady = "true";
+    return;
+  }
+  setTimeout(markDashGptReadyWhenSettled, 16);
+}
+
 function emptyCatalogResponse() {
   return new Response("[]", {
     status: 200,
@@ -157,3 +166,4 @@ if (chatGptHistoryImport) {
 
 const homeEntry = await import("./home-entry.js");
 homeEntry.initializeHomeEntry();
+markDashGptReadyWhenSettled();
