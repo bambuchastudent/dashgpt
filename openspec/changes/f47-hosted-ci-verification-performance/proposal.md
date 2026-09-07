@@ -16,16 +16,20 @@ Restore materially faster, reliable GitHub-hosted canonical verification while p
 - preserve all deterministic `npm run check` coverage;
 - preserve both Playwright projects and CI retries;
 - use explicit hosted-CI parallelism instead of deleting/skipping tests;
-- make dependency installation deterministic and cache-friendly;
+- avoid non-verification install overhead where it is safe to do so;
 - retain enough timeout headroom that normal hosted variance does not turn healthy branches red.
 
 ## Scope
 
 - `.github/workflows/check.yml` hosted CI setup/performance behavior;
-- `playwright.config.mjs` CI worker scheduling only if benchmark evidence requires it;
+- `playwright.config.mjs` bounded CI worker scheduling;
 - deterministic regression verification for the hosted-CI contract;
 - `package.json` wiring needed for that verifier;
 - OpenSpec/current development-state documentation for the verification behavior.
+
+## Repository constraint discovered during specification
+
+Current `develop` has no committed `package-lock.json`. F47 therefore MUST NOT pretend `npm ci` or lockfile-keyed npm caching is available, and MUST NOT silently introduce a repository-wide dependency-lock migration just to optimize this CI defect. The existing no-lifecycle-scripts install boundary remains intact.
 
 ## Non-goals
 
@@ -34,4 +38,5 @@ Restore materially faster, reliable GitHub-hosted canonical verification while p
 - removing desktop or mobile browser coverage;
 - disabling CI retries merely to reduce runtime;
 - converting back to self-hosted runners;
+- adding a package-lock/dependency-policy migration;
 - masking the issue only by increasing `timeout-minutes`.
