@@ -42,6 +42,8 @@ test("Russian profile is collapsible and mobile-safe", async ({ page }) => {
   await page.addInitScript(() => Object.defineProperty(navigator, "language", { configurable: true, get: () => "ru-RU" }));
   await page.setViewportSize({ width: 360, height: 800 });
   await page.goto("/demo/?personal=1");
+  await page.evaluate(() => import("/demo/profile-metrics.js"));
+  await expect(page.locator(".profile-metrics-trigger")).toBeVisible();
   await page.locator(".profile-metrics-trigger").click();
   await expect(page.locator(".profile-metrics-panel")).toContainText("Проебано токенов");
   await expect(page.locator(".profile-metrics-panel")).toContainText("Потрачено");
