@@ -1,34 +1,53 @@
 ## ADDED Requirements
 
-### Requirement: Hosted canonical verification MUST preserve full coverage within the CI job budget
+### Requirement: Hosted canonical verification MUST preserve full healthy-run coverage within the CI feedback budget
 
-DashGPT pull-request and `develop` verification MUST keep the canonical deterministic and browser coverage while using bounded hosted-runner parallelism so healthy branches complete within the configured CI timeout.
+DashGPT pull-request and `develop` verification MUST preserve deterministic and browser coverage while using bounded hosted-runner parallelism, explicit browser-state isolation and fail-fast diagnostics so normal pull-request feedback completes in under 10 minutes under normal hosted execution.
 
-#### Scenario: Canonical hosted verification runs
+#### Scenario: Hosted verification runs
 - **WHEN** the repository-owner pull-request or `develop` push check executes on GitHub-hosted Ubuntu
-- **THEN** it MUST invoke the canonical `npm run verify:full` command
-- **AND** MUST retain all `npm run check` verification
+- **THEN** the hosted gate MUST collectively retain all `npm run check` verification
 - **AND** MUST execute both `desktop-chromium` and `mobile-chromium` Playwright projects
 - **AND** MUST retain CI browser retries
-- **AND** MUST complete inside the configured 30-minute job budget under normal hosted execution.
+- **AND** healthy runs MUST execute the complete deterministic and browser surface
+- **AND** the 30-minute job timeout MUST remain a safety ceiling rather than the expected runtime.
+
+#### Scenario: Canonical full verification remains reproducible
+- **WHEN** a maintainer needs one local/full repository gate
+- **THEN** `npm run verify:full` MUST remain the canonical command covering deterministic checks plus both browser projects
+- **AND** it MUST be run once on the final F47 implementation head before merge.
+
+#### Scenario: Demo navigation becomes ready
+- **WHEN** a browser test navigates to the local DashGPT demo
+- **THEN** demo bootstrap MUST emit an explicit readiness signal after required initialization completes
+- **AND** the browser fixture MUST wait for that signal with a small dedicated timeout no greater than 5 seconds in CI
+- **AND** a missing readiness signal MUST fail quickly instead of consuming the 60-second general test timeout.
+
+#### Scenario: Browser tests are isolated
+- **WHEN** multiple Playwright tests execute concurrently
+- **THEN** each test MUST use fresh browser-context state
+- **AND** cookies, localStorage, sessionStorage and configured storage state MUST NOT leak from another test
+- **AND** the browser suite MUST NOT rely on shared mutable filesystem or persistent browser-profile state for ordering.
 
 #### Scenario: Browser work is parallelized
-- **WHEN** Playwright runs in CI
-- **THEN** the configuration MUST permit bounded multi-worker scheduling instead of relying on an effectively serial hosted default
-- **AND** MUST preserve `fullyParallel: false` unless a separate isolation review/spec explicitly changes that behavior.
+- **WHEN** Playwright runs in hosted CI
+- **THEN** desktop and mobile projects SHOULD execute in independent hosted jobs
+- **AND** each browser job MUST use bounded worker scheduling
+- **AND** `fullyParallel: true` MAY be enabled only with the isolation contract and regression coverage in this change.
+
+#### Scenario: Systemic browser failure occurs
+- **WHEN** multiple browser tests fail in one CI job
+- **THEN** the job MUST stop after a small bounded maximum-failure count
+- **AND** MUST retain enough failures to diagnose a systemic defect
+- **AND** MUST NOT spend the full job timeout repeating the same bootstrap failure.
 
 #### Scenario: Hosted dependencies are installed
-- **WHEN** the canonical GitHub-hosted job prepares Node dependencies
-- **THEN** it MUST keep lifecycle scripts disabled for the existing install boundary
-- **AND** SHOULD avoid audit/funding work that is not part of canonical repository verification
+- **WHEN** the canonical GitHub-hosted jobs prepare Node dependencies
+- **THEN** they MUST keep lifecycle scripts disabled for the existing install boundary
+- **AND** SHOULD avoid audit/funding work that is not part of repository verification
 - **AND** MUST NOT claim lockfile/`npm ci` reproducibility unless a committed lockfile exists.
 
-#### Scenario: A future optimization proposes less coverage
-- **WHEN** a CI performance change would skip deterministic verifiers, remove a browser project, disable retries, or otherwise reduce the canonical verification surface
+#### Scenario: A future optimization proposes less healthy-run coverage
+- **WHEN** a CI performance change would skip deterministic verifiers, remove a browser project, or disable retries
 - **THEN** it MUST NOT be treated as an implementation of this requirement
 - **AND** MUST require a separate explicit specification and coverage decision.
-
-#### Scenario: Bounded workers remain insufficient
-- **WHEN** exact-head hosted evidence still approaches or exceeds the job timeout after bounded worker/install optimization
-- **THEN** job-level project/shard parallelism MAY be proposed
-- **AND** the OpenSpec design/impact MUST be updated before changing required-check architecture or runner-minute consumption materially.
