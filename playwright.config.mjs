@@ -3,13 +3,17 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests",
   timeout: 60_000,
-  fullyParallel: false,
+  fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
   workers: process.env.CI ? 2 : undefined,
-  reporter: process.env.CI ? "github" : "list",
+  maxFailures: process.env.CI ? 4 : 0,
+  reporter: process.env.CI
+    ? [["github"], ["json", { outputFile: "test-results/results.json" }]]
+    : "list",
   use: {
     baseURL: "http://127.0.0.1:4173",
+    storageState: { cookies: [], origins: [] },
     trace: "retain-on-failure"
   },
   webServer: {
