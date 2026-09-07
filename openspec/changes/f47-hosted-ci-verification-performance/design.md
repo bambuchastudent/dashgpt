@@ -13,15 +13,17 @@ PR #117 did not introduce the 30-minute limit; it replaced the self-hosted runne
 
 Use the least risky forms of parallelism first and preserve the canonical command.
 
-### 1. Deterministic, cache-friendly setup
+### 1. Keep dependency policy unchanged; remove avoidable install work
 
-Use `actions/setup-node` npm caching and `npm ci --ignore-scripts` against the committed lockfile. This avoids dependency re-resolution on every hosted job while retaining the repository's intentional no-lifecycle-scripts install boundary.
+Current `develop` has no committed `package-lock.json`, so F47 does not introduce `npm ci`, lockfile-keyed caching, or a new dependency-lock policy. Keep `npm install --ignore-scripts` semantics and suppress install-time audit/funding work that is not part of repository verification (`--no-audit --no-fund`).
+
+A future lockfile migration can be specified separately if the project wants deterministic dependency resolution; it is not needed to fix this browser scheduling defect.
 
 ### 2. Explicit Playwright CI concurrency
 
 The browser suite has two Chromium projects (desktop and mobile) and `fullyParallel: false`. Preserve that setting so tests within a spec keep their existing ordering assumptions. Configure a bounded explicit CI worker count rather than relying on the hosted runner's CPU-derived default.
 
-Start with two CI workers. This permits file/project work to overlap while avoiding unbounded Chromium processes. Local/non-CI behavior remains Playwright default behavior.
+Use two CI workers. This permits file/project work to overlap while avoiding unbounded Chromium processes. Local/non-CI behavior remains Playwright default behavior.
 
 Do not remove `retries: 1`; retry cost is paid only when a test needs a retry and remains valuable flake diagnostics.
 
@@ -34,7 +36,7 @@ Do not remove `retries: 1`; retry cost is paid only when a test needs a retry an
 Add a deterministic verifier for the hosted-CI performance contract. It should reject accidental regressions such as:
 
 - switching the canonical job away from hosted Ubuntu;
-- dropping npm cache / deterministic install;
+- re-enabling install lifecycle scripts or unnecessary audit/funding work;
 - no longer invoking `npm run verify:full`;
 - removing either desktop or mobile Chromium project;
 - disabling CI retries;
@@ -55,4 +57,4 @@ A successful exact-head `DashGPT checks` run must complete `npm run verify:full`
 
 Two browser workers consume more CPU/memory concurrently than an effectively serial hosted run. This is bounded and observable. Because `fullyParallel` remains false, concurrency stays at the spec-file/project scheduler layer rather than forcing tests from the same file to execute concurrently.
 
-Dependency caching improves wall-clock but does not replace lockfile verification: `npm ci` fails on package/lock mismatch rather than updating the lockfile.
+The repository still resolves dependencies without a lockfile. F47 intentionally does not broaden into dependency-policy work; its regression verifier protects the existing install safety boundary rather than claiming reproducibility that the repository does not currently provide.
