@@ -251,14 +251,17 @@ test("disconnect removes browser Google binding but preserves the local Vault", 
   await page.goto("/demo/?personal=1");
   await page.locator("#storageButton").click();
   await page.waitForFunction(() => Boolean(globalThis.google?.accounts?.oauth2));
+  const adoptionReload = page.waitForEvent("framenavigated", frame => frame === page.mainFrame(), { timeout: 5_000 });
   await page.locator("#connectGoogleDriveButton").click();
   await expect.poll(async () => page.evaluate(key => Boolean(localStorage.getItem(key)), BINDING_KEY)).toBe(true);
+  await adoptionReload;
+  await page.locator('html[data-dashgpt-ready="true"]').waitFor({ timeout: 5_000 });
 
-  const documentToken = `test-${Date.now()}-${Math.random()}`;
-  await page.evaluate(value => { document.documentElement.dataset.testDocument = value; }, documentToken);
+  await page.locator("#storageButton").click();
+  await expect(page.locator("#disconnectGoogleDriveButton")).toBeVisible();
   await page.locator("#disconnectGoogleDriveButton").click();
-  await page.waitForFunction(value => document.documentElement.dataset.testDocument !== value, documentToken);
-  await page.locator('html[data-dashgpt-ready="true"]').waitFor();
+  await expect.poll(async () => page.evaluate(key => localStorage.getItem(key), BINDING_KEY)).toBeNull();
+
   const state = await page.evaluate(({ vaultKey, bindingKey }) => ({
     vault: JSON.parse(localStorage.getItem(vaultKey) || "null"),
     binding: localStorage.getItem(bindingKey)
