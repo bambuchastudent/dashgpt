@@ -4,12 +4,20 @@
 - [x] Inspect current OpenSpec/development guidance and overlap with F46, product/UI, storage and continuation surfaces.
 - [x] Add proposal, design, spec delta and Impact Manifest for hosted canonical-verification performance.
 - [x] Confirm current `develop` has no committed npm lockfile and keep dependency-lock migration out of F47 scope.
-- [ ] Strictly validate `f47-hosted-ci-verification-performance` before repository CI/config edits.
+- [x] Profile the hosted run and identify the dominant browser-readiness timeout pattern.
+- [x] Confirm the test fixture waits for `data-dashgpt-ready=true` while current bootstrap does not emit that marker.
+- [x] Review browser-suite isolation risks (serial configuration, shared beforeAll state, repository file writes) before enabling full parallel scheduling.
+- [ ] Strictly validate the updated `f47-hosted-ci-verification-performance` scope before further repository code/config edits.
+- [ ] Emit an explicit demo-bootstrap readiness signal only after required initialization completes.
+- [ ] Give readiness waiting a dedicated CI timeout of at most 5 seconds while preserving the general per-test timeout.
+- [ ] Make per-test browser context/state isolation explicit and add regression coverage for storage isolation.
+- [ ] Enable isolation-safe `fullyParallel` scheduling with bounded workers.
+- [ ] Split desktop/mobile Chromium into independent hosted CI jobs while keeping deterministic checks as a separate fast job.
+- [ ] Add a bounded CI maximum-failure count so systemic browser failures fail quickly.
 - [ ] Remove avoidable npm audit/funding install overhead while preserving `--ignore-scripts`.
-- [ ] Configure bounded Playwright CI concurrency while preserving `fullyParallel: false`, both browser projects and `retries: 1`.
-- [ ] Add deterministic regression verification for the hosted CI performance/coverage contract and wire it into `npm run check`.
-- [ ] Run targeted deterministic verification for the new CI verifier.
-- [ ] Run exact-head hosted `DashGPT checks` and confirm `npm run verify:full` completes inside the existing 30-minute timeout with useful headroom.
+- [ ] Extend deterministic regression verification for readiness, isolation, parallelism, fail-fast behavior and complete hosted coverage.
+- [ ] Run targeted deterministic verification for the new CI/test-harness contract.
+- [ ] Run exact-head hosted jobs and confirm normal pull-request wall-clock is below 10 minutes with full healthy-run coverage.
 - [ ] Run canonical `npm run verify:full` once on the final implementation head before merge.
 - [ ] Reconcile PR body/task evidence and merge only after final checks are green.
 - [ ] Rebase/re-run PR #113 on the fixed `develop`, finish its final verification evidence, then handle #113 separately.
