@@ -22,11 +22,12 @@ Restore fast, reliable GitHub-hosted canonical verification with a pull-request 
 - stop systemic failing browser jobs after a small bounded number of failures while retaining full coverage on healthy runs;
 - make reload-causing tests synchronize with the completed new document rather than transient pre-reload state;
 - run the 2200-card gallery stress case in an isolated same-origin browser component harness so it measures real Chromium layout/module behavior without paying unrelated full-app bootstrap/persistence cost;
+- provide an explicit opt-in hosted lane for the literal `npm run verify:full` command so maintainers can obtain one-command canonical proof without adding duplicate work to every PR;
 - avoid non-verification install overhead where it is safe to do so.
 
 ## Scope
 
-- `.github/workflows/check.yml` hosted CI setup and job-level parallelization;
+- `.github/workflows/check.yml` hosted CI setup, job-level parallelization and opt-in literal canonical verification;
 - `playwright.config.mjs` bounded CI concurrency, fail-fast budget and isolation-compatible scheduling;
 - `tests/playwright-fixture.mjs` bounded readiness waiting and explicit per-test state hygiene;
 - demo bootstrap readiness signaling used by the test harness, without user-facing UI/API behavior changes;
@@ -48,4 +49,5 @@ Current `develop` has no committed `package-lock.json`. F47 therefore MUST NOT p
 - converting back to self-hosted runners;
 - adding a package-lock/dependency-policy migration;
 - weakening the 2200-card gallery behavior assertion merely to make CI green;
+- making the literal full-verification lane run on every pull request;
 - masking the issue by increasing `timeout-minutes`.
