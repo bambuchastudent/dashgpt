@@ -13,6 +13,7 @@ const packageJson = JSON.parse(read("../package.json"));
 assert.match(workflow, /runs-on: ubuntu-latest/, "canonical checks must remain on GitHub-hosted Ubuntu");
 assert.match(workflow, /deterministic:/, "hosted CI must keep a deterministic verification shard");
 assert.match(workflow, /browser:/, "hosted CI must keep a browser matrix shard");
+assert.match(workflow, /\n  canonical-full:\n/, "hosted CI must keep an opt-in literal canonical verification lane");
 assert.match(workflow, /\n  check:\n/, "hosted CI must preserve the final required check job identity");
 assert.match(workflow, /- desktop-chromium/, "desktop Chromium must remain in the hosted browser matrix");
 assert.match(workflow, /- mobile-chromium/, "mobile Chromium must remain in the hosted browser matrix");
@@ -22,13 +23,17 @@ assert.match(
   /npx playwright test --project="\$\{\{ matrix\.project \}\}"/,
   "browser matrix must execute its selected Playwright project"
 );
+assert.match(workflow, /contains\(github\.event\.pull_request\.title, '\[verify:full\]'\)/, "literal canonical proof must stay explicitly opt-in");
+assert.match(workflow, /- run: npm run verify:full/, "opt-in canonical lane must execute the literal canonical command");
 assert.match(workflow, /npx playwright install --with-deps chromium/, "browser jobs must provision Chromium and Linux dependencies");
 assert.match(workflow, /timeout-minutes: 5/, "deterministic shard must keep a short hard budget");
-assert.match(workflow, /timeout-minutes: 9/, "browser shards must stay below the ten-minute feedback budget");
+assert.match(workflow, /timeout-minutes: 9/, "browser and opt-in canonical shards must stay below the ten-minute feedback budget");
 assert.match(workflow, /timeout-minutes: 2/, "final check aggregator must stay lightweight");
-assert.match(workflow, /needs:\s*\n\s*- deterministic\s*\n\s*- browser/, "final check must depend on every canonical shard");
+assert.match(workflow, /needs:\s*\n\s*- deterministic\s*\n\s*- browser\s*\n\s*- canonical-full/, "final check must depend on every canonical shard and optional proof lane");
 assert.match(workflow, /DETERMINISTIC_RESULT: \$\{\{ needs\.deterministic\.result \}\}/, "aggregator must inspect deterministic result");
 assert.match(workflow, /BROWSER_RESULT: \$\{\{ needs\.browser\.result \}\}/, "aggregator must inspect browser result");
+assert.match(workflow, /CANONICAL_RESULT: \$\{\{ needs\.canonical-full\.result \}\}/, "aggregator must inspect opt-in canonical result");
+assert.match(workflow, /CANONICAL_REQUIRED:/, "aggregator must distinguish requested and skipped literal canonical proof");
 assert.match(workflow, /actions\/upload-artifact@v4/, "browser failures must retain Playwright diagnostics");
 
 for (const installLine of workflow.split(/\r?\n/).filter(line => line.includes("npm install"))) {
