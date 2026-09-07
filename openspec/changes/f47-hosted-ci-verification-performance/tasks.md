@@ -5,19 +5,26 @@
 - [x] Add proposal, design, spec delta and Impact Manifest for hosted canonical-verification performance.
 - [x] Confirm current `develop` has no committed npm lockfile and keep dependency-lock migration out of F47 scope.
 - [x] Profile the hosted run and identify the dominant browser-readiness timeout pattern.
-- [x] Confirm the test fixture waits for `data-dashgpt-ready=true` while current bootstrap does not emit that marker.
-- [x] Review browser-suite isolation risks (serial configuration, shared beforeAll state, repository file writes) before enabling full parallel scheduling.
-- [ ] Strictly validate the updated `f47-hosted-ci-verification-performance` scope before further repository code/config edits.
-- [ ] Emit an explicit demo-bootstrap readiness signal only after required initialization completes.
-- [ ] Give readiness waiting a dedicated CI timeout of at most 5 seconds while preserving the general per-test timeout.
-- [ ] Make per-test browser context/state isolation explicit and add regression coverage for storage isolation.
-- [ ] Enable isolation-safe `fullyParallel` scheduling with bounded workers.
-- [ ] Split desktop/mobile Chromium into independent hosted CI jobs while keeping deterministic checks as a separate fast job.
-- [ ] Add a bounded CI maximum-failure count so systemic browser failures fail quickly.
-- [ ] Remove avoidable npm audit/funding install overhead while preserving `--ignore-scripts`.
-- [ ] Extend deterministic regression verification for readiness, isolation, parallelism, fail-fast behavior and complete hosted coverage.
-- [ ] Run targeted deterministic verification for the new CI/test-harness contract.
-- [ ] Run exact-head hosted jobs and confirm normal pull-request wall-clock is below 10 minutes with full healthy-run coverage.
+- [x] Confirm the test fixture waits for `data-dashgpt-ready=true` while baseline bootstrap does not emit that marker.
+- [x] Review browser-suite isolation risks before enabling full parallel scheduling.
+- [x] Strictly validate the readiness/isolation/parallelism scope before repository code/config edits.
+- [x] Emit an explicit demo-bootstrap readiness signal after required initialization completes.
+- [x] Give readiness waiting a dedicated CI timeout of at most 5 seconds while preserving the general per-test timeout.
+- [x] Make per-test browser context/state isolation explicit and add regression coverage for storage isolation.
+- [x] Enable isolation-safe `fullyParallel` scheduling with bounded workers.
+- [x] Split desktop/mobile Chromium into independent hosted CI jobs while keeping deterministic checks separate.
+- [x] Add a bounded CI maximum-failure count so systemic browser failures fail quickly.
+- [x] Remove avoidable npm audit/funding install overhead while preserving `--ignore-scripts`.
+- [x] Extend deterministic regression verification for readiness, isolation, parallelism, fail-fast behavior and complete hosted coverage.
+- [x] Profile the first parallel exact-head run and isolate remaining failures to reset navigation, Google disconnect navigation, fixture counting and 2200-card local startup.
+- [x] Update OpenSpec scope for navigation synchronization and redundant large-Vault startup persistence before those edits.
+- [ ] Strictly validate the updated large-Vault/navigation scope before editing app/test behavior.
+- [ ] Make reload-causing browser tests synchronize on the completed new document and use one-shot storage seeds.
+- [ ] Make gallery fixtures count only fixture cards rather than unrelated operational cards.
+- [ ] Eliminate redundant local-only per-Result startup persistence while preserving published reconciliation and mutation persistence semantics.
+- [ ] Add/adjust regression coverage for large local Vault readiness and unchanged durable state.
+- [ ] Run targeted deterministic/browser verification for reset, Google Drive, gallery stress, profile metrics and isolation.
+- [ ] Run exact-head hosted jobs and confirm healthy pull-request wall-clock is below 10 minutes with full coverage.
 - [ ] Run canonical `npm run verify:full` once on the final implementation head before merge.
-- [ ] Reconcile PR body/task evidence and merge only after final checks are green.
+- [ ] Reconcile PR body/task evidence and merge #118 only after final checks are green.
 - [ ] Rebase/re-run PR #113 on the fixed `develop`, finish its final verification evidence, then handle #113 separately.
