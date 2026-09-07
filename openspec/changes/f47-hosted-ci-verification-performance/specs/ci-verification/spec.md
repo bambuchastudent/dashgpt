@@ -19,9 +19,9 @@ DashGPT pull-request and `develop` verification MUST keep the canonical determin
 
 #### Scenario: Hosted dependencies are installed
 - **WHEN** the canonical GitHub-hosted job prepares Node dependencies
-- **THEN** it MUST use the committed lockfile through deterministic install semantics
-- **AND** MUST keep lifecycle scripts disabled for this install boundary
-- **AND** SHOULD use the package-manager cache to avoid unnecessary repeated dependency downloads.
+- **THEN** it MUST keep lifecycle scripts disabled for the existing install boundary
+- **AND** SHOULD avoid audit/funding work that is not part of canonical repository verification
+- **AND** MUST NOT claim lockfile/`npm ci` reproducibility unless a committed lockfile exists.
 
 #### Scenario: A future optimization proposes less coverage
 - **WHEN** a CI performance change would skip deterministic verifiers, remove a browser project, disable retries, or otherwise reduce the canonical verification surface
