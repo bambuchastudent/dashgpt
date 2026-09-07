@@ -40,8 +40,9 @@ async function openFixture(page, count = 100) {
   await page.locator("#searchInput").fill("F32 Fixture");
   await expect(page.locator("#resultsGrid > .result-card")).toHaveCount(count);
   await expect(page.locator("#galleryRegion .gallery-sort")).toBeVisible();
-  await expect.poll(async () => page.locator("#resultsGrid > .result-card").evaluateAll(nodes =>
-    nodes.length === count && nodes.every(node => /^\d+$/.test(node.dataset.semanticPalette || ""))
+  await expect.poll(async () => page.locator("#resultsGrid > .result-card").evaluateAll(
+    (nodes, expectedCount) => nodes.length === expectedCount && nodes.every(node => /^\d+$/.test(node.dataset.semanticPalette || "")),
+    count
   )).toBe(true);
 }
 
