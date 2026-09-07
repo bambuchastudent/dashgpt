@@ -8,6 +8,7 @@
   - final `check` aggregator preserving required-check identity;
   - explicit sub-10-minute shard budgets;
   - bounded failure runtime;
+  - opt-in literal `npm run verify:full` proof lane;
   - avoidable npm install overhead.
 - `playwright.config.mjs`
   - isolation-safe full parallel scheduling;
@@ -29,7 +30,7 @@
 
 Pull-request feedback moves from repeated 30-minute cancellations to parallel browser shards with a hard 9-minute execution ceiling and a normal target below 10 minutes. Systemic bootstrap failures become red quickly rather than consuming repeated 60-second test + retry budgets.
 
-Healthy runs retain the complete deterministic, desktop Chromium and mobile Chromium verification surface. Hosted CI reports through the existing `check` required-check identity. `npm run verify:full` remains the canonical one-command full gate for final/local verification.
+Healthy runs retain the complete deterministic, desktop Chromium and mobile Chromium verification surface. Hosted CI reports through the existing `check` required-check identity. `npm run verify:full` remains the canonical one-command full gate, and maintainers can request one literal hosted execution by adding `[verify:full]` to the pull-request title without making that duplicate run part of every PR.
 
 ## Preserved gates and product semantics
 
@@ -53,7 +54,8 @@ Healthy runs retain the complete deterministic, desktop Chromium and mobile Chro
 - each browser job has a hard timeout no greater than 9 minutes;
 - a failing browser job may stop after a small maximum-failure threshold;
 - reload-causing tests wait for the replacement document instead of transient intermediate state;
-- the 2200-card gallery stress test isolates the real gallery component from unrelated app bootstrap cost while keeping the same card-count/layout assertions.
+- the 2200-card gallery stress test isolates the real gallery component from unrelated app bootstrap cost while keeping the same card-count/layout assertions;
+- a repository-owner PR title marker can opt into one literal hosted `npm run verify:full` run, which the aggregator requires only while requested.
 
 ## Explicitly unaffected
 
@@ -72,3 +74,4 @@ Healthy runs retain the complete deterministic, desktop Chromium and mobile Chro
 - The readiness marker must represent completed bootstrap, not merely DOM load.
 - The isolated gallery harness must exercise the real module/CSS/DOM behavior rather than a simplified mock.
 - Preserving `check` as an aggregator is required so branch protection cannot ignore browser failures.
+- The opt-in literal full lane duplicates coverage when requested, so it must not become part of the default PR critical path.
