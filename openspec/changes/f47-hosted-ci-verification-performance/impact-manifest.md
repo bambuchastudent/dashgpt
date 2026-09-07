@@ -3,8 +3,7 @@
 ## Directly affected
 
 - `.github/workflows/check.yml`
-  - Node/npm cache setup;
-  - deterministic dependency installation;
+  - avoidable npm install overhead;
   - canonical hosted verification wall-clock.
 - `playwright.config.mjs`
   - bounded CI worker concurrency only.
@@ -24,7 +23,8 @@ Pull-request and `develop` canonical checks should complete with useful margin i
 - `fullyParallel: false` per-file ordering behavior;
 - repository-owner CI execution guard;
 - `ubuntu-latest` hosted runner policy;
-- existing 30-minute hard timeout.
+- existing 30-minute hard timeout;
+- `npm install --ignore-scripts` safety boundary.
 
 ## Explicitly unaffected
 
@@ -33,10 +33,11 @@ Pull-request and `develop` canonical checks should complete with useful margin i
 - storage/sync/import behavior;
 - Shared Chat resolver behavior;
 - F46 scheduled-vs-strict smoke classification;
-- deployment configuration and credentials.
+- deployment configuration and credentials;
+- repository dependency-lock policy (no lockfile is introduced by F47).
 
 ## Main risks
 
 - Two concurrent browser workers can increase peak CPU/memory use on a hosted runner.
-- Cache behavior can conceal performance variance but cannot change package correctness because `npm ci` still validates the committed lockfile.
+- The repository still resolves npm dependencies without a committed lockfile; F47 does not claim to fix that separate reproducibility concern.
 - If hosted execution remains too slow, a later spec update may permit project/shard matrix jobs; that wider architecture is intentionally excluded until benchmark evidence requires it.
