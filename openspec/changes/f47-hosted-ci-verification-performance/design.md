@@ -15,6 +15,8 @@ After readiness/fail-fast/parallel scheduling was implemented, exact-head run `3
 - Google Drive disconnect clicked while the earlier account-adoption reload was still replacing the DOM;
 - the 2200-card gallery layout stress case bootstrapped the full application and Vault machinery even though its assertion target is gallery ordering/layout behavior.
 
+Final exact-head hosted run `34168588829` confirms the repaired architecture: deterministic, desktop Chromium, mobile Chromium and the `check` aggregator all pass; desktop executes 93 passed + 1 skipped in 1.7 minutes after setup, with equivalent full project coverage preserved across the two browser shards.
+
 ## Optimization strategy
 
 ### 1. Repair the readiness contract and make it fail fast
@@ -54,28 +56,40 @@ Use two Playwright workers per browser job. This allows useful overlap without o
 
 Run desktop Chromium and mobile Chromium as separate hosted jobs so they receive separate runner CPU/memory. The hosted required gate is decomposed into deterministic `npm run check`, desktop Chromium, mobile Chromium, and a lightweight final `check` aggregator preserving the existing required-check name.
 
-Collectively these jobs remain equivalent to the canonical full verification surface. `npm run verify:full` remains the canonical local/full command and is run once on the final implementation head before merge.
+Collectively these jobs remain equivalent to the canonical full verification surface. `npm run verify:full` remains the canonical local/full command.
 
-### 7. Fail systemic browser breakage early
+### 7. Provide literal canonical proof only on demand
+
+The optimized default CI should not pay for a second serial execution of the same deterministic + desktop + mobile surface on every pull request. At the same time, repository policy requires one literal `npm run verify:full` execution on the final F47 implementation head before merge.
+
+Add an opt-in hosted lane to the existing workflow:
+
+- when the repository-owner pull-request title contains `[verify:full]`, run one extra Ubuntu job with the normal dependency/Chromium setup and the literal `npm run verify:full` command;
+- include that job in the final `check` dependency graph and require it only while the marker is present;
+- when the marker is absent, the lane is skipped and the normal fast parallel critical path is unchanged.
+
+This provides reusable maintainer proof without reintroducing routine duplicate runner time.
+
+### 8. Fail systemic browser breakage early
 
 Healthy runs execute the complete browser surface. Failing browser jobs stop after a small `maxFailures` budget so a systemic defect returns a red signal quickly while retaining enough failures for diagnosis.
 
-### 8. Enforce a sub-10-minute hosted budget
+### 9. Enforce a sub-10-minute hosted budget
 
-Use explicit per-job budgets: deterministic at most 5 minutes, each desktop/mobile browser job at most 9 minutes, and final aggregator at most 2 minutes. Because browser projects run concurrently, workflow wall-clock is the longest browser shard plus a short aggregator rather than the sum of both projects.
+Use explicit per-job budgets: deterministic at most 5 minutes, each desktop/mobile browser job at most 9 minutes, optional literal canonical job at most 9 minutes, and final aggregator at most 2 minutes. Because browser projects run concurrently in the normal path, workflow wall-clock is the longest browser shard plus a short aggregator rather than the sum of both projects. The optional literal lane is intentionally used only for explicit proof runs.
 
-### 9. Keep dependency policy unchanged; remove avoidable install work
+### 10. Keep dependency policy unchanged; remove avoidable install work
 
 Current `develop` has no committed `package-lock.json`, so F47 does not introduce `npm ci`, lockfile-keyed caching or a new dependency-lock policy. Keep `npm install --ignore-scripts` and suppress audit/funding work (`--no-audit --no-fund`).
 
 ## Regression contract
 
-Verification rejects accidental regressions including a missing readiness signal, readiness timeout reverting to the 60-second test timeout, shared/persistent Playwright state, loss of desktop/mobile coverage, disabled CI retries, loss of bounded workers or `maxFailures`, loss of the final `check` aggregator, browser-job timeout above the sub-10-minute budget, navigation tests regressing to transient pre-reload synchronization, the 2200-card stress test returning to a slow full-app bootstrap path or reducing its real card/layout coverage, and any return to self-hosted runners.
+Verification rejects accidental regressions including a missing readiness signal, readiness timeout reverting to the 60-second test timeout, shared/persistent Playwright state, loss of desktop/mobile coverage, disabled CI retries, loss of bounded workers or `maxFailures`, loss of the final `check` aggregator, browser-job timeout above the sub-10-minute budget, navigation tests regressing to transient pre-reload synchronization, the 2200-card stress test returning to a slow full-app bootstrap path or reducing its real card/layout coverage, removal of the opt-in literal canonical proof lane, and any return to self-hosted runners.
 
 ## Performance acceptance
 
-Acceptance requires deterministic checks in their own fast job, desktop/mobile browser jobs running concurrently, complete healthy-run project coverage, normal PR feedback below 10 minutes, systemic readiness failure preferably visible under 2 minutes after setup, no browser job longer than 9 minutes, the isolated 2200-card gallery stress case retaining real Chromium layout coverage without dominating shard runtime, and final canonical `npm run verify:full` succeeding on the implementation head before merge.
+Acceptance requires deterministic checks in their own fast job, desktop/mobile browser jobs running concurrently, complete healthy-run project coverage, normal PR feedback below 10 minutes, systemic readiness failure preferably visible under 2 minutes after setup, no browser job longer than 9 minutes, the isolated 2200-card gallery stress case retaining real Chromium layout coverage without dominating shard runtime, exact-head hosted shards succeeding, and final literal `npm run verify:full` succeeding on the implementation head before merge.
 
 ## Risks and trade-offs
 
-Job-level parallelization increases concurrent runner usage while reducing developer wall-clock. `fullyParallel: true` exposes hidden order coupling, so context isolation and navigation synchronization are explicit. The isolated gallery harness must exercise the real module and CSS behavior rather than a simplified mock. The repository still resolves npm dependencies without a committed lockfile; F47 does not broaden into dependency-policy work.
+Job-level parallelization increases concurrent runner usage while reducing developer wall-clock. `fullyParallel: true` exposes hidden order coupling, so context isolation and navigation synchronization are explicit. The isolated gallery harness must exercise the real module and CSS behavior rather than a simplified mock. The optional literal full lane duplicates coverage only when explicitly requested and therefore must remain opt-in. The repository still resolves npm dependencies without a committed lockfile; F47 does not broaden into dependency-policy work.
