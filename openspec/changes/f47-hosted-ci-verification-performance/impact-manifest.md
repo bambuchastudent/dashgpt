@@ -3,34 +3,53 @@
 ## Directly affected
 
 - `.github/workflows/check.yml`
-  - avoidable npm install overhead;
-  - canonical hosted verification wall-clock.
+  - deterministic/browser job decomposition;
+  - desktop/mobile hosted parallelism;
+  - bounded failure runtime;
+  - avoidable npm install overhead.
 - `playwright.config.mjs`
-  - bounded CI worker concurrency only.
-- deterministic verification for the CI/config contract;
-- `npm run check` wiring for the new verifier.
+  - isolation-safe full parallel scheduling;
+  - bounded CI workers;
+  - bounded maximum failure count;
+  - existing retry/general timeout preservation.
+- `tests/playwright-fixture.mjs`
+  - dedicated fast readiness timeout;
+  - explicit fresh browser-state expectations.
+- demo bootstrap/app readiness plumbing
+  - non-visual `data-dashgpt-ready` testability signal after required initialization.
+- browser regression coverage for context/storage isolation and readiness.
+- deterministic verification for the CI/config/test-harness contract.
+- `npm run check` wiring for the verifier.
 
 ## Maintainer-visible impact
 
-Pull-request and `develop` canonical checks should complete with useful margin inside the existing 30-minute budget instead of being cancelled at the job timeout. The required verification surface remains the same command and the same deterministic/browser coverage.
+Pull-request feedback should move from repeated 30-minute cancellations to a normal target below 10 minutes. A systemic bootstrap failure should become red quickly instead of consuming repeated 60-second test + retry budgets.
+
+Healthy runs retain the complete deterministic, desktop Chromium and mobile Chromium verification surface. Hosted CI may execute that surface as independent parallel jobs while `npm run verify:full` remains the canonical one-command full gate for final/local verification.
 
 ## Preserved gates
 
 - all existing `npm run check` verifiers;
 - both desktop Chromium and mobile Chromium Playwright projects;
 - CI `retries: 1`;
-- Playwright per-test timeout;
-- `fullyParallel: false` per-file ordering behavior;
+- Playwright 60-second general per-test timeout for genuinely long test behavior;
 - repository-owner CI execution guard;
 - `ubuntu-latest` hosted runner policy;
-- existing 30-minute hard timeout;
-- `npm install --ignore-scripts` safety boundary.
+- existing 30-minute hard safety timeout;
+- `npm install --ignore-scripts` safety boundary;
+- final-head canonical `npm run verify:full` before merge.
+
+## Behavior intentionally changed
+
+- readiness/bootstrap failure has its own <=5-second wait budget rather than inheriting the 60-second test timeout;
+- browser specs may execute fully parallel because each test must be isolated;
+- desktop/mobile projects may run on separate hosted runners;
+- a failing browser job may stop after a small maximum-failure threshold instead of executing every remaining test after the result is already conclusively red.
 
 ## Explicitly unaffected
 
-- product/API/UI behavior;
-- Cards, Dashes, search, Semantic Gallery and continuation;
-- storage/sync/import behavior;
+- user-facing Cards, Dashes, search, Semantic Gallery and continuation behavior;
+- storage/sync/import persistence semantics;
 - Shared Chat resolver behavior;
 - F46 scheduled-vs-strict smoke classification;
 - deployment configuration and credentials;
@@ -38,6 +57,7 @@ Pull-request and `develop` canonical checks should complete with useful margin i
 
 ## Main risks
 
-- Two concurrent browser workers can increase peak CPU/memory use on a hosted runner.
+- Job-level parallelization increases concurrent runner usage and may increase total runner-minutes while reducing developer wall-clock.
+- `fullyParallel: true` exposes hidden test-order coupling if any exists; explicit context isolation plus regression coverage is required before relying on it.
+- The readiness marker must represent completed bootstrap, not merely DOM load, or tests could become faster but racy.
 - The repository still resolves npm dependencies without a committed lockfile; F47 does not claim to fix that separate reproducibility concern.
-- If hosted execution remains too slow, a later spec update may permit project/shard matrix jobs; that wider architecture is intentionally excluded until benchmark evidence requires it.
