@@ -3,15 +3,18 @@
 - [x] Inspect existing plugin submission packet, MCP contract hardening spec, and current Share-capture failure context.
 - [x] Define direct-save scope without mixing F50 Share recovery or resolver changes.
 - [x] Add proposal, design, spec delta and impact manifest.
-- [ ] Run strict OpenSpec validation and record result before production code.
-- [ ] Inspect existing canonical Card/Vault persistence and auth boundaries narrowly.
-- [ ] Implement the smallest truthful direct-save MCP tool using existing canonical Card persistence semantics.
+- [x] Run initial strict OpenSpec validation; diagnose and correct delta-format failure before production code.
+- [x] Inspect existing canonical Card/Vault persistence and auth boundaries narrowly.
+- [x] Choose the smallest approved write boundary: MCP OAuth bridge to the existing Google Drive-backed user-owned Vault.
+- [ ] Re-run strict OpenSpec validation for the concrete OAuth/Drive scope before production code.
+- [ ] Implement MCP OAuth discovery/challenge and bounded PKCE authorization flow without hosted Card storage.
+- [ ] Implement `upsert_card` using existing Google Drive Vault layout and canonical Card persistence semantics.
 - [ ] Preserve stable identity/provenance and deterministic upsert behavior.
-- [ ] Ensure the tool rejects/does not rely on ChatGPT cookies, tokens or OpenAI credentials for DashGPT authorization.
-- [ ] Update MCP annotations, `chatgpt-app-submission.json`, bundled plugin skill and submission packet.
-- [ ] Add regression verification for input/output schema, write annotations, persistence/upsert and auth/safety boundaries.
+- [ ] Ensure authorization/provider grants never enter Card/Vault content, tool output, URLs, logs or fixtures.
+- [ ] Update MCP annotations/security schemes, `chatgpt-app-submission.json`, bundled plugin skill and submission packet.
+- [ ] Add regression verification for OAuth discovery/challenge, scope/audience/expiry/PKCE, provider persistence/upsert and auth isolation.
 - [ ] Run targeted verification and `npm run check`.
 - [ ] Run canonical `npm run verify:full` once on the final candidate.
-- [ ] Verify any changed public/plugin setup UX in production preview and narrow mobile viewport where applicable.
-- [ ] Confirm supported-surface wording: custom MCP web-only; do not claim native-mobile direct save unless separately verified.
+- [ ] Verify changed plugin authorization product states in production preview where deployment configuration permits.
+- [ ] Confirm supported-surface wording: custom MCP web-only; do not claim native-mobile direct save until a published plugin is explicitly verified there.
 - [ ] Mark PR ready only when verification is green and plugin/submission artifacts match actual server behavior.
