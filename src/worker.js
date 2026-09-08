@@ -7,7 +7,10 @@ import {
   handleGitHubStatus,
   handleGitHubSync
 } from "./github-storage.js";
-import { tryAnonymousSharedChat } from "./shared-chat-anon.js";
+import {
+  tryAnonymousSharedChat,
+  tryBrowserSessionSharedChat
+} from "./shared-chat-anon.js";
 import { handleSharedChat } from "./shared-chat.js";
 
 const PRODUCT_RESULT_SHARDS = Object.freeze([
@@ -67,15 +70,32 @@ function withUnifiedResultAssets(env) {
   return { ...env, ASSETS: unifiedAssets };
 }
 
+async function isSharedChatUnreadable(response) {
+  if (response.status !== 502) return false;
+  try {
+    const payload = await response.clone().json();
+    return payload?.code === "SHARED_CHAT_UNREADABLE";
+  } catch {
+    return false;
+  }
+}
+
+async function handleSharedChatWithAnonymousRecovery(request, env) {
+  const anonymousResponse = await tryAnonymousSharedChat(request, env);
+  if (anonymousResponse) return anonymousResponse;
+
+  const existingResponse = await handleSharedChat(request, env);
+  if (!(await isSharedChatUnreadable(existingResponse))) return existingResponse;
+
+  const browserSessionResponse = await tryBrowserSessionSharedChat(request, env);
+  return browserSessionResponse || existingResponse;
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    if (url.pathname === "/api/shared-chat") {
-      const anonymousResponse = await tryAnonymousSharedChat(request, env);
-      if (anonymousResponse) return anonymousResponse;
-      return handleSharedChat(request, env);
-    }
+    if (url.pathname === "/api/shared-chat") return handleSharedChatWithAnonymousRecovery(request, env);
     if (url.pathname === "/api/storage/google/config") return handleGoogleDriveConfig(request, env);
     if (url.pathname === "/api/storage/github/pair") return handleGitHubPairStart(request, env);
     if (url.pathname === "/api/storage/github/setup") return handleGitHubSetup(request, env);
