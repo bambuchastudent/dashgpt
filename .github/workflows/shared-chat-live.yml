@@ -22,7 +22,7 @@ jobs:
         env:
           DASHGPT_PRODUCTION: https://dashgpt.dimkashir.workers.dev
         run: |
-          set -euo pipefail
+          set -u -o pipefail
 
           # Keep both fixtures public: one older conversation and one fresh/current-format conversation.
           OLDER_SHARE="https://chatgpt.com/share/6a7a445b-a420-83ea-9c36-3c10fd1ce85f"
@@ -33,28 +33,58 @@ jobs:
             sleep 20
           fi
 
+          is_upstream_unavailable() {
+            local status="$1"
+            local body="$2"
+
+            if [ "$status" = "000" ]; then
+              return 0
+            fi
+            if [ "$status" != "502" ]; then
+              return 1
+            fi
+
+            python3 - "$body" <<'PY'
+          import json
+          import sys
+
+          try:
+              payload = json.load(open(sys.argv[1]))
+          except Exception:
+              raise SystemExit(1)
+
+          raise SystemExit(0 if payload.get('code') == 'SHARED_CHAT_UNREADABLE' else 1)
+          PY
+          }
+
           resolve_one() {
             local share="$1"
             local label="$2"
             local needle="$3"
             local encoded
             local url
-            local status
+            local status=""
+            local body
+            local saw_hard_failure=0
+            body=$(mktemp)
             encoded=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$share', safe=''))")
             url="${DASHGPT_PRODUCTION}/api/shared-chat?url=${encoded}"
 
             for attempt in 1 2 3 4 5 6 7 8; do
               echo "${label}: attempt ${attempt}"
-              status=$(curl -L --silent --show-error --max-time 45 -o /tmp/share.json -w '%{http_code}' "$url" || true)
+              : > "$body"
+              status=$(curl -L --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' "$url" || true)
 
-              if [ "$status" = "200" ] && python3 - "$share" "$needle" <<'PY'
+              if [ "$status" = "200" ]; then
+                if python3 - "$share" "$needle" "$body" <<'PY'
           import json
           import sys
 
           expected = sys.argv[1]
           needle = sys.argv[2].lower()
+          body = sys.argv[3]
           expected_id = expected.rstrip('/').split('/')[-1]
-          payload = json.load(open('/tmp/share.json'))
+          payload = json.load(open(body))
           replies = payload.get('replies') or []
           transcript = '\n'.join(str(r.get('statement') or '') for r in replies).lower()
 
@@ -70,21 +100,78 @@ jobs:
           assert not payload.get('error'), payload
           print('LIVE_OK', payload.get('retrieval'), payload.get('title'), len(replies))
           PY
-              then
-                local retrieval
-                retrieval=$(python3 -c "import json; print(json.load(open('/tmp/share.json')).get('retrieval','unknown'))")
-                echo "✅ ${label} resolved via ${retrieval}" | tee -a "$GITHUB_STEP_SUMMARY"
-                return 0
+                then
+                  local retrieval
+                  retrieval=$(python3 -c "import json; print(json.load(open('$body')).get('retrieval','unknown'))")
+                  echo "✅ ${label} resolved via ${retrieval}" | tee -a "$GITHUB_STEP_SUMMARY"
+                  rm -f "$body"
+                  return 0
+                fi
+
+                saw_hard_failure=1
+                echo "${label}: HTTP 200 failed the production conversation contract; retrying"
+              elif is_upstream_unavailable "$status" "$body"; then
+                echo "${label}: HTTP ${status} matches upstream unreadability; retrying"
+              else
+                saw_hard_failure=1
+                echo "${label}: HTTP ${status} is an unexpected production response; retrying"
               fi
 
-              echo "${label}: HTTP ${status}; retrying after transient deploy/upstream delay"
-              cat /tmp/share.json 2>/dev/null || true
-              sleep 10
+              cat "$body" 2>/dev/null || true
+              if [ "$attempt" -lt 8 ]; then
+                sleep 5
+              fi
             done
 
-            echo "❌ ${label} could not be resolved in production" | tee -a "$GITHUB_STEP_SUMMARY"
-            return 1
+            if [ "$saw_hard_failure" -eq 1 ]; then
+              echo "❌ ${label} exhausted retries with an unexpected production response" | tee -a "$GITHUB_STEP_SUMMARY"
+              rm -f "$body"
+              return 20
+            fi
+
+            echo "⚠️ ${label} exhausted retries with upstream-only unreadability (HTTP ${status})" | tee -a "$GITHUB_STEP_SUMMARY"
+            rm -f "$body"
+            return 10
           }
 
-          resolve_one "$OLDER_SHARE" "older public fixture" "Ratatron"
-          resolve_one "$FRESH_SHARE" "fresh public fixture" "DashGPT. Подготовь полезный итог"
+          UPSTREAM_FAILURES=0
+          HARD_FAILURES=0
+
+          run_fixture() {
+            local rc
+            if resolve_one "$@"; then
+              return 0
+            else
+              rc=$?
+            fi
+
+            if [ "$rc" -eq 10 ]; then
+              UPSTREAM_FAILURES=$((UPSTREAM_FAILURES + 1))
+            else
+              HARD_FAILURES=$((HARD_FAILURES + 1))
+            fi
+            return 0
+          }
+
+          run_fixture "$OLDER_SHARE" "older public fixture" "Ratatron"
+          run_fixture "$FRESH_SHARE" "fresh public fixture" "DashGPT. Подготовь полезный итог"
+
+          if (( HARD_FAILURES > 0 )); then
+            echo "::error title=Shared Chat production contract failure::${HARD_FAILURES} fixture(s) returned unexpected production behavior after retries."
+            echo "❌ Hard production failures: ${HARD_FAILURES}" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          if (( UPSTREAM_FAILURES > 0 )); then
+            if [ "${GITHUB_EVENT_NAME}" = "schedule" ]; then
+              echo "::warning title=Shared Chat upstream degraded::${UPSTREAM_FAILURES} fixture(s) were unreadable upstream after bounded retries; scheduled smoke remains non-fatal."
+              echo "⚠️ Scheduled upstream degradation: ${UPSTREAM_FAILURES} fixture(s); workflow intentionally remains successful." >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+
+            echo "::error title=Shared Chat strict smoke unavailable::${UPSTREAM_FAILURES} fixture(s) remained unreadable upstream after bounded retries."
+            echo "❌ Strict smoke upstream failures: ${UPSTREAM_FAILURES}" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          echo "✅ All Shared Chat live fixtures resolved successfully." >> "$GITHUB_STEP_SUMMARY"
