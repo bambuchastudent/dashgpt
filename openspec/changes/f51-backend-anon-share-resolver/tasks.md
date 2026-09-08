@@ -25,5 +25,19 @@
 - [x] Run desktop and narrow-mobile browser verification for the refined candidate.
 - [ ] Run canonical `npm run verify:full` once on the final refined candidate.
 - [x] Verify refined Cloudflare preview deployment.
-- [ ] Verify the exact public reproduction resolves through refined preview and reaches normal Card review.
+- [x] Verify the exact public reproduction still fails through refined preview and record that acceptance miss.
+- [x] Update proposal/spec/design/Impact Manifest before adding explicit sanitized diagnostics.
+- [ ] Strictly validate the diagnostic OpenSpec refinement before diagnostic production code.
+- [ ] Add explicit `/api/shared-chat?...&diagnostics=1` failure-only sanitized trace mode.
+- [ ] Record direct-anon safe HTTP/parse outcomes without raw bodies.
+- [ ] Record browser binding/session launch/navigation/backend request outcomes without cookies or user browser state.
+- [ ] Add support-only legacy resolver replay that reduces existing error causes to safe stage/kind/status entries.
+- [ ] Add deterministic diagnostic regressions proving normal responses remain human and diagnostic responses contain no raw content/secrets.
+- [ ] Run targeted shared-chat verification for the diagnostic candidate.
+- [ ] Run `npm run check` for the diagnostic candidate.
+- [ ] Run desktop and narrow-mobile browser verification for the diagnostic candidate.
+- [ ] Run canonical `npm run verify:full` once on the final diagnostic candidate.
+- [ ] Verify diagnostic Cloudflare preview deployment.
+- [ ] Open the exact mobile diagnostic URL, copy the trace, and use it to identify the next retrieval defect.
+- [ ] Verify the exact public reproduction resolves through preview and reaches normal Card review.
 - [ ] Reconcile final PR status and mark ready only with real acceptance evidence.
