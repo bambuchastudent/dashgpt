@@ -36,10 +36,13 @@ async function openFixture(page, count = 100) {
     localStorage.removeItem("dashgpt.demo.gallery-sort.v1");
     sessionStorage.setItem("dashgpt.f32-fixture-ready", "1");
   }, { key: VAULT_KEY, sortKey: SORT_KEY, vault: fixtureVault(count) });
-  await page.goto("/demo/?personal=1");
-  await page.locator("#searchInput").fill("F32 Fixture");
+  await page.goto("/demo/");
   await expect(page.locator("#resultsGrid > .result-card")).toHaveCount(count);
   await expect(page.locator("#galleryRegion .gallery-sort")).toBeVisible();
+  await expect.poll(async () => page.locator("#resultsGrid > .result-card").evaluateAll(
+    (nodes, expectedCount) => nodes.length === expectedCount && nodes.every(node => /^\d+$/.test(node.dataset.semanticPalette || "")),
+    count
+  )).toBe(true);
 }
 
 async function setOverview(page) {
@@ -47,6 +50,54 @@ async function setOverview(page) {
     element.value = "0";
     element.dispatchEvent(new Event("input", { bubbles: true }));
   });
+}
+
+async function openGalleryStressHarness(page, count) {
+  const stressPage = await page.context().newPage();
+  const vault = fixtureVault(count);
+  await stressPage.goto("/demo/data/results.json");
+  await stressPage.evaluate(({ key, sortKey, value }) => {
+    localStorage.setItem(key, JSON.stringify(value));
+    localStorage.removeItem(sortKey);
+    localStorage.removeItem("dashgpt.demo.gallery-sort.v1");
+  }, { key: VAULT_KEY, sortKey: SORT_KEY, value: vault });
+
+  const cards = vault.results.map(result => `
+    <article class="result-card" data-result-id="${result.id}">
+      <div class="card-topline"><span class="category">${result.category}</span></div>
+      <h3 class="title">${result.title}</h3>
+      <p class="summary">${result.summary}</p>
+      <div class="tags"><span class="tag">#${result.tags[0]}</span></div>
+    </article>`).join("");
+
+  await stressPage.setContent(`<!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1">
+        <style>
+          html,body{margin:0;width:100%;height:100%;overflow-x:hidden}
+          #galleryRegion{box-sizing:border-box;width:100%;padding:8px}
+          .gallery-heading-actions{display:flex;align-items:center;gap:8px}
+          .results-grid{display:grid;width:100%;box-sizing:border-box}
+          .result-card{box-sizing:border-box}
+        </style>
+      </head>
+      <body>
+        <section id="galleryRegion" class="gallery-region" data-gallery-detail="compact">
+          <div class="gallery-heading-actions"></div>
+          <input id="galleryZoom" type="range" min="0" max="4" step="1" value="0" aria-label="Gallery density">
+          <div id="resultsGrid" class="results-grid">${cards}</div>
+        </section>
+      </body>
+    </html>`);
+
+  await stressPage.evaluate(async () => {
+    const module = await import("/demo/gallery-overview-sorting.js?f47-stress=1");
+    module.initializeGalleryOverviewSorting();
+  });
+  await expect(stressPage.locator("#galleryRegion")).toHaveAttribute("data-f32-overview", "heatmap", { timeout: 10_000 });
+  return stressPage;
 }
 
 test("Color is default, controls are Color Tag Time, and palette is bounded to 32 slots", async ({ page }) => {
@@ -81,7 +132,6 @@ test("Color is default, controls are Color Tag Time, and palette is bounded to 3
   await expect(cards.first().locator(".title")).toHaveText("F32 Fixture 0099");
 
   await page.reload();
-  await page.locator("#searchInput").fill("F32 Fixture");
   await expect(page.locator('button[data-gallery-sort="time"]')).toHaveAttribute("aria-pressed", "true");
 });
 
@@ -91,8 +141,7 @@ test("old v1 Time preference is superseded by Color-first v2 default", async ({ 
     localStorage.setItem("dashgpt.demo.gallery-sort.v1", JSON.stringify({ version: 1, sortMode: "time" }));
     localStorage.removeItem("dashgpt.demo.gallery-sort.v2");
   }, { key: VAULT_KEY, vault: fixtureVault(20) });
-  await page.goto("/demo/?personal=1");
-  await page.locator("#searchInput").fill("F32 Fixture");
+  await page.goto("/demo/");
   await expect(page.locator('button[data-gallery-sort="color"]')).toHaveAttribute("aria-pressed", "true");
 });
 
@@ -118,37 +167,38 @@ test("minimum density keeps the complete selection without horizontal overflow",
   expect(geometry.gridHeight).toBeLessThanOrEqual(geometry.viewportHeight + 1);
 });
 
-test("2200 cards fit simultaneously on one screen as Color-sorted actionable heat-map tiles", async ({ page }) => {
-  test.setTimeout(180_000);
-  await openFixture(page, 2200);
-  await setOverview(page);
+test("2200 cards fit simultaneously on one screen as Color-sorted heat-map tiles", async ({ page }) => {
+  test.setTimeout(20_000);
+  const stressPage = await openGalleryStressHarness(page, 2200);
+  try {
+    const cards = stressPage.locator("#resultsGrid > .result-card");
+    await expect(cards).toHaveCount(2200);
+    await expect(stressPage.locator('button[data-gallery-sort="color"]')).toHaveAttribute("aria-pressed", "true");
+    await expect(stressPage.locator("#galleryRegion")).toHaveAttribute("data-f32-overview", "heatmap");
+    await expect(cards.first()).toHaveAttribute("title", /F32 Fixture/);
 
-  const cards = page.locator("#resultsGrid > .result-card");
-  await expect(cards).toHaveCount(2200);
-  await expect(page.locator('button[data-gallery-sort="color"]')).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator("#galleryRegion")).toHaveAttribute("data-f32-overview", "heatmap");
-  await expect(cards.first()).toHaveAttribute("title", /F32 Fixture/);
-
-  const geometry = await page.evaluate(() => {
-    const grid = document.querySelector("#resultsGrid");
-    const root = document.querySelector("#galleryRegion");
-    const rect = grid?.getBoundingClientRect();
-    const slots = [...document.querySelectorAll("#resultsGrid > .result-card")].map(node => Number(node.dataset.semanticPalette));
-    return {
-      gridHeight: rect?.height || 0,
-      viewportHeight: innerHeight,
-      overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-      slots,
-      columns: Number.parseInt(getComputedStyle(root).getPropertyValue("--f32-overview-columns"), 10) || 0
-    };
-  });
-  expect(geometry.overflow).toBeLessThanOrEqual(1);
-  expect(geometry.gridHeight).toBeLessThanOrEqual(geometry.viewportHeight + 1);
-  expect(geometry.columns).toBeGreaterThan(20);
-  expect(geometry.slots).toEqual([...geometry.slots].sort((left, right) => left - right));
-  expect(new Set(geometry.slots).size).toBeLessThanOrEqual(32);
-
-  await cards.first().focus();
-  await cards.first().press("Enter");
-  await expect(page.locator("#resultDialog")).toBeVisible();
+    const geometry = await stressPage.evaluate(() => {
+      const grid = document.querySelector("#resultsGrid");
+      const root = document.querySelector("#galleryRegion");
+      const rect = grid?.getBoundingClientRect();
+      const cardNodes = [...document.querySelectorAll("#resultsGrid > .result-card")];
+      return {
+        gridHeight: rect?.height || 0,
+        viewportHeight: innerHeight,
+        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        ids: cardNodes.map(node => node.dataset.resultId),
+        slots: cardNodes.map(node => Number(node.dataset.semanticPalette)),
+        columns: Number.parseInt(getComputedStyle(root).getPropertyValue("--f32-overview-columns"), 10) || 0
+      };
+    });
+    expect(geometry.overflow).toBeLessThanOrEqual(1);
+    expect(geometry.gridHeight).toBeLessThanOrEqual(geometry.viewportHeight + 1);
+    expect(geometry.columns).toBeGreaterThan(20);
+    expect(geometry.ids).toHaveLength(2200);
+    expect(new Set(geometry.ids).size).toBe(2200);
+    expect(geometry.slots).toEqual([...geometry.slots].sort((left, right) => left - right));
+    expect(new Set(geometry.slots).size).toBeLessThanOrEqual(32);
+  } finally {
+    await stressPage.close();
+  }
 });

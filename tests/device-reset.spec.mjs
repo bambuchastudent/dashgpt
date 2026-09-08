@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./playwright-fixture.mjs";
 
 const VAULT_KEY = "dashgpt.demo.vault.v1";
 
@@ -63,9 +63,11 @@ test("dashboard reset requires confirmation and returns this device to fresh loc
   expect(await page.evaluate(key => localStorage.getItem(key), VAULT_KEY)).toContain("vault-before-device-reset");
 
   await page.locator("#resetDeviceButton").click();
-  await page.locator("#confirmDeviceResetButton").click();
-  await page.waitForURL(url => url.pathname === "/demo/");
-  await page.waitForLoadState("domcontentloaded");
+  await Promise.all([
+    page.waitForURL(url => url.pathname === "/demo/" && url.search === ""),
+    page.locator("#confirmDeviceResetButton").click()
+  ]);
+  await page.locator('html[data-dashgpt-ready="true"]').waitFor({ timeout: 5_000 });
 
   const state = await page.evaluate(vaultKey => ({
     vault: JSON.parse(localStorage.getItem(vaultKey) || "null"),
@@ -88,6 +90,7 @@ test("reset confirmation fits a 390px dashboard without horizontal overflow", as
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/demo/?personal=1");
   await page.locator("#storageButton").click();
+  await expect(page.locator("#deviceResetSection")).toBeVisible();
   await page.locator("#resetDeviceButton").click();
   await expect(page.locator("#deviceResetDialog")).toBeVisible();
 

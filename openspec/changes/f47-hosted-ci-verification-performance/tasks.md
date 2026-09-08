@@ -1,0 +1,32 @@
+# Tasks
+
+- [x] Confirm the hosted timeout reproduces on untouched `develop` as well as F46 exact head.
+- [x] Inspect current OpenSpec/development guidance and overlap with F46, product/UI, storage and continuation surfaces.
+- [x] Add proposal, design, spec delta and Impact Manifest for hosted canonical-verification performance.
+- [x] Confirm current `develop` has no committed npm lockfile and keep dependency-lock migration out of F47 scope.
+- [x] Profile the hosted run and identify the dominant browser-readiness timeout pattern.
+- [x] Confirm the test fixture waits for `data-dashgpt-ready=true` while baseline bootstrap does not emit that marker.
+- [x] Review browser-suite isolation risks before enabling full parallel scheduling.
+- [x] Strictly validate the readiness/isolation/parallelism scope before repository code/config edits.
+- [x] Emit an explicit demo-bootstrap readiness signal after required initialization completes.
+- [x] Give readiness waiting a dedicated CI timeout of at most 5 seconds while preserving the general per-test timeout.
+- [x] Make per-test browser context/state isolation explicit and add regression coverage for storage isolation.
+- [x] Enable isolation-safe `fullyParallel` scheduling with bounded workers.
+- [x] Split desktop/mobile Chromium into independent hosted CI jobs while keeping deterministic checks separate.
+- [x] Add a bounded CI maximum-failure count so systemic browser failures fail quickly.
+- [x] Remove avoidable npm audit/funding install overhead while preserving `--ignore-scripts`.
+- [x] Extend deterministic regression verification for readiness, isolation, parallelism, fail-fast behavior and complete hosted coverage.
+- [x] Profile the first parallel exact-head run and isolate remaining failures to reset navigation, Google disconnect navigation and the 2200-card full-app stress path.
+- [x] Update OpenSpec to keep production semantics unchanged while isolating navigation tests and the real gallery stress module before test edits.
+- [x] Strictly validate the final navigation/stress-harness scope before editing affected tests.
+- [x] Make reload-causing browser tests synchronize on the completed new document and use one-shot storage seeds where applicable.
+- [x] Keep ordinary gallery sorting fixtures focused on fixture cards without unrelated operational-card/search rerender interference.
+- [x] Move the 2200-card gallery case to a same-origin isolated Chromium component harness using the real gallery module and preserve its card-count/order/palette/layout assertions.
+- [x] Run targeted/exact-head browser verification while iterating reset, Google Drive, gallery stress, profile metrics and isolation failures.
+- [x] Run exact-head hosted jobs and confirm healthy pull-request wall-clock is below 10 minutes with full coverage: run `34168588829` passed deterministic + desktop + mobile + aggregator; desktop completed 93 passed + 1 skipped in 1.7 minutes after setup.
+- [x] Update and strictly validate the opt-in hosted literal-canonical proof scope before workflow edits: OpenSpec run `34171486960` passed.
+- [x] Add the opt-in `[verify:full]` hosted lane plus deterministic regression coverage without adding duplicate work to normal PRs.
+- [x] Run literal `npm run verify:full` on the final implementation content before merge: run `34171577351`, `canonical-full` **PASS**; the same head also passed deterministic, desktop, mobile and final `check`, with OpenSpec run `34171577359` **PASS**.
+- [x] Reconcile PR #118 body and task evidence after successful exact-head proof.
+- [ ] Merge #118 only after this final evidence head passes OpenSpec, fast shards and literal canonical proof.
+- [ ] Rebase/re-run PR #113 on the fixed `develop`, finish its final verification evidence, then handle #113 separately.
