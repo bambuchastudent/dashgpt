@@ -3,15 +3,27 @@
 - [x] Reproduce the product failure with a genuinely public Share that opens logged-out/incognito.
 - [x] Inspect current product/development/OpenSpec guidance and F11/F12/F15/F16/F17/F46/F48/F49 overlap.
 - [x] Identify current logged-out `backend-anon/share/<id>` evidence and Browser Run bot-identification constraints.
-- [x] Strictly validate `f51-backend-anon-share-resolver` before production code changes.
-- [x] Add validated `backend-anon/share/<id>` URL derivation and anonymous JSON fetch.
-- [x] Prefer anonymous JSON before existing resolver/provider fallbacks.
+- [x] Strictly validate the initial `f51-backend-anon-share-resolver` change before production code changes.
+- [x] Add validated direct `backend-anon/share/<id>` URL derivation and anonymous JSON fetch.
+- [x] Prefer direct anonymous JSON before existing resolver/provider fallbacks.
 - [x] Reuse existing current-node/visibility projection without changing endpoint/Card contracts.
-- [x] Add deterministic regressions for success, ordering and failure fallthrough.
+- [x] Add deterministic regressions for initial direct-anon success, ordering and failure fallthrough.
 - [x] Run targeted shared-chat verification through the deterministic repository gate.
-- [x] Run `npm run check` in GitHub Actions.
-- [x] Run desktop and narrow-mobile browser verification in GitHub Actions.
-- [ ] Run the canonical `npm run verify:full` gate once on the final candidate.
-- [x] Verify Cloudflare preview deployment.
-- [ ] Verify the exact public reproduction resolves through preview and reaches normal Card review.
+- [x] Run `npm run check` in GitHub Actions for the initial candidate.
+- [x] Run desktop and narrow-mobile browser verification in GitHub Actions for the initial candidate.
+- [x] Run canonical `npm run verify:full` for the initial candidate.
+- [x] Verify Cloudflare preview deployment for the initial candidate.
+- [x] Run the exact public reproduction against that preview and record that direct F51 still fails acceptance.
+- [x] Update proposal/spec/design/Impact Manifest before widening F51 to a fresh anonymous browser-session recovery path.
+- [ ] Strictly validate the updated OpenSpec before changing production code for the browser-session refinement.
+- [ ] Add one fresh logged-out Browser Run session recovery after exact `SHARED_CHAT_UNREADABLE` only.
+- [ ] Navigate to the canonical public Share first, then fetch same-origin `backend-anon/share/<id>` with only fresh-session anonymous state.
+- [ ] Close the browser on every path and keep bounded navigation/request timeouts.
+- [ ] Add deterministic orchestration regressions for session eligibility, success, miss, no-user-cookie boundary and no-launch-after-existing-success.
+- [ ] Run targeted shared-chat verification for the refined candidate.
+- [ ] Run `npm run check` for the refined candidate.
+- [ ] Run desktop and narrow-mobile browser verification for the refined candidate.
+- [ ] Run canonical `npm run verify:full` once on the final refined candidate.
+- [ ] Verify refined Cloudflare preview deployment.
+- [ ] Verify the exact public reproduction resolves through refined preview and reaches normal Card review.
 - [ ] Reconcile tasks/PR status and mark ready only with real acceptance evidence.
