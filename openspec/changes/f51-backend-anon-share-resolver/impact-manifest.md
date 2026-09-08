@@ -2,31 +2,38 @@
 
 ## Primary production surfaces
 
-- `src/shared-chat-anon.js` (new)
-  - derive the current first-party anonymous Share JSON endpoint from an already validated ChatGPT Share URL;
-  - fetch/parse it through the existing public-share JSON projection;
-  - return `null` on unavailable/challenge/malformed input so existing behavior can take over.
+- `src/shared-chat-anon.js`
+  - keep the direct first-party anonymous Share JSON preflight;
+  - add a separate fresh logged-out browser-session recovery helper;
+  - reuse canonical URL validation and existing public-share JSON projection;
+  - return `null` on unavailable/challenge/malformed/session failure so orchestration can preserve existing behavior.
 - `src/worker.js`
-  - for `/api/shared-chat`, run the anonymous JSON preflight first;
-  - delegate unchanged to `handleSharedChat()` when the preflight does not produce a valid conversation.
+  - for `/api/shared-chat`, run direct anonymous JSON preflight first;
+  - delegate to the existing `handleSharedChat()` chain unchanged;
+  - only when that response is exactly `SHARED_CHAT_UNREADABLE`, try one fresh browser-session public recovery;
+  - return the original existing response unchanged when recovery misses.
+- `package.json`
+  - add the Cloudflare-supported Puppeteer runtime package required for Browser Run session control.
 - `src/shared-chat.js`
-  - no production behavior change required by F51;
-  - existing exported URL validation and JSON parser remain the source of truth reused by the new preflight.
+  - no production resolver semantics need to change;
+  - exported URL validation and JSON projection remain the source of truth reused by F51.
 
 ## Verification surfaces
 
 - `scripts/verify-shared-chat.mjs`
-  - anonymous route ordering;
-  - anonymous JSON success;
-  - challenge/malformed/error fallthrough;
-  - current-node branch and visibility invariants;
-  - existing provider fallback behavior after one extra first-party preflight.
+  - direct anonymous route ordering and success;
+  - no fresh-session launch after any existing resolver success;
+  - exact `SHARED_CHAT_UNREADABLE` eligibility;
+  - session recovery success using canonical Share/backend ids;
+  - session miss preserving the original human 502 contract;
+  - invalid/unsupported URL and user-session replay boundaries.
 - existing browser Save-chat coverage remains relevant because the endpoint contract is unchanged.
-- Cloudflare preview acceptance against the real public reproduction is required before merge-ready.
+- desktop/mobile and canonical `npm run verify:full` must rerun on the refined final candidate.
+- Cloudflare preview acceptance against the exact real public reproduction remains the merge gate.
 
 ## Contracts intentionally unchanged
 
-- `/api/shared-chat` request/response shape;
+- `/api/shared-chat` request/response schema;
 - canonical Card identity and source provenance;
 - local Vault/storage/sync behavior;
 - Search, Semantic Gallery and Dash membership semantics;
@@ -37,19 +44,30 @@
 
 ## Security / privacy blast radius
 
-The change adds one outbound first-party request to `chatgpt.com/backend-anon/share/<validated-id>` before existing fallbacks. It MUST NOT forward user browser cookies, ChatGPT session state, account credentials, DashGPT storage credentials or arbitrary user-controlled target URLs.
+The direct preflight still sends one first-party request to `chatgpt.com/backend-anon/share/<validated-id>` with no user authentication state.
 
-Malformed HTML/challenge bodies and non-success responses are internal preflight misses only and fall through to existing public resolver paths. No raw upstream/provider details become normal user-facing copy.
+The refined recovery may additionally launch one **fresh logged-out** Browser Run session only after the existing resolver chain has exhausted. That session navigates to the already validated public Share page and then requests only the corresponding same-origin `backend-anon/share/<validated-id>`. Any cookies/state used by that request must originate inside the new anonymous session itself.
 
-## Deployment / operations
+F51 MUST NOT copy incoming `Cookie`, `Authorization`, ChatGPT session/account identifiers, passwords, project credentials, DashGPT storage credentials or arbitrary user-controlled target URLs into the browser. CAPTCHA/Turnstile, login or access-control challenges are failures, not signals to bypass protection.
 
-No secrets, migrations, schema changes or new Cloudflare bindings are required. Existing Worker networking and `BROWSER` binding remain unchanged. A failure of the new anonymous route must degrade to the pre-F51 resolver order rather than create a new hard dependency.
+No raw provider/status/parser details become normal user-facing copy.
+
+## Deployment / operations / cost
+
+- no new secret, migration, schema or Cloudflare binding;
+- existing `BROWSER` binding is reused;
+- add `@cloudflare/puppeteer` as a runtime dependency for full Browser Run session control;
+- browser time can increase for unresolved public Share requests, so the session path is bounded to one attempt and runs only after direct anonymous plus all existing resolver paths have failed;
+- session/browser resources must be closed in `finally` on every outcome;
+- if the session path fails, behavior degrades to the existing pre-refinement human unreadable response rather than creating a new hard dependency.
 
 ## Explicitly out of scope
 
-- F49 React Router payload parser;
-- F48 retry implementation;
+- F49 React Router payload parser changes;
+- F48 retry implementation changes;
 - authenticated/private ChatGPT capture;
+- user browser cookie/session replay;
+- CAPTCHA/Turnstile solving or project-access bypass;
 - new proxy services;
 - Card detail/F39;
 - project-local memory/F37.
