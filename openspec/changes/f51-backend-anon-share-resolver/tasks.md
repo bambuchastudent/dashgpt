@@ -15,15 +15,15 @@
 - [x] Verify Cloudflare preview deployment for the initial candidate.
 - [x] Run the exact public reproduction against that preview and record that direct F51 still fails acceptance.
 - [x] Update proposal/spec/design/Impact Manifest before widening F51 to a fresh anonymous browser-session recovery path.
-- [ ] Strictly validate the updated OpenSpec before changing production code for the browser-session refinement.
-- [ ] Add one fresh logged-out Browser Run session recovery after exact `SHARED_CHAT_UNREADABLE` only.
-- [ ] Navigate to the canonical public Share first, then fetch same-origin `backend-anon/share/<id>` with only fresh-session anonymous state.
-- [ ] Close the browser on every path and keep bounded navigation/request timeouts.
-- [ ] Add deterministic orchestration regressions for session eligibility, success, miss, no-user-cookie boundary and no-launch-after-existing-success.
-- [ ] Run targeted shared-chat verification for the refined candidate.
-- [ ] Run `npm run check` for the refined candidate.
-- [ ] Run desktop and narrow-mobile browser verification for the refined candidate.
+- [x] Strictly validate the updated OpenSpec before changing production code for the browser-session refinement.
+- [x] Add one fresh logged-out Browser Run session recovery after exact `SHARED_CHAT_UNREADABLE` only.
+- [x] Navigate to the canonical public Share first, then fetch same-origin `backend-anon/share/<id>` with only fresh-session anonymous state.
+- [x] Close the browser on every path and keep bounded navigation/request timeouts.
+- [x] Add deterministic orchestration regressions for session eligibility, success, miss, no-user-cookie boundary and no-launch-after-existing-success.
+- [x] Run targeted shared-chat verification for the refined candidate through the deterministic repository gate.
+- [x] Run `npm run check` for the refined candidate.
+- [x] Run desktop and narrow-mobile browser verification for the refined candidate.
 - [ ] Run canonical `npm run verify:full` once on the final refined candidate.
-- [ ] Verify refined Cloudflare preview deployment.
+- [x] Verify refined Cloudflare preview deployment.
 - [ ] Verify the exact public reproduction resolves through refined preview and reaches normal Card review.
-- [ ] Reconcile tasks/PR status and mark ready only with real acceptance evidence.
+- [ ] Reconcile final PR status and mark ready only with real acceptance evidence.
