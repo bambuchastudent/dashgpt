@@ -12,6 +12,11 @@ function requestSignal(input, init) {
   return init?.signal || (input instanceof Request ? input.signal : null);
 }
 
+function interactiveSaveChatOpen() {
+  const dialog = document.querySelector("#saveChatDialog");
+  return Boolean(dialog?.open);
+}
+
 function announceRetry(attempt, maxAttempts) {
   const status = document.querySelector("#saveChatLinkStatus");
   if (!status) return;
@@ -61,7 +66,11 @@ export function installSharedChatRetry() {
   const previousFetch = globalThis.fetch.bind(globalThis);
   globalThis.fetch = async (input, init) => {
     const url = new URL(input instanceof Request ? input.url : String(input), window.location.href);
-    if (url.origin === window.location.origin && url.pathname === SHARED_CHAT_PATH) {
+    if (
+      interactiveSaveChatOpen()
+      && url.origin === window.location.origin
+      && url.pathname === SHARED_CHAT_PATH
+    ) {
       return fetchSharedChatWithRetry(previousFetch, input, init);
     }
     return previousFetch(input, init);
