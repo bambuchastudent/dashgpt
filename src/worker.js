@@ -7,6 +7,7 @@ import {
   handleGitHubStatus,
   handleGitHubSync
 } from "./github-storage.js";
+import { tryAnonymousSharedChat } from "./shared-chat-anon.js";
 import { handleSharedChat } from "./shared-chat.js";
 
 const PRODUCT_RESULT_SHARDS = Object.freeze([
@@ -70,7 +71,11 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    if (url.pathname === "/api/shared-chat") return handleSharedChat(request, env);
+    if (url.pathname === "/api/shared-chat") {
+      const anonymousResponse = await tryAnonymousSharedChat(request, env);
+      if (anonymousResponse) return anonymousResponse;
+      return handleSharedChat(request, env);
+    }
     if (url.pathname === "/api/storage/google/config") return handleGoogleDriveConfig(request, env);
     if (url.pathname === "/api/storage/github/pair") return handleGitHubPairStart(request, env);
     if (url.pathname === "/api/storage/github/setup") return handleGitHubSetup(request, env);
