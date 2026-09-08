@@ -11,7 +11,7 @@
 - [x] Add deterministic regression verification and wire it into `npm run check`.
 - [x] Run targeted verification for the new smoke verifier (`Shared Chat live smoke upstream-flake classification checks passed.`).
 - [x] Preserve the F47 hosted-CI performance contract while rebasing F46 onto current `develop`.
-- [ ] Run final exact-head OpenSpec validation and hosted DashGPT checks on the rebased F46 head.
-- [ ] Run `npm run verify:full` once on the final F46 implementation head before merge.
+- [x] Run final exact-head OpenSpec validation and hosted DashGPT checks on the rebased F46 head.
+- [x] Run `npm run verify:full` once on the final F46 implementation head before merge.
 - [ ] Confirm final PR checks and merge #113 only after the rebased exact head is green.
 - [ ] Observe the merged `develop` Shared Chat live production smoke and confirm scheduled upstream-only degradation remains warning/green while strict triggers remain red on unresolved upstream failures.
