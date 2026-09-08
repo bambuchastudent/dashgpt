@@ -2,33 +2,63 @@
 
 ### Requirement: Anonymous public Share resolves current logged-out ChatGPT representation
 
-DashGPT MUST resolve a genuinely public ChatGPT Share using the current logged-out public representation when available, without requiring authentication and without relying on Browser Run to bypass bot protection.
+DashGPT MUST resolve a genuinely public ChatGPT Share using current logged-out public representations when available, without requiring user authentication and without using Browser Run as an access-control or anti-bot bypass.
 
-#### Scenario: Current anonymous Share JSON is available
+#### Scenario: Current anonymous Share JSON is directly available
 - **GIVEN** a visitor submits a validated public `https://chatgpt.com/share/<id>` URL
-- **WHEN** `https://chatgpt.com/backend-anon/share/<id>` returns a readable public conversation JSON payload
+- **WHEN** `https://chatgpt.com/backend-anon/share/<id>` directly returns a readable public conversation JSON payload
 - **THEN** DashGPT MUST project it into the existing shared-chat contract
 - **AND** MUST preserve canonical source URL and Share id
 - **AND** MUST return the visible user/assistant branch for review as a Card.
 
+#### Scenario: Public JSON requires fresh logged-out page context
+- **GIVEN** the direct anonymous JSON attempt and all existing compatibility resolver paths are unreadable
+- **AND** the existing endpoint result is exactly `SHARED_CHAT_UNREADABLE`
+- **AND** the submitted URL is an ordinary validated public `/share/<id>` URL
+- **AND** the Browser binding is available
+- **WHEN** DashGPT performs its final public recovery attempt
+- **THEN** it MAY launch one fresh logged-out browser session
+- **AND** MUST first navigate that session to the canonical public Share page
+- **AND** MUST request the corresponding same-origin `backend-anon/share/<id>` from that same session
+- **AND** any cookies/state sent by that request MUST have been created inside that fresh anonymous session rather than copied from the visitor.
+
+#### Scenario: Browser-context anonymous JSON succeeds
+- **WHEN** the fresh browser-session request returns readable public conversation JSON
+- **THEN** DashGPT MUST project it through the same existing public-share JSON contract
+- **AND** MUST identify the retrieval as a successful public recovery path
+- **AND** MUST close the browser session.
+
 #### Scenario: Anonymous JSON follows the displayed branch
-- **GIVEN** the JSON contains `mapping` and `current_node`
+- **GIVEN** public-share JSON contains `mapping` and `current_node`
 - **WHEN** DashGPT creates the shared-chat response
 - **THEN** it MUST follow `current_node` parent ancestry
 - **AND** MUST NOT combine unrelated regenerated sibling branches
 - **AND** MUST omit system, tool and visually hidden turns.
 
-#### Scenario: Anonymous JSON is blocked or malformed
-- **WHEN** the anonymous JSON path returns a challenge/HTML body, non-success HTTP response, malformed JSON or no readable turns
-- **THEN** DashGPT MUST continue through the existing resolver compatibility paths
+#### Scenario: Existing resolver succeeds before browser-session recovery
+- **WHEN** the direct anonymous preflight or any existing Reader/proxy/Browser/direct compatibility path returns a valid conversation
+- **THEN** DashGPT MUST return that result
+- **AND** MUST NOT launch the additional fresh browser-session recovery.
+
+#### Scenario: Browser recovery is blocked or malformed
+- **WHEN** fresh-session navigation or its anonymous JSON request returns a challenge, non-success response, malformed JSON, no readable turns or another public retrieval failure
+- **THEN** DashGPT MUST close the session
+- **AND** MUST return the original existing human unreadable state
 - **AND** MUST NOT expose internal route/provider/status/parser details to the visitor.
 
-#### Scenario: No authenticated bypass
+#### Scenario: No authenticated bypass or user-session replay
 - **WHEN** public Share retrieval fails
-- **THEN** DashGPT MUST NOT request or reuse ChatGPT login cookies, session tokens, passwords or account credentials
+- **THEN** DashGPT MUST NOT request, import, copy, persist or replay ChatGPT login cookies, authorization/session tokens, passwords, account identifiers or project credentials from the visitor
+- **AND** MUST NOT solve CAPTCHA/Turnstile or join restricted projects
 - **AND** MUST retain the existing human recovery state after all public paths are exhausted.
+
+#### Scenario: Bounded browser usage
+- **WHEN** the final public recovery path is eligible
+- **THEN** DashGPT MUST make at most one fresh browser-session recovery attempt per `/api/shared-chat` invocation
+- **AND** MUST use bounded navigation/request timeouts
+- **AND** MUST close the browser on success or failure.
 
 #### Scenario: Real public acceptance
 - **WHEN** F51 is considered merge-ready
-- **THEN** the production preview MUST successfully resolve the public reproduction known to open in an incognito/logged-out browser
-- **AND** deterministic and browser regression gates MUST remain green.
+- **THEN** the production preview MUST successfully resolve the exact public reproduction known to open in an incognito/logged-out browser
+- **AND** deterministic, desktop, mobile and canonical full regression gates MUST remain green.
