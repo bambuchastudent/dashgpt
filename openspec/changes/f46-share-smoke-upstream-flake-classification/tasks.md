@@ -10,5 +10,8 @@
 - [x] Reset per-attempt response state and bound retry timing within the job timeout.
 - [x] Add deterministic regression verification and wire it into `npm run check`.
 - [x] Run targeted verification for the new smoke verifier (`Shared Chat live smoke upstream-flake classification checks passed.`).
-- [x] Run `npm run verify:full` once before merge while applicable. The F46 verifier passes. The canonical run then stops on the existing `scripts/verify-ui-contract.mjs:16` `semanticHue(result)` assertion; an isolated hosted run from untouched `develop` reproduced the exact same failure, confirming it is a baseline blocker unrelated to F46.
-- [ ] Confirm final PR checks before merge. The workflow diff has been inspected and temporary hosted validation completed, but the repository's normal self-hosted OpenSpec/full-check jobs for #113 remain queued; do not merge while those required checks are unresolved.
+- [x] Preserve the F47 hosted-CI performance contract while rebasing F46 onto current `develop`.
+- [ ] Run final exact-head OpenSpec validation and hosted DashGPT checks on the rebased F46 head.
+- [ ] Run `npm run verify:full` once on the final F46 implementation head before merge.
+- [ ] Confirm final PR checks and merge #113 only after the rebased exact head is green.
+- [ ] Observe the merged `develop` Shared Chat live production smoke and confirm scheduled upstream-only degradation remains warning/green while strict triggers remain red on unresolved upstream failures.
