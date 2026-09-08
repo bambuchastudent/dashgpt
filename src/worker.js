@@ -7,6 +7,15 @@ import {
   handleGitHubStatus,
   handleGitHubSync
 } from "./github-storage.js";
+import {
+  tryAnonymousSharedChat,
+  tryBrowserSessionSharedChat
+} from "./shared-chat-anon.js";
+import {
+  attachDiagnostics,
+  diagnosticsRequested,
+  legacyDiagnosticReplay
+} from "./shared-chat-diagnostics.js";
 import { handleSharedChat } from "./shared-chat.js";
 
 const PRODUCT_RESULT_SHARDS = Object.freeze([
@@ -66,11 +75,38 @@ function withUnifiedResultAssets(env) {
   return { ...env, ASSETS: unifiedAssets };
 }
 
+async function isSharedChatUnreadable(response) {
+  if (response.status !== 502) return false;
+  try {
+    const payload = await response.clone().json();
+    return payload?.code === "SHARED_CHAT_UNREADABLE";
+  } catch {
+    return false;
+  }
+}
+
+async function handleSharedChatWithAnonymousRecovery(request, env) {
+  const trace = diagnosticsRequested(request) ? [] : null;
+
+  const anonymousResponse = await tryAnonymousSharedChat(request, env, trace);
+  if (anonymousResponse) return anonymousResponse;
+
+  const existingResponse = await handleSharedChat(request, env);
+  if (!(await isSharedChatUnreadable(existingResponse))) return existingResponse;
+
+  const browserSessionResponse = await tryBrowserSessionSharedChat(request, env, trace);
+  if (browserSessionResponse) return browserSessionResponse;
+  if (!trace) return existingResponse;
+
+  trace.push(...await legacyDiagnosticReplay(request, env));
+  return attachDiagnostics(existingResponse, request, trace);
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    if (url.pathname === "/api/shared-chat") return handleSharedChat(request, env);
+    if (url.pathname === "/api/shared-chat") return handleSharedChatWithAnonymousRecovery(request, env);
     if (url.pathname === "/api/storage/google/config") return handleGoogleDriveConfig(request, env);
     if (url.pathname === "/api/storage/github/pair") return handleGitHubPairStart(request, env);
     if (url.pathname === "/api/storage/github/setup") return handleGitHubSetup(request, env);

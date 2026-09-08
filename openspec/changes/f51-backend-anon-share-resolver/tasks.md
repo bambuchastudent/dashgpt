@@ -1,0 +1,43 @@
+# Tasks — F51 anonymous Share JSON resolver refresh
+
+- [x] Reproduce the product failure with a genuinely public Share that opens logged-out/incognito.
+- [x] Inspect current product/development/OpenSpec guidance and F11/F12/F15/F16/F17/F46/F48/F49 overlap.
+- [x] Identify current logged-out `backend-anon/share/<id>` evidence and Browser Run bot-identification constraints.
+- [x] Strictly validate the initial `f51-backend-anon-share-resolver` change before production code changes.
+- [x] Add validated direct `backend-anon/share/<id>` URL derivation and anonymous JSON fetch.
+- [x] Prefer direct anonymous JSON before existing resolver/provider fallbacks.
+- [x] Reuse existing current-node/visibility projection without changing endpoint/Card contracts.
+- [x] Add deterministic regressions for initial direct-anon success, ordering and failure fallthrough.
+- [x] Run targeted shared-chat verification through the deterministic repository gate.
+- [x] Run `npm run check` in GitHub Actions for the initial candidate.
+- [x] Run desktop and narrow-mobile browser verification in GitHub Actions for the initial candidate.
+- [x] Run canonical `npm run verify:full` for the initial candidate.
+- [x] Verify Cloudflare preview deployment for the initial candidate.
+- [x] Run the exact public reproduction against that preview and record that direct F51 still fails acceptance.
+- [x] Update proposal/spec/design/Impact Manifest before widening F51 to a fresh anonymous browser-session recovery path.
+- [x] Strictly validate the updated OpenSpec before changing production code for the browser-session refinement.
+- [x] Add one fresh logged-out Browser Run session recovery after exact `SHARED_CHAT_UNREADABLE` only.
+- [x] Navigate to the canonical public Share first, then fetch same-origin `backend-anon/share/<id>` with only fresh-session anonymous state.
+- [x] Close the browser on every path and keep bounded navigation/request timeouts.
+- [x] Add deterministic orchestration regressions for session eligibility, success, miss, no-user-cookie boundary and no-launch-after-existing-success.
+- [x] Run targeted shared-chat verification for the refined candidate through the deterministic repository gate.
+- [x] Run `npm run check` for the refined candidate.
+- [x] Run desktop and narrow-mobile browser verification for the refined candidate.
+- [ ] Run canonical `npm run verify:full` once on the final refined candidate.
+- [x] Verify refined Cloudflare preview deployment.
+- [x] Verify the exact public reproduction still fails through refined preview and record that acceptance miss.
+- [x] Update proposal/spec/design/Impact Manifest before adding explicit sanitized diagnostics.
+- [ ] Strictly validate the diagnostic OpenSpec refinement before diagnostic production code.
+- [ ] Add explicit `/api/shared-chat?...&diagnostics=1` failure-only sanitized trace mode.
+- [ ] Record direct-anon safe HTTP/parse outcomes without raw bodies.
+- [ ] Record browser binding/session launch/navigation/backend request outcomes without cookies or user browser state.
+- [ ] Add support-only legacy resolver replay that reduces existing error causes to safe stage/kind/status entries.
+- [ ] Add deterministic diagnostic regressions proving normal responses remain human and diagnostic responses contain no raw content/secrets.
+- [ ] Run targeted shared-chat verification for the diagnostic candidate.
+- [ ] Run `npm run check` for the diagnostic candidate.
+- [ ] Run desktop and narrow-mobile browser verification for the diagnostic candidate.
+- [ ] Run canonical `npm run verify:full` once on the final diagnostic candidate.
+- [ ] Verify diagnostic Cloudflare preview deployment.
+- [ ] Open the exact mobile diagnostic URL, copy the trace, and use it to identify the next retrieval defect.
+- [ ] Verify the exact public reproduction resolves through preview and reaches normal Card review.
+- [ ] Reconcile final PR status and mark ready only with real acceptance evidence.
