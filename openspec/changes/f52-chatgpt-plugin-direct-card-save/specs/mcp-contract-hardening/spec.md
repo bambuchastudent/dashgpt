@@ -36,6 +36,30 @@ The direct-save tool SHALL require a DashGPT OAuth grant scoped to private Card 
 - **THEN** DashGPT SHALL reject the write
 - **AND** SHALL return a reauthorization challenge rather than mutating the Vault
 
+### Requirement: OAuth authorization codes are single-use
+The authorization-code flow SHALL use PKCE S256 and SHALL ensure each authorization code can be redeemed at most once.
+
+#### Scenario: Valid authorization code is redeemed
+- **GIVEN** a pending OAuth transaction completed Google authorization successfully
+- **WHEN** the client exchanges its authorization code with the matching PKCE verifier, client identity, redirect URI and resource
+- **THEN** DashGPT SHALL atomically consume the authorization code
+- **AND** SHALL issue one short-lived Card-write bearer grant
+
+#### Scenario: Authorization code is replayed
+- **GIVEN** an authorization code has already been redeemed
+- **WHEN** the same or another caller attempts to redeem it again
+- **THEN** DashGPT SHALL reject the exchange as an invalid grant
+- **AND** SHALL NOT issue another bearer grant
+
+### Requirement: OAuth state remains ephemeral infrastructure
+Pending authorization requests and one-time authorization codes MAY be stored in ephemeral server-side authorization state, but that state SHALL NOT contain or become canonical user memory.
+
+#### Scenario: OAuth state is stored
+- **WHEN** DashGPT stores a pending authorization transaction or one-time authorization code
+- **THEN** the record SHALL be bounded by a short expiry
+- **AND** SHALL contain only authorization transaction/provider data needed to complete the OAuth exchange
+- **AND** SHALL NOT contain conversation text, Card payloads, Vault JSON, Dash definitions or Search state
+
 ### Requirement: Google Drive is the first direct-write Vault provider
 The first `upsert_card` persistence implementation SHALL write to the user's Google Drive-backed DashGPT Vault using the existing `drive.file` access boundary and existing DashGPT folder/file conventions.
 
