@@ -4,44 +4,124 @@
 
 The existing public MCP surface is primarily read-only and includes `prepare_result_import`, which builds a payload plus explicit browser import URL. A production Share failure trace demonstrated that anonymous server-side retrieval can be blocked upstream even when the same Share opens in a normal mobile browser. The reliable boundary is therefore the current AI client context, not a secondary fetch of `chatgpt.com`.
 
-## Proposed flow
+Repository inspection after the initial F52 proposal found two important existing boundaries:
 
-1. User explicitly asks ChatGPT to save the useful outcome to DashGPT.
-2. ChatGPT/plugin distills the current conversation into the existing canonical Card-shaped fields: title/goal, concise summary, facts/context, decisions, constraints, current state, unresolved questions, next actions, references/provenance when available.
-3. ChatGPT calls a write-capable DashGPT MCP tool (`upsert_card` is the target name unless repository conventions require a more compatible name).
-4. DashGPT validates and normalizes the payload, rejects secrets/invalid source material where existing policies require it, and routes it to the same canonical Card/Vault persistence semantics used by the web save flow.
-5. Existing identity/provenance keys are used to update rather than duplicate when a stable source URL/card id is supplied and matches existing rules.
-6. Tool response states whether a Card was created, updated, or not persisted, plus stable card identity/location information that is safe to return.
+- the production MCP is anonymous/read-oriented;
+- the ordinary account-scoped Vault is local-first with optional Google Drive `drive.file` sync, and its Google access token currently lives only in browser memory.
 
-## Storage boundary
+OpenAI's current plugin authentication contract requires customer-specific/write actions to authenticate users and requires tool `securitySchemes`, protected-resource metadata, and runtime `mcp/www_authenticate` challenges. F52 therefore cannot safely add a public unauthenticated write tool.
 
-The tool must not invent a parallel cloud memory store. It must use an existing DashGPT persistence boundary or an explicitly user-selected compatible DashGPT instance. If authenticated private-Vault write support is not yet available in the current server architecture, implementation must stop at the narrowest truthful explicit persistence boundary and update this OpenSpec before widening scope.
+## Chosen architecture
 
-## Authentication
+F52 uses **OAuth as a narrow authorization bridge to the existing Google Drive-backed Vault**. It does not create a DashGPT-hosted Card database.
 
-Direct private writes are externally consequential. The implementation must not reuse the current public no-auth read surface for arbitrary private writes. Before production code is finalized, inspect existing account/Vault and MCP auth conventions and choose the smallest approved mechanism that binds a write to the user's own DashGPT storage. No ChatGPT session cookies or OpenAI credentials may be accepted as DashGPT auth.
+```text
+current ChatGPT conversation
+  -> user: "dashgpt добавь карточку"
+  -> model distills canonical Card fields
+  -> upsert_card
+     -> no/expired grant: MCP OAuth link challenge
+     -> DashGPT authorization page: Continue with Google
+     -> existing Google Drive drive.file consent
+     -> short-lived DashGPT bearer grant scoped to cards:write
+  -> MCP verifies grant scope/audience/expiry
+  -> discover/create DashGPT/dashgpt-vault.json in user's Drive
+  -> load Vault v1
+  -> canonical Card upsert
+  -> write Vault back to the same Drive file
+  -> created/updated response
+```
 
-## Tool metadata
+The OAuth bridge carries only authorization needed for the write. Conversation/Card content is never persisted by the authorization layer itself.
 
-The direct-save tool is not read-only. MCP annotations/submission metadata must declare the write semantics accurately. It is non-destructive in normal operation but modifies external/user state. Tool descriptions must require explicit user intent and must not imply background capture.
+## OAuth/MCP surface
+
+The Worker adds the standards-facing endpoints needed by the MCP authorization flow:
+
+- `/.well-known/oauth-protected-resource`
+- `/.well-known/oauth-authorization-server`
+- `/oauth/authorize`
+- `/oauth/authorize/complete`
+- `/oauth/token`
+
+The `upsert_card` tool advertises `securitySchemes: [{ type: "oauth2", scopes: ["cards:write"] }]`. Anonymous or stale calls return an MCP error result with `_meta["mcp/www_authenticate"]` pointing to protected-resource metadata.
+
+The first implementation uses a bounded authorization-code + PKCE flow and short-lived self-contained DashGPT grants protected by deployment secret material. The grant records issuer/resource, scope, expiry, and the provider authorization needed for the bounded Drive operation. Provider authorization is never written to Vault content, logs, Card fields, URLs, tool output, or submission fixtures.
+
+Because provider grants are short-lived, expiry triggers normal MCP reauthorization. Long-lived refresh-token custody is deliberately deferred rather than introducing a hosted account credential store in this change.
+
+## Google authorization page
+
+`/oauth/authorize` renders a minimal first-party DashGPT page explaining the requested action and showing one human action: **Continue with Google**. It uses the same public Google OAuth client configuration and the same `https://www.googleapis.com/auth/drive.file` scope as the existing browser account flow.
+
+The Google access grant is returned to the first-party authorization page, posted directly to `/oauth/authorize/complete`, wrapped into the bounded DashGPT OAuth code, and never exposed to ChatGPT tool arguments or canonical data.
+
+If Google OAuth is not configured on the deployment, the authorization page fails as a human product state and `upsert_card` remains not-persisted; the anonymous/read-only MCP tools continue working.
+
+## Card persistence/upsert
+
+The server reuses Vault v1 and the existing Google Drive folder/file conventions. For an authorized `upsert_card` call:
+
+1. discover or create the DashGPT folder;
+2. discover `dashgpt-vault.json`;
+3. if absent, create a new Vault v1 and add the Card;
+4. if present, download/validate the Vault;
+5. derive canonical source identity:
+   - canonical ChatGPT Share URL when supplied;
+   - otherwise an optional caller-supplied stable card identity;
+   - otherwise create a new Card id;
+6. when the existing source/card identity matches, reuse the Card id and increment `contentVersion`;
+7. write the updated Vault using existing Google Drive helpers;
+8. return `created` or `updated`, stable Card id, contentVersion and safe provider-independent state.
+
+No source URL is fetched from ChatGPT during this process.
+
+## Canonical Card input
+
+`upsert_card` accepts the durable current-chat fields already used by DashGPT capture/continuation: title, goal, summary, current state, category, tags, decisions, facts, constraints, user preferences, open questions, next/suggested next step, useful references/links, language and optional source metadata. Inputs stay bounded and schema-validated.
+
+The model/skill is responsible for distilling the current conversation. The tool must not accept raw ChatGPT session material as authorization and should not require the entire raw transcript.
+
+## Write semantics and annotations
+
+`upsert_card` is mutating and therefore:
+
+- `readOnlyHint: false`;
+- `destructiveHint: false` because normal upsert preserves the canonical Card history semantics and does not delete external state;
+- `openWorldHint: false` because it writes only private user-controlled DashGPT storage, not public internet state;
+- `idempotentHint: true` only where stable source/card identity makes retry behavior safely converge; implementation/tests must match the final annotation chosen.
+
+The current `prepare_result_import` remains available as a read-only portable fallback.
+
+## Security boundaries
+
+- validate OAuth issuer/resource/scope/expiry on every direct-write tool call;
+- use PKCE S256 for authorization code exchange;
+- do not accept ChatGPT account authentication state as DashGPT authorization;
+- do not put provider authorization in tool input/output, query parameters, canonical Card/Vault content, browser local storage, logs, or fixtures;
+- reject unsupported redirect/resource/scope combinations;
+- keep OAuth code/grant lifetimes bounded;
+- preserve existing Drive `drive.file` scope rather than broadening Drive access;
+- no hosted Card database or mandatory registration.
 
 ## Mobile/product surfaces
 
-Custom MCP developer-mode apps are currently web-only in ChatGPT. Installing/configuring one in a phone browser does not make custom MCP invocation available in the native mobile app. A published plugin can be discoverable on mobile, but availability of its app-backed capability is still subject to supported-surface restrictions. Therefore this PR must not promise native-mobile direct save until verified on the published plugin surface.
-
-The implementation should nevertheless make the plugin/submission package ready for the supported distribution path, because publication through the Plugin Directory is the route most likely to remove manual MCP setup for ordinary users.
+Custom developer-mode MCP remains a web-only setup surface unless OpenAI documents otherwise. F52 prepares the **published plugin** path because Plugin Directory distribution is the route intended to remove manual MCP setup for ordinary/mobile users. We do not claim native-mobile direct save until the published build is installed and tested on a supported mobile client.
 
 ## Share fallback
 
-Share-link capture remains best-effort and separate. A Share URL supplied by the user may be attached as provenance without server-side re-fetch. F50 remains responsible for the current web recovery UX; F52 must not absorb unrelated Share resolver work.
+Share-link capture remains best-effort and separate. A Share URL supplied by the current conversation may be attached as provenance without server-side re-fetch. F50 remains responsible for current web recovery UX.
 
 ## Verification
 
-- strict OpenSpec validation before production code;
-- MCP contract tests for input/output schema and annotations;
-- persistence/upsert regression tests against existing Card/Vault semantics;
-- no-secret/no-cookie boundary tests;
+- strict OpenSpec validation before this scoped production implementation;
+- OAuth discovery, PKCE, audience/scope/expiry and auth-challenge regressions;
+- Google Drive persistence/upsert regression against Vault v1 and existing provider layout;
+- Card identity/provenance/update regression;
+- no provider authorization leakage regression;
+- MCP descriptor/securitySchemes/output schema verification;
 - submission JSON + bundled skill consistency checks;
-- targeted `npm run check` and relevant tests during implementation;
-- final `npm run verify:full` once before ready-for-review;
-- production preview of any changed public setup UX; native mobile capability must only be claimed if explicitly verified.
+- targeted `npm run check` during implementation;
+- final `npm run verify:full` once on final candidate;
+- deployed preview of auth product states where configuration permits;
+- native mobile capability claimed only after explicit published-plugin verification.
