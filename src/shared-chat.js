@@ -5,6 +5,7 @@ const VISIBLE_MESSAGE_SELECTOR = "[data-message-author-role]";
 const UNREADABLE_SHARE_MESSAGE = "Unable to read this public ChatGPT conversation. Try again or use DashGPT from inside the original chat.";
 const JINA_READER_PREFIX = "https://r.jina.ai/";
 const ALL_ORIGINS_PREFIX = "https://api.allorigins.win/raw?url=";
+const REACT_ROUTER_ENQUEUE = /window\.__reactRouterContext\.streamController\.enqueue\(\s*"((?:[^"\\]|\\.)*)"\s*\)/g;
 
 function json(data, init = {}) {
   const headers = new Headers(init.headers || {});
@@ -267,6 +268,26 @@ function fallbackTreePath(mapping) {
   return best;
 }
 
+function visibleMessageReply(message) {
+  const role = message?.author?.role;
+  if (!message || !["user", "assistant"].includes(role)) return null;
+  if (message?.metadata?.is_visually_hidden_from_conversation === true) return null;
+  if (message?.metadata?.is_visually_hidden_from_conversation === "true") return null;
+
+  const statement = messageStatement(message);
+  if (!statement) return null;
+  const createTime = Number(message.create_time);
+  return makeReply(role, statement, Number.isFinite(createTime) && createTime > 0 ? new Date(createTime * 1000).toISOString() : null);
+}
+
+function appendVisibleReply(replies, message) {
+  const reply = visibleMessageReply(message);
+  if (!reply) return;
+  const previous = replies.at(-1);
+  if (previous?.type === reply.type && previous.statement === reply.statement) return;
+  replies.push(reply);
+}
+
 function visibleBackendReplies(payload) {
   const mapping = payload?.mapping && typeof payload.mapping === "object" ? payload.mapping : {};
   let path = payload?.current_node && mapping[payload.current_node]
@@ -275,22 +296,146 @@ function visibleBackendReplies(payload) {
   if (!path.length) path = fallbackTreePath(mapping);
 
   const replies = [];
-  for (const id of path) {
-    const node = mapping[id];
-    const message = node?.message;
-    const role = message?.author?.role;
-    if (!message || !["user", "assistant"].includes(role)) continue;
-    if (message?.metadata?.is_visually_hidden_from_conversation === true) continue;
-    if (message?.metadata?.is_visually_hidden_from_conversation === "true") continue;
+  for (const id of path) appendVisibleReply(replies, mapping[id]?.message);
+  return replies;
+}
 
-    const statement = messageStatement(message);
-    if (!statement) continue;
-    const previous = replies.at(-1);
-    if (previous?.type === role && previous.statement === statement) continue;
-    const createTime = Number(message.create_time);
-    replies.push(makeReply(role, statement, Number.isFinite(createTime) && createTime > 0 ? new Date(createTime * 1000).toISOString() : null));
+function linearConversationMessage(item) {
+  if (!item || typeof item !== "object") return null;
+  if (Object.prototype.hasOwnProperty.call(item, "message")) return item.message || null;
+  return item;
+}
+
+function visibleLinearReplies(payload) {
+  const replies = [];
+  for (const item of Array.isArray(payload?.linear_conversation) ? payload.linear_conversation : []) {
+    appendVisibleReply(replies, linearConversationMessage(item));
   }
   return replies;
+}
+
+function visibleConversationReplies(payload) {
+  if (Array.isArray(payload?.linear_conversation) && payload.linear_conversation.length) {
+    const replies = visibleLinearReplies(payload);
+    if (replies.length) return replies;
+  }
+  return visibleBackendReplies(payload);
+}
+
+function conversationChat(payload, sourceUrl) {
+  const replies = visibleConversationReplies(payload);
+  if (!replies.length) throw new Error("Public share payload contained no readable conversation turns.");
+
+  const shareId = payload?.conversation_id || shareIdFromUrl(sourceUrl);
+  return {
+    shareId,
+    aiModel: cleanVisibleText(payload?.default_model_slug || payload?.model?.slug || "unknown") || "unknown",
+    title: usefulTitle(payload?.title) || fallbackTitle(replies),
+    updatedAt: null,
+    replies
+  };
+}
+
+function hasConversationShape(value) {
+  return Boolean(
+    value
+    && typeof value === "object"
+    && (
+      (value.mapping && typeof value.mapping === "object" && !Array.isArray(value.mapping))
+      || Array.isArray(value.linear_conversation)
+    )
+  );
+}
+
+function findReadableConversationPayload(root) {
+  const stack = [root];
+  const seen = new WeakSet();
+  while (stack.length) {
+    const value = stack.pop();
+    if (!value || typeof value !== "object") continue;
+    if (seen.has(value)) continue;
+    seen.add(value);
+
+    if (hasConversationShape(value) && visibleConversationReplies(value).length) return value;
+    for (const child of Object.values(value)) {
+      if (child && typeof child === "object") stack.push(child);
+    }
+  }
+  return null;
+}
+
+function resolveReactRouterGraph(slots) {
+  if (!Array.isArray(slots) || !slots.length) return null;
+  const cache = new Map();
+  const length = slots.length;
+
+  const resolveSlot = index => {
+    if (typeof index !== "number" || !Number.isFinite(index)) return index;
+    if (index < 0) return null;
+    if (!Number.isInteger(index) || index >= length) return index;
+    if (cache.has(index)) return cache.get(index);
+
+    const raw = slots[index];
+    if (raw === null || typeof raw === "string" || typeof raw === "boolean") {
+      cache.set(index, raw);
+      return raw;
+    }
+    if (typeof raw === "number") {
+      cache.set(index, raw);
+      return raw;
+    }
+    if (Array.isArray(raw)) {
+      const output = [];
+      cache.set(index, output);
+      for (const value of raw) output.push(resolveSlot(value));
+      return output;
+    }
+    if (raw && typeof raw === "object") {
+      const output = {};
+      cache.set(index, output);
+      for (const [encodedKey, value] of Object.entries(raw)) {
+        if (encodedKey.startsWith("_")) {
+          const keyIndex = Number(encodedKey.slice(1));
+          if (Number.isInteger(keyIndex) && keyIndex >= 0 && keyIndex < length) {
+            const resolvedKey = resolveSlot(keyIndex);
+            if (typeof resolvedKey === "string") output[resolvedKey] = resolveSlot(value);
+          }
+        } else {
+          output[encodedKey] = resolveSlot(value);
+        }
+      }
+      return output;
+    }
+
+    cache.set(index, raw);
+    return raw;
+  };
+
+  return resolveSlot(0);
+}
+
+export function parseReactRouterShareHtml(html, sourceUrl) {
+  const text = String(html || "");
+  REACT_ROUTER_ENQUEUE.lastIndex = 0;
+  let match;
+
+  while ((match = REACT_ROUTER_ENQUEUE.exec(text))) {
+    let slots;
+    try {
+      const jsonText = JSON.parse(`"${match[1]}"`);
+      slots = JSON.parse(jsonText);
+    } catch {
+      continue;
+    }
+    if (!Array.isArray(slots)) continue;
+
+    const root = resolveReactRouterGraph(slots);
+    const payload = findReadableConversationPayload(root);
+    if (!payload) continue;
+    return conversationChat(payload, sourceUrl);
+  }
+
+  throw new Error("React Router Share payload contained no readable conversation turns.");
 }
 
 export function parseBackendShareJsonText(raw, sourceUrl) {
@@ -301,17 +446,7 @@ export function parseBackendShareJsonText(raw, sourceUrl) {
     throw new Error(`Public share JSON was unreadable: ${error instanceof Error ? error.message : "invalid JSON"}`);
   }
 
-  const replies = visibleBackendReplies(payload);
-  if (!replies.length) throw new Error("Public share JSON contained no readable conversation turns.");
-
-  const shareId = payload?.conversation_id || shareIdFromUrl(sourceUrl);
-  return {
-    shareId,
-    aiModel: cleanVisibleText(payload?.default_model_slug || payload?.model?.slug || "unknown") || "unknown",
-    title: usefulTitle(payload?.title) || fallbackTitle(replies),
-    updatedAt: null,
-    replies
-  };
+  return conversationChat(payload, sourceUrl);
 }
 
 export function parseReaderShareText(raw, sourceUrl) {
@@ -437,12 +572,23 @@ async function browserVisibleChat(sourceUrl, env) {
   return parseRenderedShareScrape(await response.json(), sourceUrl);
 }
 
-function parseReadableChat(html) {
-  const chat = parseChatGptShareHtml(html);
-  if (!chat?.title && !chat?.replies?.length) {
-    throw new Error("Shared ChatGPT page did not contain a readable conversation.");
+function parseReadableChat(html, sourceUrl) {
+  let legacyError;
+  try {
+    const chat = parseChatGptShareHtml(html);
+    if (chat?.title || chat?.replies?.length) return chat;
+    legacyError = new Error("Legacy Share parser returned no readable conversation.");
+  } catch (error) {
+    legacyError = error;
   }
-  return chat;
+
+  try {
+    return parseReactRouterShareHtml(html, sourceUrl);
+  } catch (reactRouterError) {
+    const error = new Error("Shared ChatGPT page did not contain a readable conversation.");
+    error.cause = { legacyError, reactRouterError };
+    throw error;
+  }
 }
 
 function unreadableShareError(details) {
@@ -476,7 +622,7 @@ export async function readSharedChat(sourceUrl, env = {}) {
   let proxyError;
   try {
     return {
-      chat: parseReadableChat(await allOriginsHtml(sourceUrl, env)),
+      chat: parseReadableChat(await allOriginsHtml(sourceUrl, env), sourceUrl),
       retrieval: "raw-proxy"
     };
   } catch (error) {
@@ -498,7 +644,7 @@ export async function readSharedChat(sourceUrl, env = {}) {
   let directError;
   try {
     return {
-      chat: parseReadableChat(await directHtml(sourceUrl, env)),
+      chat: parseReadableChat(await directHtml(sourceUrl, env), sourceUrl),
       retrieval: "direct"
     };
   } catch (error) {
@@ -509,7 +655,7 @@ export async function readSharedChat(sourceUrl, env = {}) {
   if (hasBrowserBinding(env)) {
     try {
       return {
-        chat: parseReadableChat(await browserHtml(sourceUrl, env)),
+        chat: parseReadableChat(await browserHtml(sourceUrl, env), sourceUrl),
         retrieval: "browser-payload"
       };
     } catch (error) {
