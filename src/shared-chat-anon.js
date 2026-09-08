@@ -14,6 +14,36 @@ function json(data) {
   });
 }
 
+function safeStatus(value) {
+  const status = Number(value);
+  return Number.isInteger(status) && status >= 0 && status <= 599 ? status : undefined;
+}
+
+function safeKindFromError(error, fallback = "error") {
+  const text = `${error?.name || ""} ${error?.message || ""}`.toLowerCase();
+  if (/timeout|timed out|abort/.test(text)) return "timeout";
+  if (/challenge|just a moment|captcha|turnstile/.test(text)) return "challenge";
+  if (/json|parse|readable|recognizable|conversation turns|no content|did not contain/.test(text)) return "parse";
+  if (safeStatus(error?.status) !== undefined) return "http";
+  return fallback;
+}
+
+function safeKindFromBody(raw, contentType = "") {
+  const prefix = String(raw || "").slice(0, 600).toLowerCase();
+  if (/just a moment|cf-chl|turnstile|captcha|challenge/.test(prefix)) return "challenge";
+  if (/text\/html/i.test(contentType) || /^\s*</.test(prefix)) return "html";
+  return "parse";
+}
+
+function traceStep(trace, stage, values = {}) {
+  if (!Array.isArray(trace)) return;
+  const step = { phase: "live", stage, outcome: values.outcome || "miss" };
+  if (values.kind) step.kind = values.kind;
+  const status = safeStatus(values.status);
+  if (status !== undefined) step.status = status;
+  trace.push(step);
+}
+
 function shareIdFromUrl(sourceUrl) {
   return sourceUrl.pathname.split("/").filter(Boolean).at(-1) || "";
 }
@@ -67,43 +97,84 @@ function chatResponse(raw, sourceUrl, retrieval) {
   });
 }
 
-async function injectedBrowserSessionText(env, sourceUrl, backendUrl) {
+async function injectedBrowserSessionText(env, sourceUrl, backendUrl, trace) {
   if (typeof env?.DASHGPT_ANON_BROWSER_FETCH !== "function") return undefined;
 
-  const result = await env.DASHGPT_ANON_BROWSER_FETCH({
-    sourceUrl: sourceUrl.toString(),
-    backendUrl: backendUrl.toString()
-  });
-  if (result == null) return null;
+  let result;
+  try {
+    result = await env.DASHGPT_ANON_BROWSER_FETCH({
+      sourceUrl: sourceUrl.toString(),
+      backendUrl: backendUrl.toString()
+    });
+  } catch (error) {
+    traceStep(trace, "browser-backend", { outcome: "error", kind: safeKindFromError(error) });
+    return null;
+  }
+
+  if (result == null) {
+    traceStep(trace, "browser-backend", { outcome: "miss", kind: "empty" });
+    return null;
+  }
   if (result instanceof Response) {
+    traceStep(trace, "browser-backend", {
+      outcome: result.ok ? "response" : "miss",
+      kind: result.ok ? undefined : "http",
+      status: result.status
+    });
     if (!result.ok) return null;
     return result.text();
   }
-  if (typeof result === "string") return result;
-  if (typeof result !== "object") return null;
+  if (typeof result === "string") {
+    traceStep(trace, "browser-backend", { outcome: "response" });
+    return result;
+  }
+  if (typeof result !== "object") {
+    traceStep(trace, "browser-backend", { outcome: "miss", kind: "empty" });
+    return null;
+  }
 
   const status = Number(result.status ?? 200);
+  traceStep(trace, "browser-backend", {
+    outcome: status >= 200 && status < 300 ? "response" : "miss",
+    kind: status >= 200 && status < 300 ? undefined : "http",
+    status
+  });
   if (!Number.isFinite(status) || status < 200 || status >= 300) return null;
   if (typeof result.text === "string") return result.text;
   if (result.body != null) return typeof result.body === "string" ? result.body : JSON.stringify(result.body);
   return JSON.stringify(result);
 }
 
-async function browserSessionText(env, sourceUrl, backendUrl) {
-  const injected = await injectedBrowserSessionText(env, sourceUrl, backendUrl);
+async function browserSessionText(env, sourceUrl, backendUrl, trace) {
+  const injected = await injectedBrowserSessionText(env, sourceUrl, backendUrl, trace);
   if (injected !== undefined) return injected;
-  if (!env?.BROWSER) return null;
+  if (!env?.BROWSER) {
+    traceStep(trace, "browser-binding", { outcome: "miss", kind: "missing-binding" });
+    return null;
+  }
+  traceStep(trace, "browser-binding", { outcome: "available" });
 
   let browser;
   try {
     const { default: puppeteer } = await import("@cloudflare/puppeteer");
     browser = await puppeteer.launch(env.BROWSER);
+    traceStep(trace, "browser-launch", { outcome: "ok" });
     const page = await browser.newPage();
 
-    await page.goto(sourceUrl.toString(), {
-      waitUntil: "domcontentloaded",
-      timeout: BROWSER_NAVIGATION_TIMEOUT_MS
-    });
+    let navigationResponse;
+    try {
+      navigationResponse = await page.goto(sourceUrl.toString(), {
+        waitUntil: "domcontentloaded",
+        timeout: BROWSER_NAVIGATION_TIMEOUT_MS
+      });
+      traceStep(trace, "browser-navigation", {
+        outcome: "ok",
+        status: typeof navigationResponse?.status === "function" ? navigationResponse.status() : undefined
+      });
+    } catch (error) {
+      traceStep(trace, "browser-navigation", { outcome: "error", kind: safeKindFromError(error, "navigation") });
+      return null;
+    }
 
     // Give the public page a short bounded window to finish any anonymous
     // bootstrap that establishes logged-out state before the same-origin JSON request.
@@ -131,8 +202,12 @@ async function browserSessionText(env, sourceUrl, backendUrl) {
           status: response.status,
           text: await response.text()
         };
-      } catch {
-        return { status: 0, text: "" };
+      } catch (error) {
+        return {
+          status: 0,
+          kind: error?.name === "AbortError" ? "timeout" : "error",
+          text: ""
+        };
       } finally {
         clearTimeout(timeout);
       }
@@ -141,9 +216,16 @@ async function browserSessionText(env, sourceUrl, backendUrl) {
       timeoutMs: BROWSER_FETCH_TIMEOUT_MS
     });
 
+    traceStep(trace, "browser-backend", {
+      outcome: result?.status >= 200 && result?.status < 300 ? "response" : "miss",
+      kind: result?.status >= 200 && result?.status < 300 ? undefined : (result?.kind || "http"),
+      status: result?.status
+    });
     if (!result || result.status < 200 || result.status >= 300) return null;
     return result.text || null;
-  } catch {
+  } catch (error) {
+    if (!browser) traceStep(trace, "browser-launch", { outcome: "error", kind: safeKindFromError(error, "launch") });
+    else traceStep(trace, "browser-session", { outcome: "error", kind: safeKindFromError(error) });
     return null;
   } finally {
     if (browser) {
@@ -156,7 +238,7 @@ async function browserSessionText(env, sourceUrl, backendUrl) {
   }
 }
 
-export async function tryAnonymousSharedChat(request, env = {}) {
+export async function tryAnonymousSharedChat(request, env = {}, trace = null) {
   const context = ordinaryPublicShare(request);
   if (!context) return null;
 
@@ -166,23 +248,51 @@ export async function tryAnonymousSharedChat(request, env = {}) {
       headers: anonymousHeaders(),
       redirect: "follow"
     });
-    if (!response.ok) return null;
-    return chatResponse(await response.text(), context.sourceUrl, "chatgpt-anon");
-  } catch {
+    if (!response.ok) {
+      traceStep(trace, "anon-direct", { outcome: "miss", kind: "http", status: response.status });
+      return null;
+    }
+
+    const raw = await response.text();
+    try {
+      const result = chatResponse(raw, context.sourceUrl, "chatgpt-anon");
+      traceStep(trace, "anon-direct", { outcome: "ok", status: response.status });
+      return result;
+    } catch (error) {
+      traceStep(trace, "anon-direct", {
+        outcome: "miss",
+        kind: safeKindFromBody(raw, response.headers.get("content-type") || "") || safeKindFromError(error),
+        status: response.status
+      });
+      return null;
+    }
+  } catch (error) {
+    traceStep(trace, "anon-direct", { outcome: "error", kind: safeKindFromError(error) });
     return null;
   }
 }
 
-export async function tryBrowserSessionSharedChat(request, env = {}) {
+export async function tryBrowserSessionSharedChat(request, env = {}, trace = null) {
   const context = ordinaryPublicShare(request);
   if (!context) return null;
-  if (typeof env?.DASHGPT_ANON_BROWSER_FETCH !== "function" && !env?.BROWSER) return null;
+  if (typeof env?.DASHGPT_ANON_BROWSER_FETCH !== "function" && !env?.BROWSER) {
+    traceStep(trace, "browser-binding", { outcome: "miss", kind: "missing-binding" });
+    return null;
+  }
 
   try {
-    const raw = await browserSessionText(env, context.sourceUrl, context.backendUrl);
+    const raw = await browserSessionText(env, context.sourceUrl, context.backendUrl, trace);
     if (!raw) return null;
-    return chatResponse(raw, context.sourceUrl, "browser-anon-session");
-  } catch {
+    try {
+      const result = chatResponse(raw, context.sourceUrl, "browser-anon-session");
+      traceStep(trace, "browser-parse", { outcome: "ok" });
+      return result;
+    } catch (error) {
+      traceStep(trace, "browser-parse", { outcome: "miss", kind: safeKindFromBody(raw) || safeKindFromError(error) });
+      return null;
+    }
+  } catch (error) {
+    traceStep(trace, "browser-session", { outcome: "error", kind: safeKindFromError(error) });
     return null;
   }
 }
