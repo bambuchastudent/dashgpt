@@ -26,6 +26,7 @@
 - [x] Run exact-head hosted jobs and confirm healthy pull-request wall-clock is below 10 minutes with full coverage: run `34168588829` passed deterministic + desktop + mobile + aggregator; desktop completed 93 passed + 1 skipped in 1.7 minutes after setup.
 - [x] Update and strictly validate the opt-in hosted literal-canonical proof scope before workflow edits: OpenSpec run `34171486960` passed.
 - [x] Add the opt-in `[verify:full]` hosted lane plus deterministic regression coverage without adding duplicate work to normal PRs.
-- [ ] Run literal `npm run verify:full` once on the final F47 implementation head before merge.
-- [ ] Reconcile PR body/task evidence and merge #118 only after final checks are green.
+- [x] Run literal `npm run verify:full` on the final implementation content before merge: run `34171577351`, `canonical-full` **PASS**; the same head also passed deterministic, desktop, mobile and final `check`, with OpenSpec run `34171577359` **PASS**.
+- [x] Reconcile PR #118 body and task evidence after successful exact-head proof.
+- [ ] Merge #118 only after this final evidence head passes OpenSpec, fast shards and literal canonical proof.
 - [ ] Rebase/re-run PR #113 on the fixed `develop`, finish its final verification evidence, then handle #113 separately.
