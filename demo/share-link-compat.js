@@ -1,4 +1,7 @@
 import { canonicalizeChatGptSharedUrl } from "./chatgpt-share-url.js";
+import { installSharedChatRetry } from "./shared-chat-retry.js";
+
+installSharedChatRetry();
 
 function canonicalizeChatGptShareInput(raw) {
   return canonicalizeChatGptSharedUrl(raw) || raw;
