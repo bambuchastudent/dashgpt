@@ -2,29 +2,34 @@
 
 ## Problem
 
-A genuinely public ChatGPT Share URL can open in a logged-out/incognito browser while DashGPT still returns `SHARED_CHAT_UNREADABLE`. F48 proves retries only help transient failures, and F49's additional page parser does not help when the Worker never receives a readable conversation payload.
+A genuinely public ChatGPT Share URL can open in a logged-out/incognito browser while DashGPT still returns `SHARED_CHAT_UNREADABLE`. F48 proved retries only help transient failures. F49's page-payload compatibility parser did not resolve the exact reproduction. The first F51 candidate then added a direct `backend-anon/share/<id>` request, passed deterministic/browser/full verification, deployed successfully, and still failed the exact logged-out public acceptance.
 
-The current resolver prefers the older `backend-api/share/<id>` route through Jina Reader, then other automated page/browser fallbacks. Current 2026 ChatGPT clients also expose a logged-out anonymous route at `backend-anon/share/<id>`. Independent current implementations use that route for public Share export, while Cloudflare documents that Browser Run traffic remains explicitly bot-identifiable and does not bypass target bot protection.
+That failed acceptance narrows the remaining difference: current public-share clients can establish anonymous browser state by opening the public Share page before requesting `backend-anon`. A current public exporter follows exactly that sequence in one fresh browser context. A direct server fetch has no such page-created anonymous cookie/context state.
+
+Cloudflare Browser Run remains bot-identifiable and is not an access-control or anti-bot bypass. It is, however, already bound to DashGPT and can model a fresh logged-out navigation/request sequence without using the visitor's ChatGPT session.
 
 ## Goal
 
-Make link-first capture use the current anonymous ChatGPT share JSON route as the cheapest first-party public-data path, while retaining all existing compatibility fallbacks and human error states.
+Resolve genuinely public ChatGPT Shares using the cheapest current first-party JSON path when possible, and add one bounded fresh anonymous browser-session recovery path for public links that exhaust the existing resolver chain, while preserving all Card/capture contracts and never reusing user authentication state.
 
 ## Scope
 
-- add a first-party `https://chatgpt.com/backend-anon/share/<id>` retrieval attempt before the existing Reader/backend/page/proxy/browser/direct fallbacks;
-- parse the response through the existing public-share JSON projection and current-node branch semantics;
-- use ordinary anonymous browser-navigation/request headers only; no credentials, account cookies, session tokens or access-control bypass;
-- reject non-JSON/challenge/error responses and continue through existing fallbacks;
-- keep `/api/shared-chat` response fields, Card identity/provenance, storage, continuation, search, Gallery and Dashes unchanged;
-- add deterministic resolver-order/success/failure regressions;
-- verify on production preview with the public reproduction that opens logged-out.
+- keep the cheap direct `https://chatgpt.com/backend-anon/share/<id>` preflight for public `/share/<id>` links;
+- keep the existing Reader/backend/page/proxy/Browser/direct compatibility chain unchanged;
+- only after that chain exhausts with `SHARED_CHAT_UNREADABLE`, allow one bounded fresh Browser Run session for an ordinary validated public Share;
+- in that fresh session, navigate to the canonical public Share page, then request `backend-anon/share/<id>` from the same logged-out browser context with only anonymous state created by that navigation;
+- parse successful JSON through the existing `parseBackendShareJsonText()` projection and current-node branch semantics;
+- close the browser session on success or failure and fall back to the original human unreadable response if the session cannot read the public conversation;
+- never import, forward, request or persist the visitor's ChatGPT cookies, login/session tokens, account identifiers or credentials;
+- keep `/api/shared-chat`, canonical Card identity/provenance, storage, continuation, Search, Gallery and Dashes unchanged;
+- add deterministic orchestration/regression coverage and rerun canonical verification plus the exact production-preview acceptance.
 
 ## Non-goals
 
 - authenticated/private ChatGPT capture;
-- bypassing CAPTCHA, Turnstile or bot protection;
+- bypassing CAPTCHA, Turnstile, project membership or bot protection;
+- replaying user browser cookies or ChatGPT account state;
 - changing F48 retry behavior;
 - changing F49 parser behavior;
-- adding new third-party proxy providers;
+- adding a new third-party proxy provider;
 - changing Card detail/F39 or project-memory/F37.
