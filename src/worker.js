@@ -11,6 +11,11 @@ import {
   tryAnonymousSharedChat,
   tryBrowserSessionSharedChat
 } from "./shared-chat-anon.js";
+import {
+  attachDiagnostics,
+  diagnosticsRequested,
+  legacyDiagnosticReplay
+} from "./shared-chat-diagnostics.js";
 import { handleSharedChat } from "./shared-chat.js";
 
 const PRODUCT_RESULT_SHARDS = Object.freeze([
@@ -81,14 +86,20 @@ async function isSharedChatUnreadable(response) {
 }
 
 async function handleSharedChatWithAnonymousRecovery(request, env) {
-  const anonymousResponse = await tryAnonymousSharedChat(request, env);
+  const trace = diagnosticsRequested(request) ? [] : null;
+
+  const anonymousResponse = await tryAnonymousSharedChat(request, env, trace);
   if (anonymousResponse) return anonymousResponse;
 
   const existingResponse = await handleSharedChat(request, env);
   if (!(await isSharedChatUnreadable(existingResponse))) return existingResponse;
 
-  const browserSessionResponse = await tryBrowserSessionSharedChat(request, env);
-  return browserSessionResponse || existingResponse;
+  const browserSessionResponse = await tryBrowserSessionSharedChat(request, env, trace);
+  if (browserSessionResponse) return browserSessionResponse;
+  if (!trace) return existingResponse;
+
+  trace.push(...await legacyDiagnosticReplay(request, env));
+  return attachDiagnostics(existingResponse, request, trace);
 }
 
 export default {
