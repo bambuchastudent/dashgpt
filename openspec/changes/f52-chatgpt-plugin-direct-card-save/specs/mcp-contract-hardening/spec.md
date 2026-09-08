@@ -1,45 +1,73 @@
 ## ADDED Requirements
 
 ### Requirement: Explicit direct Card save tool
-The system SHALL expose a write-capable MCP tool that accepts a structured canonical Card payload distilled from the current AI conversation and persists it only after explicit user intent to save.
+The system SHALL expose a write-capable MCP tool named `upsert_card` that accepts a structured canonical Card payload distilled from the current AI conversation and persists it only after explicit user intent to save.
 
 #### Scenario: Create a Card from current conversation
 - **GIVEN** the user explicitly asks ChatGPT to save the useful outcome to DashGPT
 - **AND** the caller supplies a valid structured Card payload
-- **WHEN** the direct-save tool is invoked with valid DashGPT write authorization
+- **WHEN** `upsert_card` is invoked with valid DashGPT write authorization
 - **THEN** DashGPT SHALL persist one canonical Card using the existing Card/Vault persistence boundary
-- **AND** SHALL return a truthful created, updated, or not-persisted result
+- **AND** SHALL return a truthful `created` or `updated` result
 - **AND** SHALL NOT claim that a browser import still needs to be completed when persistence succeeded
 
 #### Scenario: Update instead of duplicate
 - **GIVEN** a valid stable card/source identity matches an existing Card under current DashGPT identity rules
-- **WHEN** the direct-save tool is invoked again
-- **THEN** DashGPT SHALL update the canonical Card rather than create a parallel duplicate
+- **WHEN** `upsert_card` is invoked again
+- **THEN** DashGPT SHALL reuse the canonical Card identity and increment the content version rather than create a parallel duplicate
 - **AND** SHALL preserve source and provenance semantics
 
-### Requirement: Accurate write metadata
-The direct-save tool SHALL advertise metadata consistent with modifying user-controlled DashGPT state and SHALL NOT describe itself as read-only.
+### Requirement: Direct plugin writes use MCP OAuth
+The direct-save tool SHALL require a DashGPT OAuth grant scoped to private Card writes and SHALL expose the MCP authorization discovery/challenge metadata required for ChatGPT to link the user.
 
 #### Scenario: Client lists the direct-save tool
 - **WHEN** an MCP client calls `tools/list`
-- **THEN** the direct-save tool SHALL advertise write-capable annotations consistent with its actual behavior
-- **AND** submission metadata SHALL NOT describe the tool as read-only
+- **THEN** `upsert_card` SHALL declare an OAuth2 security scheme with the bounded Card-write scope
+- **AND** SHALL advertise write-capable annotations consistent with its actual behavior
 
-### Requirement: DashGPT authorization stays separate from ChatGPT access
-The direct-save flow SHALL use DashGPT-controlled authorization and SHALL NOT use ChatGPT account authentication material as DashGPT storage authorization.
-
-#### Scenario: Caller lacks valid DashGPT write authorization
-- **WHEN** a caller invokes direct save without valid DashGPT write authorization
-- **THEN** DashGPT SHALL return a truthful not-persisted result
+#### Scenario: Caller is not linked
+- **WHEN** `upsert_card` is invoked without a valid Card-write grant
+- **THEN** DashGPT SHALL NOT persist the Card
+- **AND** SHALL return an MCP authentication challenge that points to the protected-resource metadata
 - **AND** SHALL NOT attempt to derive write access from ChatGPT account state
+
+#### Scenario: Caller grant is invalid for this resource
+- **WHEN** the supplied grant is expired, lacks the Card-write scope, or is not minted for the current DashGPT MCP resource
+- **THEN** DashGPT SHALL reject the write
+- **AND** SHALL return a reauthorization challenge rather than mutating the Vault
+
+### Requirement: Google Drive is the first direct-write Vault provider
+The first `upsert_card` persistence implementation SHALL write to the user's Google Drive-backed DashGPT Vault using the existing `drive.file` access boundary and existing DashGPT folder/file conventions.
+
+#### Scenario: Existing Drive Vault
+- **GIVEN** the linked user already has a valid DashGPT Vault file in Google Drive
+- **WHEN** `upsert_card` is authorized and invoked
+- **THEN** DashGPT SHALL load and validate that Vault
+- **AND** SHALL apply the canonical Card upsert
+- **AND** SHALL write the resulting Vault back to the same user-owned Drive file
+
+#### Scenario: First Drive Card
+- **GIVEN** the linked user's Drive does not yet contain a DashGPT Vault
+- **WHEN** `upsert_card` is authorized and invoked
+- **THEN** DashGPT SHALL create the standard DashGPT folder/Vault using existing provider conventions
+- **AND** SHALL persist the new canonical Card there
+
+### Requirement: OAuth authorization does not become hosted memory
+The OAuth bridge SHALL be authorization infrastructure only. Canonical Card and Vault content SHALL remain in user-controlled DashGPT storage and SHALL NOT be persisted in a DashGPT-hosted Card database by this change.
+
+#### Scenario: Authorization completes
+- **WHEN** a user grants the bounded Google Drive permission needed by the plugin
+- **THEN** DashGPT MAY issue a short-lived authorization grant for the MCP write tool
+- **AND** SHALL NOT store conversation/Card content as part of the authorization state
+- **AND** SHALL NOT serialize provider authorization into canonical Card/Vault content or tool output
 
 ### Requirement: Share is provenance, not retrieval dependency
 When a valid ChatGPT Share URL is available from caller context, DashGPT MAY preserve it as Card provenance. Direct Card persistence SHALL NOT require DashGPT to re-fetch that Share URL from `chatgpt.com`.
 
 #### Scenario: Save includes a Share URL
 - **GIVEN** the current conversation context includes a valid ChatGPT Share URL
-- **WHEN** the direct-save tool persists the Card
-- **THEN** DashGPT MAY store the canonical Share URL as source provenance
+- **WHEN** `upsert_card` persists the Card
+- **THEN** DashGPT SHALL canonicalize and MAY store the Share URL as source provenance
 - **AND** SHALL NOT require a successful server-side fetch of that Share URL before saving
 
 ### Requirement: Supported-surface claims stay accurate
