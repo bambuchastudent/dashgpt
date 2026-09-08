@@ -1,0 +1,21 @@
+# Tasks — F50 ChatGPT context capture recovery
+
+- [x] Reproduce the real public Share failure and collect sanitized resolver diagnostics from mobile.
+- [x] Confirm the failure occurs before parsing: server/browser/proxy paths are blocked or rate-limited while the user can open the Share logged-out.
+- [x] Inspect overlap with F14 chat-first onboarding, F27 Save-chat/storage, F36 link-first capture, F41 MCP `prepare_result_import`, F45 project Share support and F46 smoke classification.
+- [x] Update Issue #121 so F50 also covers public-but-server-unreadable Share recovery.
+- [x] Create dedicated `f50-chatgpt-context-capture` OpenSpec artifacts: proposal, spec delta, design, tasks and Impact Manifest.
+- [ ] Strictly validate F50 OpenSpec before production code changes.
+- [ ] Add exact `SHARED_CHAT_UNREADABLE` classification to personal Save-chat orchestration without changing `/api/shared-chat`.
+- [ ] Automatically reveal and scroll the existing current-chat structured handoff recovery into view.
+- [ ] Preserve the canonical failed Share URL as transient recovery provenance.
+- [ ] Apply that Share provenance when the structured response is reviewed/saved, while standalone handoff keeps `chatgpt-handoff` provenance.
+- [ ] Preserve duplicate-free source-url upsert behavior.
+- [ ] Add regressions for successful Share unchanged, unreadable recovery, non-overbroad trigger, provenance carry-over and duplicate-free repeat capture.
+- [ ] Verify no raw HTTP/provider diagnostics or credential/session state enters normal UI/Card content.
+- [ ] Run targeted Save-chat checks and `npm run check`.
+- [ ] Run desktop Chromium and narrow-mobile Chromium verification.
+- [ ] Run canonical `npm run verify:full` once on the final candidate.
+- [ ] Verify Cloudflare production preview and narrow mobile viewport.
+- [ ] Open a dedicated PR to `develop`, link Issue #121 and keep F51 separate/draft.
+- [ ] Report the product boundary clearly: Share is best-effort; current-chat capture is the reliable recovery until the ChatGPT integration is actually published/available.
