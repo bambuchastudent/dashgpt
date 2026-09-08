@@ -114,7 +114,7 @@ test("Save chat exhausts bounded retries before showing the human fallback state
   expect(calls).toBe(6);
 
   const stored = await page.evaluate(key => JSON.parse(localStorage.getItem(key) || "null"), VAULT_KEY);
-  expect(stored.results).toHaveLength(1);
+  expect(stored.results.filter(item => item.source?.url === SHARE_URL)).toHaveLength(0);
 });
 
 test("Save chat does not retry unexpected hard resolver failures", async ({ page }) => {
