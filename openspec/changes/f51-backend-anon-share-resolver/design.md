@@ -4,15 +4,13 @@
 
 `src/shared-chat.js` already validates public ChatGPT Share URLs and tries a layered resolver sequence. F16 added the then-current `backend-api/share/<id>` JSON path through Jina Reader. F11/F12/F15 retain page, proxy, direct and Cloudflare Browser compatibility fallbacks. The first F51 candidate added a cheap direct `backend-anon/share/<id>` preflight in `src/shared-chat-anon.js` and reused the existing JSON projection.
 
-The exact user reproduction is confirmed genuinely public because it opens logged-out/incognito. F48, F49 and the direct F51 candidate all remained unreadable on preview even though repository, desktop/mobile and canonical full verification were green. Therefore the remaining difference is not retry budget, access scope, or basic JSON projection.
-
-A current public-share exporter demonstrates a relevant logged-out sequence: it opens the public Share page first, then requests `backend-anon/share/<id>` from the same fresh browser context. That navigation can establish anonymous cookies/state which a direct Worker fetch does not have. Cloudflare Browser Run is bot-identifiable and must not be treated as a protection bypass, but a fresh browser session can faithfully preserve page-created anonymous state across the two same-origin requests.
+The exact user reproduction is confirmed genuinely public because it opens logged-out/incognito. F48, F49, the direct F51 candidate, and the refined fresh browser-session candidate all remained unreadable on preview even though repository, desktop/mobile and canonical full verification were green. Therefore the next useful step is not another speculative resolver branch: it is production diagnostic evidence from the exact failing public URL.
 
 ## Decision
 
 ### Retrieval order
 
-Keep existing cheap paths first and add the browser-context attempt only as a bounded recovery path:
+Keep existing cheap paths first and the browser-context attempt only as a bounded recovery path:
 
 1. direct first-party `https://chatgpt.com/backend-anon/share/<id>` preflight via the existing injected upstream fetch boundary;
 2. existing `handleSharedChat()` compatibility chain unchanged:
@@ -23,26 +21,28 @@ Keep existing cheap paths first and add the browser-context attempt only as a bo
    - direct Share HTML;
    - Browser rendered HTML;
 3. only when the delegated handler returns `502` with code `SHARED_CHAT_UNREADABLE`, the URL is an ordinary validated `/share/<id>`, and the Browser binding is available, try one fresh anonymous browser-session recovery;
-4. if that recovery fails, return the original human `SHARED_CHAT_UNREADABLE` response unchanged.
-
-This keeps the more expensive session path off the happy path and prevents a new hard dependency on Browser Run.
+4. if that recovery fails, return the original human `SHARED_CHAT_UNREADABLE` response unchanged for normal requests.
 
 ### Integration shape
 
-Keep `src/shared-chat-anon.js` as the F51 compatibility module and export two narrow operations:
+Keep `src/shared-chat-anon.js` as the F51 compatibility module and export the existing direct/browser-session operations. For diagnostic requests, allow those helpers to append only sanitized stage outcomes to an in-memory trace owned by `src/worker.js`.
 
-- `tryAnonymousSharedChat(request, env)` — existing cheap direct JSON preflight;
-- `tryBrowserSessionSharedChat(request, env)` — fresh anonymous browser-session recovery.
+`src/worker.js` orchestrates `/api/shared-chat` and detects `diagnostics=1`. Normal requests use the same behavior as before. On a diagnostic request that still fails after the browser-session recovery, the Worker returns the same error/code plus a `diagnostics` object.
 
-`src/worker.js` orchestrates them only for `/api/shared-chat`:
+Because `handleSharedChat()` intentionally hides provider details, diagnostic mode MAY perform one bounded support-only replay through exported `canonicalSharedChatUrl()` + `readSharedChat()` after the normal failure. `readSharedChat()` already preserves internal per-stage failure causes in its thrown `SHARED_CHAT_UNREADABLE` error. The replay is used only to classify those causes into safe diagnostic entries; raw error/cause objects are never serialized.
 
-1. direct anonymous preflight;
-2. existing `handleSharedChat()`;
-3. inspect a cloned response only to determine whether the result is exactly `SHARED_CHAT_UNREADABLE`;
-4. then attempt the browser-session recovery;
-5. otherwise return the delegated response unchanged.
+### Diagnostic contract
 
-No Card/message model, endpoint schema or provider-specific error is introduced.
+`diagnostics=1` is an explicit support/debug request, not normal onboarding behavior. A failing response includes a compact object such as:
+
+- `version` and generated `traceId`;
+- canonical Share id only, not a copied query string;
+- ordered `steps` with stable stage names;
+- each step may contain only a sanitized `outcome`, numeric HTTP `status` where known, and a coarse `kind` such as `timeout`, `challenge`, `http`, `parse`, `empty`, `missing-binding`, `launch`, `navigation`, or `unknown`;
+- Browser-session steps record whether the binding existed, launch/navigation reached the next milestone, and what status the same-origin anonymous JSON request returned;
+- legacy resolver replay records the existing Reader/backend/page/proxy/browser/direct stage failures using the same coarse classification.
+
+The diagnostic payload MUST NOT contain raw response bodies, HTML, JSON conversation payloads, transcript/message text, cookies, `Set-Cookie`, authorization headers, incoming request headers, account/session identifiers, passwords, project credentials, or storage credentials.
 
 ### Fresh anonymous browser session
 
@@ -60,53 +60,39 @@ The bounded sequence is:
 
 `credentials: "include"` here means only cookies/state created inside this new logged-out Browser Run session. DashGPT MUST NOT copy cookies, authorization headers, account identifiers or credentials from the incoming request into the browser session.
 
-For deterministic tests, `env.DASHGPT_ANON_BROWSER_FETCH` may inject the browser-session result without launching Browser Run. Production uses that hook only when explicitly provided by the test/runtime environment; normal deployed behavior uses the `BROWSER` binding.
-
 ### Bounded failure behavior
 
 - one browser session attempt per endpoint invocation;
 - bounded page navigation and in-page request timeouts;
 - no CAPTCHA solving, repeated challenge loops or credential prompts;
-- any navigation, challenge, non-2xx, malformed JSON, no-turn or parser failure returns `null` to orchestration;
-- the original existing human unreadable response is returned unchanged when recovery misses.
+- any navigation, challenge, non-2xx, malformed JSON, no-turn or parser failure falls back to the existing human error;
+- diagnostic replay happens only when `diagnostics=1` is explicitly requested and the normal attempt already failed;
+- normal requests incur no diagnostic replay cost.
 
-F48 remains a separate client retry capability; F51 does not change its retry budget or classification.
-
-### Conversation projection
-
-Both direct and browser-session JSON reuse `parseBackendShareJsonText()`:
-
-- prefer `current_node` ancestry;
-- do not mix regenerated sibling branches;
-- include visible user/assistant turns only;
-- exclude system/tool/visually hidden turns;
-- preserve fallback-title behavior and canonical Share id.
-
-## Security and privacy
+### Security and privacy
 
 - Strict ChatGPT host/share-path validation is reused before deriving any backend URL.
-- Browser recovery is limited to an ordinary validated public `/share/<id>` URL and the corresponding same-origin `backend-anon/share/<id>` path.
-- No user cookies, ChatGPT login/session tokens, passwords, project credentials or DashGPT storage credentials enter the browser session.
-- The new session starts logged out and uses only state created by the public ChatGPT page itself.
-- Browser Run is not used to solve CAPTCHA/Turnstile or bypass access controls; a challenge is simply a failed public retrieval path.
+- Browser recovery is limited to an ordinary validated public `/share/<id>` URL and corresponding same-origin anonymous backend path.
+- No user cookies, ChatGPT login/session tokens, passwords, project credentials or DashGPT storage credentials enter the browser session or diagnostic payload.
+- A challenge is recorded only as a coarse outcome; its body is never returned.
 - No user reproduction URL or transcript is committed as a fixture.
 
 ## Cost / operations
 
-Browser Run already exists in the deployment. F51 adds no new binding or secret, but the recovery path can consume additional browser time. To bound that cost it runs only after the direct preflight and the entire existing resolver chain have failed, and only once per endpoint invocation.
+Browser Run already exists in deployment. F51 adds no new binding or secret. Diagnostic replay can repeat the existing public resolver sequence, but only when the caller explicitly requests `diagnostics=1` after an unresolved failure. This keeps ordinary product traffic unchanged while making a one-off mobile support report actionable.
 
 ## Verification
 
-- Update OpenSpec first and require strict validation before this refinement reaches production code.
+- Update OpenSpec first and strictly validate before diagnostic production code.
 - Deterministic tests for:
-  - existing direct-anon success;
-  - no session launch after any existing resolver success;
-  - session recovery only after exact `SHARED_CHAT_UNREADABLE`;
-  - same canonical Share/backend ids passed to the injected session hook;
-  - browser-session success using existing JSON projection;
-  - browser-session miss preserving the original human 502 response;
-  - invalid/unsupported URLs never launching a session.
+  - diagnostics absent on ordinary unresolved requests;
+  - diagnostics present only with `diagnostics=1` after failure;
+  - direct anonymous HTTP/parse outcome classification;
+  - browser binding/launch/navigation/backend status classification;
+  - legacy resolver causes reduced to safe stage/kind/status entries;
+  - no raw body/transcript/cookie/auth material in serialized diagnostics;
+  - successful resolver paths do not emit failure diagnostics.
 - Run targeted shared-chat verification and `npm run check`.
 - Run desktop/mobile browser suites and final canonical `npm run verify:full`.
 - Verify Cloudflare preview deployment.
-- Re-run the exact user-reported public Share on preview. Only a normal reviewable Card result makes F51 product-verified/merge-ready.
+- Open the diagnostic URL for the exact public reproduction from mobile, copy the returned trace, and use it to decide the next resolver fix. F51 remains draft until the real Share reaches normal Card review.
