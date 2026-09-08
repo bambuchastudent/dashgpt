@@ -43,8 +43,20 @@ DashGPT MUST resolve a genuinely public ChatGPT Share using current logged-out p
 #### Scenario: Browser recovery is blocked or malformed
 - **WHEN** fresh-session navigation or its anonymous JSON request returns a challenge, non-success response, malformed JSON, no readable turns or another public retrieval failure
 - **THEN** DashGPT MUST close the session
-- **AND** MUST return the original existing human unreadable state
-- **AND** MUST NOT expose internal route/provider/status/parser details to the visitor.
+- **AND** MUST return the original existing human unreadable state for normal requests
+- **AND** MUST NOT expose internal route/provider/status/parser details unless the caller explicitly requested sanitized diagnostics.
+
+#### Scenario: Explicit mobile-safe diagnostics for unresolved public Share
+- **GIVEN** an ordinary validated public Share still ends as `SHARED_CHAT_UNREADABLE`
+- **WHEN** the caller explicitly requests `/api/shared-chat?...&diagnostics=1`
+- **THEN** the failure response MUST include a compact diagnostic trace suitable for copying from a mobile browser
+- **AND** the trace MUST identify resolver stages and sanitized outcomes such as success/miss, safe HTTP status, timeout/challenge/parser classification, Browser binding availability, browser navigation/session milestones, and a generated trace id
+- **AND** the trace MUST NOT include raw upstream response bodies, transcript/message text, cookies, authorization headers, ChatGPT account/session identifiers, passwords, project credentials, DashGPT storage credentials or copied user browser state.
+
+#### Scenario: Normal user error remains human
+- **WHEN** the same unresolved Share is requested without `diagnostics=1`
+- **THEN** DashGPT MUST preserve the existing human `SHARED_CHAT_UNREADABLE` response
+- **AND** MUST NOT add provider/internal diagnostic detail to normal onboarding copy.
 
 #### Scenario: No authenticated bypass or user-session replay
 - **WHEN** public Share retrieval fails
