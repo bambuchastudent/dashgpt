@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import worker from "../src/worker.js";
+import { handleMcpWithCardWrite, UPSERT_CARD_TOOL } from "../src/mcp-card-write-overlay.js";
 import {
   CARD_WRITE_SCOPE,
   CHATGPT_CIMD_CLIENT_ID,
@@ -10,6 +11,7 @@ import {
   handleOAuthToken
 } from "../src/plugin-oauth.js";
 import { normalizePluginCardInput, upsertCardInGoogleDrive } from "../src/plugin-card-write.js";
+import { createVault, putResult } from "../demo/vault.js";
 
 class MemoryStorage {
   constructor() {
@@ -52,6 +54,44 @@ assert.equal(authPayload.authorization_endpoint, `${origin}/oauth/authorize`);
 assert.equal(authPayload.token_endpoint, `${origin}/oauth/token`);
 assert.deepEqual(authPayload.code_challenge_methods_supported, ["S256"]);
 
+assert.deepEqual(UPSERT_CARD_TOOL.securitySchemes, [{ type: "oauth2", scopes: [CARD_WRITE_SCOPE] }]);
+assert.deepEqual(UPSERT_CARD_TOOL._meta?.securitySchemes, UPSERT_CARD_TOOL.securitySchemes);
+assert.equal(UPSERT_CARD_TOOL.annotations.readOnlyHint, false);
+assert.equal(UPSERT_CARD_TOOL.annotations.destructiveHint, false);
+assert.equal(UPSERT_CARD_TOOL.annotations.openWorldHint, false);
+
+const mixedAuthResponse = await handleMcpWithCardWrite(
+  request("/mcp", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 90, method: "tools/list", params: {} })
+  }),
+  {},
+  {},
+  {
+    async fetch() {
+      return Response.json({
+        jsonrpc: "2.0",
+        id: 90,
+        result: {
+          tools: [{
+            name: "public_read",
+            inputSchema: { type: "object", properties: {} },
+            annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false }
+          }]
+        }
+      });
+    }
+  }
+);
+const mixedAuthPayload = await mixedAuthResponse.json();
+const publicRead = mixedAuthPayload.result.tools.find(tool => tool.name === "public_read");
+const directWrite = mixedAuthPayload.result.tools.find(tool => tool.name === "upsert_card");
+assert.deepEqual(publicRead.securitySchemes, [{ type: "noauth" }]);
+assert.deepEqual(publicRead._meta?.securitySchemes, publicRead.securitySchemes);
+assert.deepEqual(directWrite.securitySchemes, [{ type: "oauth2", scopes: [CARD_WRITE_SCOPE] }]);
+assert.deepEqual(directWrite._meta?.securitySchemes, directWrite.securitySchemes);
+
 assert.throws(
   () => normalizePluginCardInput({ title: "Secret", summary: "Store sk-proj-abcdefghijklmnop1234" }),
   error => error?.code === "secret_like_content"
@@ -61,10 +101,10 @@ assert.throws(
   error => error?.code === "invalid_source_url"
 );
 
-const calls = [];
-const fakeDriveFetch = async (input, init = {}) => {
+const createCalls = [];
+const createDriveFetch = async (input, init = {}) => {
   const url = new URL(typeof input === "string" ? input : input.url);
-  calls.push({ url: url.toString(), method: init.method || "GET", body: init.body || "" });
+  createCalls.push({ url: url.toString(), method: init.method || "GET", body: init.body || "" });
   if (url.hostname !== "www.googleapis.com") return new Response("not found", { status: 404 });
   if (url.pathname === "/drive/v3/files" && !init.method) {
     const query = url.searchParams.get("q") || "";
@@ -86,14 +126,73 @@ const saved = await upsertCardInGoogleDrive({
     tags: ["memory", "capture"],
     language: "en"
   },
-  fetchFn: fakeDriveFetch,
+  fetchFn: createDriveFetch,
   now: Date.parse("2026-09-10T10:00:00Z")
 });
 assert.equal(saved.status, "created");
 assert.equal(saved.provider, "google-drive");
 assert.equal(saved.fileId, "vault-file-1");
 assert.match(saved.card.id, /^result-/);
-assert.ok(calls.some(call => call.url.includes("/upload/drive/v3/files") && call.method === "POST"));
+assert.ok(createCalls.some(call => call.url.includes("/upload/drive/v3/files") && call.method === "POST"));
+assert.doesNotMatch(JSON.stringify(saved), /google-access-token/);
+
+const sourceUrl = "https://chatgpt.com/share/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+const existingVault = createVault({ createdAt: "2026-09-01T00:00:00.000Z" });
+putResult(existingVault, {
+  id: "result-existing",
+  schemaVersion: 1,
+  title: "Old title",
+  summary: "Old summary",
+  category: "Мои чаты",
+  tags: ["chatgpt", "share"],
+  decisions: [],
+  facts: [],
+  constraints: [],
+  userPreferences: [],
+  openQuestions: [],
+  source: { type: "chatgpt-share", url: sourceUrl, title: "Old title" },
+  immutable: false,
+  contentVersion: 1,
+  status: "Сохранено",
+  publishedAt: "2026-09-01T00:00:00.000Z"
+}, { updatedAt: "2026-09-01T00:00:00.000Z" });
+
+let patchedVaultText = "";
+const updateDriveFetch = async (input, init = {}) => {
+  const url = new URL(typeof input === "string" ? input : input.url);
+  if (url.pathname === "/drive/v3/files" && !init.method) {
+    const query = url.searchParams.get("q") || "";
+    if (query.includes("folder-v1")) return Response.json({ files: [{ id: "folder-1", createdTime: "2026-01-01T00:00:00Z" }] });
+    if (query.includes("vault-v1")) return Response.json({ files: [{ id: "vault-file-1", createdTime: "2026-01-01T00:00:00Z" }] });
+  }
+  if (url.pathname === "/drive/v3/files/vault-file-1" && url.searchParams.get("alt") === "media") {
+    return new Response(JSON.stringify(existingVault), { headers: { "content-type": "application/json" } });
+  }
+  if (url.pathname === "/upload/drive/v3/files/vault-file-1" && init.method === "PATCH") {
+    patchedVaultText = String(init.body || "");
+    return Response.json({ id: "vault-file-1" });
+  }
+  return new Response("unexpected", { status: 500 });
+};
+
+const updated = await upsertCardInGoogleDrive({
+  token: "google-access-token",
+  input: {
+    title: "New title",
+    summary: "Updated useful outcome.",
+    sourceUrl,
+    sourceTitle: "ChatGPT source",
+    language: "en"
+  },
+  fetchFn: updateDriveFetch,
+  now: Date.parse("2026-09-10T11:00:00Z")
+});
+assert.equal(updated.status, "updated");
+assert.equal(updated.card.id, "result-existing");
+assert.equal(updated.card.contentVersion, 2);
+assert.equal(updated.card.sourceUrl, sourceUrl);
+assert.match(patchedVaultText, /New title/);
+assert.doesNotMatch(patchedVaultText, /google-access-token/);
 
 const noAuthRpc = await worker.fetch(
   request("/mcp", {
@@ -160,6 +259,7 @@ const tokenPayload = await tokenResponse.json();
 assert.equal(tokenPayload.token_type, "Bearer");
 assert.equal(tokenPayload.scope, CARD_WRITE_SCOPE);
 assert.ok(tokenPayload.access_token.startsWith("dg1."));
+assert.doesNotMatch(JSON.stringify(tokenPayload), /google-access-token/);
 assert.equal(await storage.get("code:test-code"), undefined, "authorization code must be consumed exactly once");
 
 const replayResponse = await handleOAuthToken(
