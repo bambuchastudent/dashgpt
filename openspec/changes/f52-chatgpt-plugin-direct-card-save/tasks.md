@@ -8,14 +8,15 @@
 - [x] Choose the smallest approved write boundary: MCP OAuth bridge to the existing Google Drive-backed user-owned Vault.
 - [x] Validate the concrete OAuth/Drive scope before implementation.
 - [x] Resolve authorization-code replay risk by specifying short-lived one-time Durable Object state; revalidate before production code.
-- [ ] Implement MCP OAuth discovery/challenge, stable ChatGPT CIMD client validation, PKCE S256 and one-time authorization-code state.
-- [ ] Implement `upsert_card` using existing Google Drive Vault layout and canonical Card persistence semantics.
-- [ ] Preserve stable identity/provenance and deterministic update behavior.
-- [ ] Ensure authorization/provider grants never enter Card/Vault content, tool output, URLs, logs or fixtures.
-- [ ] Update MCP annotations/security schemes, `chatgpt-app-submission.json`, bundled plugin skill and submission packet.
-- [ ] Add regression verification for OAuth discovery/challenge, client/redirect validation, one-time code, scope/audience/expiry/PKCE, provider persistence/upsert and auth isolation.
-- [ ] Run targeted verification and `npm run check`.
-- [ ] Run canonical `npm run verify:full` once on the final candidate.
-- [ ] Verify changed plugin authorization product states in production preview where deployment configuration permits.
-- [ ] Confirm supported-surface wording: custom MCP web-only; do not claim native-mobile direct save until a published plugin is explicitly verified there.
-- [ ] Mark PR ready only when verification is green and plugin/submission artifacts match actual server behavior.
+- [x] Implement MCP OAuth discovery/challenge, stable ChatGPT CIMD client validation, PKCE S256 and one-time authorization-code state.
+- [x] Implement `upsert_card` using existing Google Drive Vault layout and canonical Card persistence semantics.
+- [x] Preserve stable identity/provenance and deterministic update behavior for stable Card/source identity.
+- [x] Keep authorization/provider grants out of Card/Vault content, tool output, URLs and test fixtures; cover grant isolation in regression verification.
+- [x] Update mixed-auth MCP annotations/security schemes, `chatgpt-app-submission.json`, bundled plugin skill, privacy disclosure and submission packet to match actual behavior.
+- [x] Add regression verification for OAuth discovery/challenge, one-time code replay, PKCE, provider persistence/upsert, stable source update, mixed-auth descriptors, secret rejection and auth isolation.
+- [ ] Run targeted verification and `npm run check` on the final code candidate.
+- [ ] Run canonical `npm run verify:full` once on the final code candidate.
+- [ ] Apply the new Durable Object migration through an explicitly authorized staging/production `wrangler deploy`; ordinary version/PR preview cannot apply a new Durable Object class lifecycle.
+- [ ] Verify the deployed OAuth product states and one real Google Drive create/update through ChatGPT after deployment configuration is present.
+- [x] Keep supported-surface wording conservative; do not claim native-mobile direct save until a published plugin is explicitly verified there.
+- [ ] Mark PR ready only when repository verification is green and plugin/submission artifacts match actual server behavior; external deploy/submission gates remain explicit release actions.
