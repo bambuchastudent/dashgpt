@@ -22,7 +22,14 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-      - run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Restore Node dependencies
+        id: node-modules-cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: dashgpt-node-modules-v1-${{ runner.os }}-node22-${{ hashFiles('package.json') }}
+      - if: steps.node-modules-cache.outputs.cache-hit != 'true'
+        run: npm install --ignore-scripts --no-audit --no-fund
       - run: npm run check
 
   browser:
@@ -47,7 +54,14 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-      - run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Restore Node dependencies
+        id: node-modules-cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: dashgpt-node-modules-v1-${{ runner.os }}-node22-${{ hashFiles('package.json') }}
+      - if: steps.node-modules-cache.outputs.cache-hit != 'true'
+        run: npm install --ignore-scripts --no-audit --no-fund
       - run: npx playwright test --project="${{ matrix.project }}"
       - name: Upload Playwright failure diagnostics
         if: failure()
@@ -74,7 +88,14 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-      - run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Restore Node dependencies
+        id: node-modules-cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: dashgpt-node-modules-v1-${{ runner.os }}-node22-${{ hashFiles('package.json') }}
+      - if: steps.node-modules-cache.outputs.cache-hit != 'true'
+        run: npm install --ignore-scripts --no-audit --no-fund
       - run: npm run verify:full
       - name: Upload canonical Playwright failure diagnostics
         if: failure()
