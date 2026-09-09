@@ -7,6 +7,14 @@ import {
   handleGitHubStatus,
   handleGitHubSync
 } from "./github-storage.js";
+import { handleMcpWithCardWrite } from "./mcp-card-write-overlay.js";
+import {
+  handleOAuthAuthorize,
+  handleOAuthAuthorizeComplete,
+  handleOAuthAuthorizationServer,
+  handleOAuthProtectedResource,
+  handleOAuthToken
+} from "./plugin-oauth.js";
 import { handleSharedChat } from "./shared-chat.js";
 
 const PRODUCT_RESULT_SHARDS = Object.freeze([
@@ -69,6 +77,7 @@ function withUnifiedResultAssets(env) {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    const unifiedEnv = withUnifiedResultAssets(env);
 
     if (url.pathname === "/api/shared-chat") return handleSharedChat(request, env);
     if (url.pathname === "/api/storage/google/config") return handleGoogleDriveConfig(request, env);
@@ -77,7 +86,13 @@ export default {
     if (url.pathname === "/api/storage/github/status") return handleGitHubStatus(request, env);
     if (url.pathname === "/api/storage/github/sync") return handleGitHubSync(request, env);
     if (url.pathname === "/api/storage/github/disconnect") return handleGitHubDisconnect(request, env);
+    if (url.pathname === "/.well-known/oauth-protected-resource") return handleOAuthProtectedResource(request);
+    if (url.pathname === "/.well-known/oauth-authorization-server") return handleOAuthAuthorizationServer(request);
+    if (url.pathname === "/oauth/authorize") return handleOAuthAuthorize(request, env);
+    if (url.pathname === "/oauth/authorize/complete") return handleOAuthAuthorizeComplete(request, env);
+    if (url.pathname === "/oauth/token") return handleOAuthToken(request, env);
+    if (url.pathname === "/mcp") return handleMcpWithCardWrite(request, unifiedEnv, ctx, coreWorker);
 
-    return coreWorker.fetch(request, withUnifiedResultAssets(env), ctx);
+    return coreWorker.fetch(request, unifiedEnv, ctx);
   }
 };

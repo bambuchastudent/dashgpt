@@ -1,0 +1,22 @@
+# Tasks — F52 ChatGPT plugin direct Card save
+
+- [x] Inspect existing plugin submission packet, MCP contract hardening spec, and current Share-capture failure context.
+- [x] Define direct-save scope without mixing F50 Share recovery or resolver changes.
+- [x] Add proposal, design, spec delta and impact manifest.
+- [x] Run initial strict OpenSpec validation; diagnose and correct delta-format failure before production code.
+- [x] Inspect existing canonical Card/Vault persistence and auth boundaries narrowly.
+- [x] Choose the smallest approved write boundary: MCP OAuth bridge to the existing Google Drive-backed user-owned Vault.
+- [x] Validate the concrete OAuth/Drive scope before implementation.
+- [x] Resolve authorization-code replay risk by specifying short-lived one-time Durable Object state; revalidate before production code.
+- [x] Implement MCP OAuth discovery/challenge, stable ChatGPT CIMD client validation, PKCE S256 and one-time authorization-code state.
+- [x] Implement `upsert_card` using existing Google Drive Vault layout and canonical Card persistence semantics.
+- [x] Preserve stable identity/provenance and deterministic update behavior for stable Card/source identity.
+- [x] Keep authorization/provider grants out of Card/Vault content, tool output, URLs and test fixtures; cover grant isolation in regression verification.
+- [x] Update mixed-auth MCP annotations/security schemes, `chatgpt-app-submission.json`, bundled plugin skill, privacy disclosure and submission packet to match actual behavior.
+- [x] Add regression verification for OAuth discovery/challenge, one-time code replay, PKCE, provider persistence/upsert, stable source update, mixed-auth descriptors, secret rejection and auth isolation.
+- [x] Run targeted verification and `npm run check` on the final code candidate; GitHub Actions run #963 deterministic job passed with F52 regressions.
+- [x] Run canonical `npm run verify:full` on the final code candidate; GitHub Actions run #963 canonical-full, desktop Chromium and mobile Chromium jobs passed.
+- [ ] Apply the new Durable Object migration through an explicitly authorized staging/production `wrangler deploy`; ordinary version/PR preview cannot apply a new Durable Object class lifecycle.
+- [ ] Verify the deployed OAuth product states and one real Google Drive create/update through ChatGPT after deployment configuration is present.
+- [x] Keep supported-surface wording conservative; do not claim native-mobile direct save until a published plugin is explicitly verified there.
+- [x] Repository merge-readiness gate is satisfied: OpenSpec, targeted checks, canonical full verification and plugin/submission artifacts match the implemented server behavior. External deploy, live OAuth verification and OpenAI submission remain explicit release actions.
