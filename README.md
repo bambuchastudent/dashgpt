@@ -1,5 +1,7 @@
 # DashGPT
 
+> **Experimental project.** DashGPT explores new ways to represent AI conversations as reusable, structured knowledge — turning useful parts of chats into cards that can be searched, grouped, connected by meaning and continued later. The project is evolving and should not be treated as a production-ready product yet.
+
 DashGPT is a user-controlled memory layer for AI conversations. It distills useful outcomes — decisions, plans, research conclusions, instructions, project state and other reusable context — into **canonical cards** that can be found, grouped and continued later.
 
 The product is **card-first, not chat-first**: raw conversations are sources. Cards are the reusable memory objects.
