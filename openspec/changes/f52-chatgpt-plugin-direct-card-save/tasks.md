@@ -14,9 +14,9 @@
 - [x] Keep authorization/provider grants out of Card/Vault content, tool output, URLs and test fixtures; cover grant isolation in regression verification.
 - [x] Update mixed-auth MCP annotations/security schemes, `chatgpt-app-submission.json`, bundled plugin skill, privacy disclosure and submission packet to match actual behavior.
 - [x] Add regression verification for OAuth discovery/challenge, one-time code replay, PKCE, provider persistence/upsert, stable source update, mixed-auth descriptors, secret rejection and auth isolation.
-- [ ] Run targeted verification and `npm run check` on the final code candidate.
-- [ ] Run canonical `npm run verify:full` once on the final code candidate.
+- [x] Run targeted verification and `npm run check` on the final code candidate; GitHub Actions run #963 deterministic job passed with F52 regressions.
+- [x] Run canonical `npm run verify:full` on the final code candidate; GitHub Actions run #963 canonical-full, desktop Chromium and mobile Chromium jobs passed.
 - [ ] Apply the new Durable Object migration through an explicitly authorized staging/production `wrangler deploy`; ordinary version/PR preview cannot apply a new Durable Object class lifecycle.
 - [ ] Verify the deployed OAuth product states and one real Google Drive create/update through ChatGPT after deployment configuration is present.
 - [x] Keep supported-surface wording conservative; do not claim native-mobile direct save until a published plugin is explicitly verified there.
-- [ ] Mark PR ready only when repository verification is green and plugin/submission artifacts match actual server behavior; external deploy/submission gates remain explicit release actions.
+- [x] Repository merge-readiness gate is satisfied: OpenSpec, targeted checks, canonical full verification and plugin/submission artifacts match the implemented server behavior. External deploy, live OAuth verification and OpenAI submission remain explicit release actions.
