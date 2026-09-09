@@ -9,6 +9,8 @@ const fixture = read("../tests/playwright-fixture.mjs");
 const bootstrap = read("../demo/catalog-bootstrap.js");
 const isolationSpec = read("../tests/playwright-isolation.spec.mjs");
 const packageJson = JSON.parse(read("../package.json"));
+const playwrightVersion = packageJson.devDependencies?.["@playwright/test"];
+const expectedPlaywrightImage = `image: mcr.microsoft.com/playwright:v${playwrightVersion}-noble`;
 
 assert.match(workflow, /runs-on: ubuntu-latest/, "canonical checks must remain on GitHub-hosted Ubuntu");
 assert.match(workflow, /deterministic:/, "hosted CI must keep a deterministic verification shard");
@@ -25,7 +27,22 @@ assert.match(
 );
 assert.match(workflow, /contains\(github\.event\.pull_request\.title, '\[verify:full\]'\)/, "literal canonical proof must stay explicitly opt-in");
 assert.match(workflow, /- run: npm run verify:full/, "opt-in canonical lane must execute the literal canonical command");
-assert.match(workflow, /npx playwright install --with-deps chromium/, "browser jobs must provision Chromium and Linux dependencies");
+assert.equal(typeof playwrightVersion, "string", "@playwright/test must stay explicitly pinned in package.json");
+assert.equal(
+  workflow.split(expectedPlaywrightImage).length - 1,
+  2,
+  "browser matrix and canonical-full must use the official Playwright image matching package.json"
+);
+assert.equal(
+  workflow.split("options: --ipc=host").length - 1,
+  2,
+  "both browser-bearing jobs must use host IPC for Chromium"
+);
+assert.doesNotMatch(
+  workflow,
+  /npx playwright install --with-deps chromium/,
+  "hosted browser jobs must not resolve Chromium or Linux browser dependencies at workflow runtime"
+);
 assert.match(workflow, /timeout-minutes: 5/, "deterministic shard must keep a short hard budget");
 assert.match(workflow, /timeout-minutes: 9/, "browser and opt-in canonical shards must stay below the ten-minute feedback budget");
 assert.match(workflow, /timeout-minutes: 2/, "final check aggregator must stay lightweight");
@@ -82,4 +99,4 @@ assert.match(
   "browser isolation regression syntax must remain covered by deterministic checks"
 );
 
-console.log("Hosted CI fast/isolation/parallel verification checks passed.");
+console.log("Hosted CI fast/isolation/parallel/container verification checks passed.");

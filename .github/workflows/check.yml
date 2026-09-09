@@ -32,6 +32,9 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository)
     name: browser (${{ matrix.project }})
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+      options: --ipc=host
     timeout-minutes: 9
     strategy:
       fail-fast: false
@@ -45,7 +48,6 @@ jobs:
         with:
           node-version: 22
       - run: npm install --ignore-scripts --no-audit --no-fund
-      - run: npx playwright install --with-deps chromium
       - run: npx playwright test --project="${{ matrix.project }}"
       - name: Upload Playwright failure diagnostics
         if: failure()
@@ -63,6 +65,9 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository &&
       contains(github.event.pull_request.title, '[verify:full]')
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+      options: --ipc=host
     timeout-minutes: 9
     steps:
       - uses: actions/checkout@v5
@@ -70,7 +75,6 @@ jobs:
         with:
           node-version: 22
       - run: npm install --ignore-scripts --no-audit --no-fund
-      - run: npx playwright install --with-deps chromium
       - run: npm run verify:full
       - name: Upload canonical Playwright failure diagnostics
         if: failure()
