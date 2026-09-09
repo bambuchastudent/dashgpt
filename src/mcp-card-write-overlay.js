@@ -25,6 +25,9 @@ const INPUT = z.object({
   language: LANGUAGE
 });
 
+const NOAUTH_SCHEMES = Object.freeze([{ type: "noauth" }]);
+const CARD_WRITE_SECURITY_SCHEMES = Object.freeze([{ type: "oauth2", scopes: [CARD_WRITE_SCOPE] }]);
+
 const TOOL = Object.freeze({
   name: "upsert_card",
   title: "Save or update a DashGPT Card",
@@ -69,7 +72,8 @@ const TOOL = Object.freeze({
     required: ["language", "status", "cardId", "title", "contentVersion", "provider", "sourceUrl"],
     additionalProperties: false
   },
-  securitySchemes: [{ type: "oauth2", scopes: [CARD_WRITE_SCOPE] }],
+  securitySchemes: CARD_WRITE_SECURITY_SCHEMES,
+  _meta: { securitySchemes: CARD_WRITE_SECURITY_SCHEMES },
   annotations: {
     readOnlyHint: false,
     destructiveHint: false,
@@ -119,6 +123,17 @@ function patchedJsonResponse(base, payload) {
   headers.set("cache-control", "no-store");
   headers.delete("content-length");
   return new Response(JSON.stringify(payload), { status: base.status, statusText: base.statusText, headers });
+}
+
+function declareToolSecurity(tool) {
+  const securitySchemes = Array.isArray(tool?.securitySchemes) && tool.securitySchemes.length
+    ? tool.securitySchemes
+    : NOAUTH_SCHEMES;
+  return {
+    ...tool,
+    securitySchemes,
+    _meta: { ...(tool?._meta || {}), securitySchemes }
+  };
 }
 
 async function handleUpsert(request, env, message) {
@@ -185,7 +200,7 @@ export async function handleMcpWithCardWrite(request, env, ctx, coreWorker) {
   if (!payload?.result) return base;
 
   if (message.method === "tools/list") {
-    const tools = Array.isArray(payload.result.tools) ? payload.result.tools : [];
+    const tools = Array.isArray(payload.result.tools) ? payload.result.tools.map(declareToolSecurity) : [];
     if (!tools.some(tool => tool?.name === TOOL.name)) tools.push(TOOL);
     payload.result.tools = tools;
     return patchedJsonResponse(base, payload);
