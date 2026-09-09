@@ -9,7 +9,7 @@ Repository inspection after the initial F52 proposal found two important existin
 - the production MCP is anonymous/read-oriented;
 - the ordinary account-scoped Vault is local-first with optional Google Drive `drive.file` sync, and its Google access token currently lives only in browser memory.
 
-OpenAI's current plugin authentication contract requires customer-specific/write actions to authenticate users and requires tool `securitySchemes`, protected-resource metadata, and runtime `mcp/www_authenticate` challenges. F52 therefore cannot safely add a public unauthenticated write tool.
+OpenAI's current plugin authentication contract requires customer-specific/write actions to authenticate users and requires per-tool `securitySchemes`, protected-resource metadata, and runtime `mcp/www_authenticate` challenges. F52 therefore cannot safely add a public unauthenticated write tool.
 
 ## Chosen architecture
 
@@ -45,9 +45,9 @@ The Worker adds the standards-facing endpoints needed by the MCP authorization f
 - `/oauth/authorize/complete`
 - `/oauth/token`
 
-The `upsert_card` tool advertises `securitySchemes: [{ type: "oauth2", scopes: ["cards:write"] }]`. Anonymous or stale calls return an MCP error result with `_meta["mcp/www_authenticate"]` pointing to protected-resource metadata.
+The `upsert_card` tool advertises `securitySchemes: [{ type: "oauth2", scopes: ["cards:write"] }]`. Existing public read/context tools explicitly advertise `securitySchemes: [{ type: "noauth" }]`. Each tool mirrors its scheme in `_meta.securitySchemes` for client compatibility. Anonymous or stale direct-write calls return an MCP error result with `_meta["mcp/www_authenticate"]` pointing to protected-resource metadata.
 
-The authorization server supports ChatGPT's stable Client ID Metadata Document (`https://chatgpt.com/oauth/client.json`) as a public OAuth client and PKCE S256. Because the server advertises RFC 9207 issuer identification, successful and error redirects include the exact authorization-server issuer and use only redirect URIs allowed by the validated client metadata/known ChatGPT client contract.
+The authorization server supports ChatGPT's stable Client ID Metadata Document (`https://chatgpt.com/oauth/client.json`) as a public OAuth client and PKCE S256. Because the server advertises RFC 9207 issuer identification, successful authorization redirects include the exact authorization-server issuer and use only the known ChatGPT redirect URI contract. Invalid authorization requests fail locally without creating a grant or redirecting to an untrusted URI.
 
 ## One-time authorization state
 
@@ -69,9 +69,9 @@ Because provider grants are short-lived, expiry triggers normal MCP reauthorizat
 
 ## Google authorization page
 
-`/oauth/authorize` renders a minimal first-party DashGPT page explaining the requested action and showing one human action: **Continue with Google**. It uses the same public Google OAuth client configuration and the same `https://www.googleapis.com/auth/drive.file` scope as the existing browser account flow.
+`/oauth/authorize` renders a minimal first-party DashGPT page explaining the requested action and showing one human action: **Continue with Google**. It uses the configured public Google OAuth client and requests the same `https://www.googleapis.com/auth/drive.file` scope as the existing browser account flow.
 
-The Google access grant is returned to the first-party authorization page, posted directly to `/oauth/authorize/complete`, validated for the configured Google client and required Drive scope, then stored only inside the one-time authorization-code record until redemption. It is never exposed to ChatGPT tool arguments or canonical data.
+The Google access grant is returned to the first-party authorization page and posted directly to `/oauth/authorize/complete`. The server verifies that the grant can access Google Drive before placing it only inside the one-time authorization-code record until redemption. It is never exposed to ChatGPT tool arguments or canonical data. The scope requested by DashGPT remains `drive.file`; F52 does not broaden the product's Drive permission.
 
 If Google OAuth is not configured on the deployment, the authorization page fails as a human product state and `upsert_card` remains not-persisted; the anonymous/read-only MCP tools continue working.
 
@@ -115,7 +115,7 @@ The current `prepare_result_import` remains available as a read-only portable fa
 - validate OAuth issuer/resource/scope/expiry on every direct-write tool call;
 - use PKCE S256 for authorization code exchange;
 - authorization codes are single-use through the Durable Object;
-- validate the known ChatGPT client identity and allowed redirect URI contract rather than accepting arbitrary OAuth clients;
+- validate the known ChatGPT client identity and redirect URI contract rather than accepting arbitrary OAuth clients;
 - do not accept ChatGPT account authentication state as DashGPT authorization;
 - do not put provider authorization in tool input/output, query parameters, canonical Card/Vault content, browser local storage, logs or fixtures;
 - reject unsupported redirect/resource/scope combinations;
@@ -131,16 +131,22 @@ Custom developer-mode MCP remains a web-only setup surface unless OpenAI documen
 
 Share-link capture remains best-effort and separate. A Share URL supplied by the current conversation may be attached as provenance without server-side re-fetch. F50 remains responsible for current web recovery UX.
 
+## Cloudflare deployment constraint
+
+F52 introduces a new Durable Object class and migration. Cloudflare's version-upload/preview path cannot apply Durable Object class-lifecycle changes, so a normal PR preview for the first F52 deployment is not a valid verification target and may fail even when application code is correct.
+
+The migration must be applied through a real `wrangler deploy` to an explicitly chosen staging or production Worker. That deployment is an externally consequential release action and remains outside ordinary code-only verification. Before such a deploy, the target must have the required `GOOGLE_CLIENT_ID` and `PLUGIN_OAUTH_SECRET` configuration; after deploy, the OAuth product states and one real Google Drive Card save/update are verified there. Do not weaken or remove the one-time Durable Object state merely to make a preview URL green.
+
 ## Verification
 
-- strict OpenSpec validation before this scoped production implementation;
+- strict OpenSpec validation before and after scoped implementation updates;
 - OAuth discovery, client/redirect validation, one-time code, PKCE, audience/scope/expiry and auth-challenge regressions;
 - Google Drive persistence/upsert regression against Vault v1 and existing provider layout;
 - Card identity/provenance/update regression;
 - no provider authorization leakage regression;
-- MCP descriptor/securitySchemes/output schema verification;
-- submission JSON + bundled skill consistency checks;
+- mixed-auth MCP descriptor/securitySchemes/output schema verification;
+- submission JSON + bundled skill + privacy-policy consistency checks;
 - targeted `npm run check` during implementation;
-- final `npm run verify:full` once on final candidate;
-- deployed preview of auth product states where configuration permits;
+- final `npm run verify:full` once on the final code candidate;
+- real staging/production OAuth product-state verification after the Durable Object migration is deployed with explicit release authorization;
 - native mobile capability claimed only after explicit published-plugin verification.
