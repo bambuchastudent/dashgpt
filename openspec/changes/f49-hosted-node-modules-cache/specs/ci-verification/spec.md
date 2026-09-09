@@ -2,7 +2,7 @@
 
 ### Requirement: Hosted canonical verification MUST reuse unchanged Node dependencies
 
-DashGPT hosted canonical verification SHOULD reuse a materialized Node dependency tree when its relevant cache inputs are unchanged, while preserving the existing verification commands and safe install boundary on cache misses.
+DashGPT hosted canonical verification MUST reuse a materialized Node dependency tree when its relevant cache inputs are unchanged, while preserving the existing verification commands and safe install boundary on cache misses.
 
 #### Scenario: Exact dependency cache hit
 - **WHEN** a deterministic, browser or opt-in canonical-full job restores an exact dependency cache for the current Linux runner OS, Node 22 and `package.json`
