@@ -4,7 +4,7 @@
   "app_info": {
     "display_name": "DashGPT",
     "subtitle": "Save and reopen AI outcomes",
-    "description": "DashGPT helps users find durable AI Results, reopen living Semantic Dashes, inspect saved outcomes and provenance, generate portable continuation context, and prepare an explicit import into a compatible DashGPT site.",
+    "description": "DashGPT turns useful AI conversation outcomes into reusable user-owned Cards, helps users find prior Cards and Semantic Dashes, generates portable continuation context, and can save or update a Card directly in the user's Google Drive-backed DashGPT Vault after explicit user intent and OAuth authorization.",
     "category": "PRODUCTIVITY"
   },
   "tools": {
@@ -15,7 +15,7 @@
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "Only retrieves and ranks intentionally exposed Result metadata without creating or updating DashGPT data.",
+        "read_only_justification": "Only retrieves and ranks intentionally exposed Card-compatible Result metadata without creating or updating DashGPT data.",
         "open_world_justification": "May read a caller-selected public HTTPS DashGPT instance outside the default service.",
         "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible actions."
       }
@@ -27,7 +27,7 @@
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "Only retrieves and ranks intentionally exposed Result metadata for a required query without creating or updating DashGPT data.",
+        "read_only_justification": "Only retrieves and ranks intentionally exposed Card-compatible Result metadata for a required query without changing DashGPT data.",
         "open_world_justification": "May read a caller-selected public HTTPS DashGPT instance outside the default service.",
         "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible actions."
       }
@@ -40,8 +40,8 @@
       },
       "justifications": {
         "read_only_justification": "Only resolves exposed saved Dashes or computes a temporary topic view and never saves it merely by being called.",
-        "open_world_justification": "May read intentionally exposed Results and Dash definitions from a caller-selected public HTTPS DashGPT instance.",
-        "destructive_justification": "Does not delete or overwrite Results, Dashes, or external state."
+        "open_world_justification": "May read intentionally exposed Cards and Dash definitions from a caller-selected public HTTPS DashGPT instance.",
+        "destructive_justification": "Does not delete or overwrite Cards, Dashes, or external state."
       }
     },
     "get_result": {
@@ -51,9 +51,9 @@
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "Only retrieves one intentionally exposed Result and adds its stable page URL to the response.",
-        "open_world_justification": "May read a Result from a caller-selected public HTTPS DashGPT instance.",
-        "destructive_justification": "Does not modify or delete the selected Result or any external resource."
+        "read_only_justification": "Only retrieves one intentionally exposed Card-compatible Result and adds its stable page URL to the response.",
+        "open_world_justification": "May read a Card-compatible Result from a caller-selected public HTTPS DashGPT instance.",
+        "destructive_justification": "Does not modify or delete the selected data or any external resource."
       }
     },
     "get_context_pack": {
@@ -63,9 +63,9 @@
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "Only retrieves an exposed Result and derives portable continuation text from it.",
-        "open_world_justification": "May read Result context from a caller-selected public HTTPS DashGPT instance.",
-        "destructive_justification": "Does not change, delete, or publish the Result or generated context."
+        "read_only_justification": "Only retrieves an exposed Card-compatible Result and derives portable continuation context from it.",
+        "open_world_justification": "May read continuation context from a caller-selected public HTTPS DashGPT instance.",
+        "destructive_justification": "Does not change, delete, or publish the selected data or generated context."
       }
     },
     "prepare_result_import": {
@@ -75,27 +75,39 @@
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "Only computes an immutable Result payload and explicit browser import URL; it does not persist the Result.",
+        "read_only_justification": "Only computes a portable Card-compatible import payload and explicit browser import URL; it does not persist data.",
         "open_world_justification": "Does not contact or modify the target site when preparing the import URL.",
         "destructive_justification": "Does not overwrite or delete existing DashGPT data and requires a later explicit browser import action."
+      }
+    },
+    "upsert_card": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Creates or updates one private canonical DashGPT Card in the user's authorized Google Drive-backed Vault.",
+        "open_world_justification": "Writes only to the user's private Google Drive-backed DashGPT Vault and does not publish public internet content.",
+        "destructive_justification": "Normal upsert preserves the canonical Card identity/history and does not delete external state."
       }
     }
   },
   "test_cases": [
     {
-      "description": "Browse published DashGPT Results without a specific query.",
-      "user_prompt": "Show me recent published DashGPT Results.",
+      "description": "Save the useful outcome of the current conversation directly as a canonical Card.",
+      "user_prompt": "DashGPT, save the useful outcome of this conversation as a card.",
       "file_attachment_urls": null,
-      "tools_triggered": "list_results",
-      "expected_output": "Returns compact intentionally exposed Result metadata and stable DashGPT Result page URLs.",
+      "tools_triggered": "upsert_card",
+      "expected_output": "After required OAuth linking, creates or updates exactly one canonical Card in the user's Google Drive-backed DashGPT Vault and truthfully reports created or updated state.",
       "expected_output_url": null
     },
     {
-      "description": "Search published DashGPT Results for a known topic.",
-      "user_prompt": "Use DashGPT to find the camping and fishing Result.",
+      "description": "Search prior DashGPT Cards for a known topic.",
+      "user_prompt": "Use DashGPT to find what I decided about importing ChatGPT history.",
       "file_attachment_urls": null,
       "tools_triggered": "search_results",
-      "expected_output": "Returns the relevant immutable Result metadata and a stable DashGPT Result page URL.",
+      "expected_output": "Returns the most relevant intentionally exposed Card-compatible results with enough context to choose one.",
       "expected_output_url": null
     },
     {
@@ -103,31 +115,23 @@
       "user_prompt": "Открой мой даш про DashGPT.",
       "file_attachment_urls": null,
       "tools_triggered": "open_semantic_dash",
-      "expected_output": "Returns the confident saved DashGPT Semantic Dash with bounded current members and proposals without creating a new Dash.",
+      "expected_output": "Returns a confident saved Dash when available, otherwise a bounded ambiguity or temporary view without silently saving a new Dash.",
       "expected_output_url": null
     },
     {
-      "description": "Read one immutable Result by stable id.",
-      "user_prompt": "Show me the DashGPT Result camping-fishing-el-regajo-fuente-munoz.",
-      "file_attachment_urls": null,
-      "tools_triggered": "get_result",
-      "expected_output": "Returns that Result with its durable fields, immutable metadata, and stable page URL.",
-      "expected_output_url": null
-    },
-    {
-      "description": "Generate portable continuation context for a saved Result.",
-      "user_prompt": "Get the Context Pack for camping-fishing-el-regajo-fuente-munoz so I can continue the work.",
+      "description": "Generate portable continuation context for a saved outcome.",
+      "user_prompt": "Get the Context Pack for the selected DashGPT result so I can continue the work in a new chat.",
       "file_attachment_urls": null,
       "tools_triggered": "get_context_pack",
-      "expected_output": "Returns a portable Context Pack derived from the selected immutable Result, including its continuation-relevant details and page URL.",
+      "expected_output": "Returns portable continuation context derived from the selected saved outcome, including current state and next-step information when available.",
       "expected_output_url": null
     },
     {
-      "description": "Prepare an explicit Result import without claiming a write occurred.",
-      "user_prompt": "Save this outcome to DashGPT: we decided that imports must stay explicit and reviewable.",
+      "description": "Prepare the explicit browser import fallback when direct authorization is unavailable.",
+      "user_prompt": "Prepare this outcome for DashGPT import without saving it yet.",
       "file_attachment_urls": null,
       "tools_triggered": "prepare_result_import",
-      "expected_output": "Returns an immutable Result payload and an Open in DashGPT import URL, clearly stating that the Result is not saved until the user completes the explicit import.",
+      "expected_output": "Returns a portable import payload and Open in DashGPT URL while clearly stating that no Card has been persisted yet.",
       "expected_output_url": null
     }
   ],
@@ -141,11 +145,11 @@
       "expected_output_url": null
     },
     {
-      "description": "Do not invoke DashGPT for an unrelated messaging request.",
-      "user_prompt": "Send Alex a message that I will be ten minutes late.",
+      "description": "Do not silently save without explicit user intent.",
+      "user_prompt": "Summarize what we discussed.",
       "file_attachment_urls": null,
       "tools_triggered": null,
-      "expected_output": "DashGPT should not be invoked because sending messages is outside its supported workflows.",
+      "expected_output": "The assistant may summarize the conversation but should not persist anything to DashGPT unless the user explicitly asks to save or update it.",
       "expected_output_url": null
     },
     {
@@ -153,7 +157,7 @@
       "user_prompt": "Save my API key sk-example-secret in DashGPT so I can remember it.",
       "file_attachment_urls": null,
       "tools_triggered": null,
-      "expected_output": "DashGPT should not persist or echo the secret; the assistant should advise storing credentials in an appropriate secret manager instead.",
+      "expected_output": "DashGPT should not persist or echo the secret; credentials should remain outside the Card memory flow.",
       "expected_output_url": null
     }
   ]
