@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const read = path => readFileSync(new URL(path, import.meta.url), "utf8");
+const countOccurrences = (text, needle) => text.split(needle).length - 1;
 
 const workflow = read("../.github/workflows/check.yml");
 const playwrightConfig = read("../playwright.config.mjs");
@@ -11,6 +12,8 @@ const isolationSpec = read("../tests/playwright-isolation.spec.mjs");
 const packageJson = JSON.parse(read("../package.json"));
 const playwrightVersion = packageJson.devDependencies?.["@playwright/test"];
 const expectedPlaywrightImage = `image: mcr.microsoft.com/playwright:v${playwrightVersion}-noble`;
+const dependencyCacheKey = "key: dashgpt-node-modules-v1-${{ runner.os }}-node22-${{ hashFiles('package.json') }}";
+const guardedInstall = "- if: steps.node-modules-cache.outputs.cache-hit != 'true'\n        run: npm install --ignore-scripts --no-audit --no-fund";
 
 assert.match(workflow, /runs-on: ubuntu-latest/, "canonical checks must remain on GitHub-hosted Ubuntu");
 assert.match(workflow, /deterministic:/, "hosted CI must keep a deterministic verification shard");
@@ -29,12 +32,12 @@ assert.match(workflow, /contains\(github\.event\.pull_request\.title, '\[verify:
 assert.match(workflow, /- run: npm run verify:full/, "opt-in canonical lane must execute the literal canonical command");
 assert.equal(typeof playwrightVersion, "string", "@playwright/test must stay explicitly pinned in package.json");
 assert.equal(
-  workflow.split(expectedPlaywrightImage).length - 1,
+  countOccurrences(workflow, expectedPlaywrightImage),
   2,
   "browser matrix and canonical-full must use the official Playwright image matching package.json"
 );
 assert.equal(
-  workflow.split("options: --ipc=host").length - 1,
+  countOccurrences(workflow, "options: --ipc=host"),
   2,
   "both browser-bearing jobs must use host IPC for Chromium"
 );
@@ -43,6 +46,38 @@ assert.doesNotMatch(
   /npx playwright install --with-deps chromium/,
   "hosted browser jobs must not resolve Chromium or Linux browser dependencies at workflow runtime"
 );
+assert.equal(
+  countOccurrences(workflow, "uses: actions/cache@v4"),
+  3,
+  "deterministic, browser and canonical-full jobs must restore cached Node dependencies"
+);
+assert.equal(
+  countOccurrences(workflow, "id: node-modules-cache"),
+  3,
+  "every dependency-bearing hosted job must expose the dependency cache hit result"
+);
+assert.equal(
+  countOccurrences(workflow, "path: node_modules"),
+  3,
+  "hosted dependency caching must materialize the node_modules tree"
+);
+assert.equal(
+  countOccurrences(workflow, dependencyCacheKey),
+  3,
+  "dependency cache keys must be versioned and coupled to runner OS, Node 22 and package.json"
+);
+assert.equal(
+  countOccurrences(workflow, guardedInstall),
+  3,
+  "npm install must execute only when the exact node_modules cache is not hit"
+);
+assert.equal(
+  countOccurrences(workflow, "run: npm install --ignore-scripts --no-audit --no-fund"),
+  3,
+  "all three dependency-bearing jobs must preserve the existing safe install fallback"
+);
+assert.doesNotMatch(workflow, /restore-keys:/, "node_modules cache restore must use exact keys rather than stale partial matches");
+assert.doesNotMatch(workflow, /\bnpm ci\b/, "hosted CI must not claim lockfile-based npm ci while no lockfile is committed");
 assert.match(workflow, /timeout-minutes: 5/, "deterministic shard must keep a short hard budget");
 assert.match(workflow, /timeout-minutes: 9/, "browser and opt-in canonical shards must stay below the ten-minute feedback budget");
 assert.match(workflow, /timeout-minutes: 2/, "final check aggregator must stay lightweight");
@@ -99,4 +134,4 @@ assert.match(
   "browser isolation regression syntax must remain covered by deterministic checks"
 );
 
-console.log("Hosted CI fast/isolation/parallel/container verification checks passed.");
+console.log("Hosted CI fast/isolation/parallel/container/cache verification checks passed.");
