@@ -31,3 +31,34 @@ DashGPT hosted jobs that launch Playwright browsers MUST use an official prebuil
 - **WHEN** an external browser-related APT repository has stale or mismatched package metadata
 - **THEN** ordinary DashGPT hosted browser verification MUST NOT depend on refreshing that repository through `playwright install --with-deps`
 - **AND** repository browser tests MUST still be able to start using the prebuilt runtime image, subject to availability of the pinned container image itself.
+
+### Requirement: Hosted canonical shards MUST reuse unchanged Node dependencies
+
+DashGPT hosted verification SHOULD avoid rebuilding the same repository `node_modules` tree in every job when the dependency inputs are unchanged, without weakening the existing install safety boundary or claiming lockfile reproducibility that the repository does not have.
+
+#### Scenario: Exact Node dependency cache hit
+- **WHEN** a deterministic, browser or opt-in canonical-full job restores an exact dependency cache for Linux, Node 22 and the current `package.json`
+- **THEN** the cached path MUST be `node_modules`
+- **AND** the job MUST skip `npm install`
+- **AND** it MUST proceed to the same verification command and coverage as an uncached job.
+
+#### Scenario: Node dependency cache miss
+- **WHEN** the exact dependency cache is absent
+- **THEN** the job MUST execute `npm install --ignore-scripts --no-audit --no-fund`
+- **AND** the resulting `node_modules` MUST be eligible to populate the versioned cache for later jobs/runs
+- **AND** a cache miss MUST NOT weaken or skip verification.
+
+#### Scenario: Dependency manifest changes
+- **WHEN** `package.json` changes
+- **THEN** the dependency cache key MUST change
+- **AND** the previous `node_modules` cache MUST NOT be treated as an exact hit for the new manifest.
+
+#### Scenario: Cache contract changes
+- **WHEN** maintainers need to invalidate dependency caches without changing `package.json`
+- **THEN** the cache key MUST contain an explicit manually bumpable version component.
+
+#### Scenario: No committed lockfile exists
+- **WHEN** hosted CI uses the dependency cache while the repository has no committed npm lockfile
+- **THEN** the cache MUST be described only as a CI acceleration layer
+- **AND** F48 MUST NOT introduce `npm ci` or claim deterministic dependency resolution
+- **AND** a dependency-lock policy change MUST remain separate from this optimization.
